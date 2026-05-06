@@ -338,14 +338,25 @@ const EtokProfile = () => {
               </div>
               <div className="px-4 space-y-0 divide-y divide-white/10">
                 {[
-                  { label: "Name", value: editName, setter: setEditName, placeholder: "Add name" },
-                  { label: "Username", value: editUsername, setter: setEditUsername, placeholder: "Add username" },
-                  { label: "Bio", value: editBio, setter: setEditBio, placeholder: "Add bio" },
+                  { key: "name", label: "Name", value: editName, setter: setEditName, placeholder: "Add name", maxLength: 50 },
+                  { key: "username", label: "Username", value: editUsername, setter: setEditUsername, placeholder: "Add username", maxLength: 24 },
+                  { key: "bio", label: "Bio", value: editBio, setter: setEditBio, placeholder: "Add bio", maxLength: 160 },
                 ].map(field => (
-                  <div key={field.label} className="flex items-center gap-4 py-3.5">
-                    <span className="text-white/50 text-[14px] w-20 flex-shrink-0">{field.label}</span>
-                    <input value={field.value} onChange={e => field.setter(e.target.value)} placeholder={field.placeholder}
-                      className="flex-1 bg-transparent text-white text-[14px] outline-none placeholder:text-white/20" />
+                  <div key={field.label} className="py-3.5">
+                    <div className="flex items-center gap-4">
+                      <span className="text-white/50 text-[14px] w-20 flex-shrink-0">{field.label}</span>
+                      <input
+                        value={field.value}
+                        onChange={e => { field.setter(e.target.value); if (editErrors[field.key]) setEditErrors(prev => ({ ...prev, [field.key]: undefined })); }}
+                        placeholder={field.placeholder}
+                        maxLength={field.maxLength}
+                        disabled={saving}
+                        className="flex-1 bg-transparent text-white text-[14px] outline-none placeholder:text-white/20 disabled:opacity-50"
+                      />
+                    </div>
+                    {editErrors[field.key] && (
+                      <p className="text-red-400 text-[12px] mt-1 ml-24">{editErrors[field.key]}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -353,6 +364,111 @@ const EtokProfile = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* Block confirmation */}
+      <AlertDialog open={showBlockConfirm} onOpenChange={(o) => !blocking && setShowBlockConfirm(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Block @{profile?.username}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They won't be able to find your profile, videos, or messages on Etok. They won't be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={blocking}
+              onClick={async (e) => {
+                e.preventDefault();
+                setBlocking(true);
+                try {
+                  await blockUserAsync(currentUserId, resolvedId);
+                  toast.success("User blocked");
+                  setShowBlockConfirm(false);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed to block");
+                } finally {
+                  setBlocking(false);
+                }
+              }}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {blocking ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Blocking…</> : "Block"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Report dialog */}
+      <Dialog open={showReport} onOpenChange={(o) => !reporting && setShowReport(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report @{profile?.username}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Reason</Label>
+              <RadioGroup
+                value={reportReason}
+                onValueChange={(v) => { setReportReason(v); setReportError(""); }}
+                disabled={reporting}
+              >
+                {REPORT_REASONS.map(r => (
+                  <div key={r.value} className="flex items-center gap-2">
+                    <RadioGroupItem value={r.value} id={`reason-${r.value}`} />
+                    <Label htmlFor={`reason-${r.value}`} className="text-sm font-normal">{r.label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            <div>
+              <Label htmlFor="report-details" className="text-sm font-medium mb-2 block">
+                Additional details <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                id="report-details"
+                value={reportDetails}
+                onChange={(e) => { setReportDetails(e.target.value); setReportError(""); }}
+                placeholder="Add any context that helps us review…"
+                maxLength={500}
+                rows={3}
+                disabled={reporting}
+              />
+              <p className="text-xs text-muted-foreground mt-1">{reportDetails.length}/500</p>
+            </div>
+            {reportError && <p className="text-red-500 text-xs">{reportError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReport(false)} disabled={reporting}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={reporting}
+              onClick={async () => {
+                const parsed = reportSchema.safeParse({ reason: reportReason, details: reportDetails });
+                if (!parsed.success) {
+                  setReportError(parsed.error.issues[0]?.message ?? "Invalid input");
+                  return;
+                }
+                if (!confirm(`Submit report for @${profile?.username}?`)) return;
+                setReporting(true);
+                try {
+                  const reasonLabel = REPORT_REASONS.find(r => r.value === parsed.data.reason)?.label ?? parsed.data.reason;
+                  const fullReason = parsed.data.details ? `${reasonLabel}: ${parsed.data.details}` : reasonLabel;
+                  await reportContentAsync(currentUserId, "user", resolvedId, fullReason);
+                  toast.success("Report submitted. Thank you.");
+                  setShowReport(false);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed to submit report");
+                } finally {
+                  setReporting(false);
+                }
+              }}
+            >
+              {reporting ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Submitting…</> : "Submit report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <EtokBottomNav />
     </div>
