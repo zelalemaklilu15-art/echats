@@ -254,7 +254,16 @@ const EtokProfile = () => {
               <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
                 <button onClick={() => setShowEdit(false)} className="text-white/60 text-[15px]">Cancel</button>
                 <span className="text-white font-bold text-[16px]">Edit profile</span>
-                <button onClick={() => { toast.success("Profile updated!"); setShowEdit(false); }} className="text-[#ff0050] font-bold text-[15px]">Save</button>
+                <button onClick={async () => {
+                  try {
+                    const updated = await updateEtokProfileAsync(currentUserId, { name: editName, username: editUsername, bio: editBio });
+                    if (updated) setProfile(updated);
+                    toast.success("Profile updated!");
+                    setShowEdit(false);
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Update failed");
+                  }
+                }} className="text-[#ff0050] font-bold text-[15px]">Save</button>
               </div>
               <div className="flex justify-center py-5">
                 <div className="relative">
