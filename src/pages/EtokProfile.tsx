@@ -300,16 +300,33 @@ const EtokProfile = () => {
               <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
                 <button onClick={() => setShowEdit(false)} className="text-white/60 text-[15px]">Cancel</button>
                 <span className="text-white font-bold text-[16px]">Edit profile</span>
-                <button onClick={async () => {
-                  try {
-                    const updated = await updateEtokProfileAsync(currentUserId, { name: editName, username: editUsername, bio: editBio });
-                    if (updated) setProfile(updated);
-                    toast.success("Profile updated!");
-                    setShowEdit(false);
-                  } catch (e: any) {
-                    toast.error(e?.message ?? "Update failed");
-                  }
-                }} className="text-[#ff0050] font-bold text-[15px]">Save</button>
+                <button
+                  disabled={saving}
+                  onClick={async () => {
+                    const parsed = profileSchema.safeParse({ name: editName, username: editUsername, bio: editBio });
+                    if (!parsed.success) {
+                      const errs: any = {};
+                      for (const issue of parsed.error.issues) errs[issue.path[0] as string] = issue.message;
+                      setEditErrors(errs);
+                      return;
+                    }
+                    setEditErrors({});
+                    setSaving(true);
+                    try {
+                      const updated = await updateEtokProfileAsync(currentUserId, parsed.data);
+                      if (updated) setProfile(updated);
+                      toast.success("Profile updated!");
+                      setShowEdit(false);
+                    } catch (e: any) {
+                      toast.error(e?.message ?? "Update failed");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  className="text-[#ff0050] font-bold text-[15px] disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Save
+                </button>
               </div>
               <div className="flex justify-center py-5">
                 <div className="relative">
