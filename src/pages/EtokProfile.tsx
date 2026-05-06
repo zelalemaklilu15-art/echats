@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MoreHorizontal, Settings, Share2, MessageSquare, Edit3, CheckCircle2, BarChart2, Lock, Grid3X3, Heart, Bookmark, Briefcase } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Settings, Share2, MessageSquare, Edit3, CheckCircle2, BarChart2, Lock, Grid3X3, Heart, Bookmark, Briefcase, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -13,8 +14,39 @@ import {
 } from "@/lib/etokService";
 import { blockUserAsync, reportContentAsync } from "@/lib/etokPrivacyService";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 type ProfileTab = "videos" | "likes" | "favorites";
+
+const REPORT_REASONS = [
+  { value: "spam", label: "Spam" },
+  { value: "abuse", label: "Abuse" },
+  { value: "harassment", label: "Harassment" },
+  { value: "hate_speech", label: "Hate speech" },
+  { value: "nudity", label: "Nudity / sexual content" },
+  { value: "violence", label: "Violence" },
+  { value: "other", label: "Other" },
+] as const;
+
+const profileSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(50, "Name must be ≤ 50 chars"),
+  username: z.string().trim().min(3, "Username must be ≥ 3 chars").max(24, "Username must be ≤ 24 chars")
+    .regex(/^[a-zA-Z0-9_.]+$/, "Only letters, numbers, _ and ."),
+  bio: z.string().trim().max(160, "Bio must be ≤ 160 chars"),
+});
+
+const reportSchema = z.object({
+  reason: z.enum(REPORT_REASONS.map(r => r.value) as [string, ...string[]], { message: "Select a reason" }),
+  details: z.string().trim().max(500, "Details must be ≤ 500 chars"),
+});
 
 const EtokProfile = () => {
   const navigate = useNavigate();
