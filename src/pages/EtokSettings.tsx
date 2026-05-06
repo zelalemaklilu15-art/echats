@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, MessageCircle, Clock, ChevronRight, Bell, Eye, Lock, UserX, Globe, Search, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Shield, MessageCircle, Clock, ChevronRight, Bell, Eye, Lock, UserX, Globe, Search, Download, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -11,6 +11,10 @@ import {
 import { fetchEtokProfile, type EtokUser } from "@/lib/etokService";
 import { toast } from "sonner";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SettingsSection = "main" | "privacy" | "comments" | "screen_time" | "blocked" | "data";
 
