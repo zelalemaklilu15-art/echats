@@ -8,9 +8,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   fetchEtokProfile, fetchUserVideos, fetchFollowerCount, fetchFollowingCount, fetchTotalVideoLikes,
-  checkIsFollowing, toggleFollowAsync,
+  checkIsFollowing, toggleFollowAsync, updateEtokProfileAsync,
   formatCount, type EtokUser, type EtokVideo,
 } from "@/lib/etokService";
+import { blockUserAsync, reportContentAsync } from "@/lib/etokPrivacyService";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
 
 type ProfileTab = "videos" | "likes" | "favorites";
