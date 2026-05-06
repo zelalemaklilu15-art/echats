@@ -71,6 +71,16 @@ const EtokProfile = () => {
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editBio, setEditBio] = useState("");
+  const [editErrors, setEditErrors] = useState<{ name?: string; username?: string; bio?: string }>({});
+  const [saving, setSaving] = useState(false);
+
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState<string>("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportError, setReportError] = useState<string>("");
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
