@@ -258,7 +258,16 @@ const EtokSettings = () => {
                     <p className="text-white/50 text-[12px]">{u?.displayName}</p>
                   </div>
                   <button
-                    onClick={() => { unblockUser(currentUserId, bu.blockedId); setBlockedUsers(getBlockedUsers(currentUserId)); toast.success("Unblocked"); }}
+                    onClick={async () => {
+                      try {
+                        await unblockUserAsync(currentUserId, bu.blockedId);
+                        const updated = await getBlockedUsersAsync(currentUserId);
+                        setBlockedUsers(updated);
+                        toast.success("Unblocked");
+                      } catch (e: any) {
+                        toast.error(e?.message ?? "Failed");
+                      }
+                    }}
                     className="px-3 py-1.5 border border-white/20 rounded-full text-white/70 text-[12px] font-semibold"
                   >
                     Unblock
