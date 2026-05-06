@@ -29,6 +29,8 @@ const EtokSettings = () => {
   const [blockedProfiles, setBlockedProfiles] = useState<Record<string, EtokUser>>({});
   const [keywordInput, setKeywordInput] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [unblockTarget, setUnblockTarget] = useState<BlockedUser | null>(null);
+  const [unblocking, setUnblocking] = useState(false);
   const todayMinutes = getScreenTimeToday();
 
   useEffect(() => {
