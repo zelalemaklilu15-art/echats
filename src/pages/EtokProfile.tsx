@@ -449,7 +449,7 @@ const EtokProfile = () => {
                   setReportError(parsed.error.issues[0]?.message ?? "Invalid input");
                   return;
                 }
-                if (!confirm(`Submit report for @${profile?.username}?`)) return;
+                
                 setReporting(true);
                 try {
                   const reasonLabel = REPORT_REASONS.find(r => r.value === parsed.data.reason)?.label ?? parsed.data.reason;
