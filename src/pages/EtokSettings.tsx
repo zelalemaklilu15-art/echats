@@ -361,6 +361,45 @@ const EtokSettings = () => {
         )}
       </div>
 
+      <AlertDialog open={!!unblockTarget} onOpenChange={(o) => { if (!o && !unblocking) setUnblockTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Unblock {blockedProfiles[unblockTarget?.blockedId ?? ""]?.username
+                ? `@${blockedProfiles[unblockTarget!.blockedId].username}`
+                : "user"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll be able to find your profile, view your videos, and message you again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unblocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={unblocking}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!unblockTarget) return;
+                setUnblocking(true);
+                try {
+                  await unblockUserAsync(currentUserId, unblockTarget.blockedId);
+                  const updated = await getBlockedUsersAsync(currentUserId);
+                  setBlockedUsers(updated);
+                  toast.success("Unblocked");
+                  setUnblockTarget(null);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed");
+                } finally {
+                  setUnblocking(false);
+                }
+              }}
+            >
+              {unblocking ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Unblocking…</> : "Unblock"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <EtokBottomNav />
     </div>
   );
