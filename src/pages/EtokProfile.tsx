@@ -8,9 +8,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
   fetchEtokProfile, fetchUserVideos, fetchFollowerCount, fetchFollowingCount, fetchTotalVideoLikes,
-  checkIsFollowing, toggleFollowAsync,
+  checkIsFollowing, toggleFollowAsync, updateEtokProfileAsync,
   formatCount, type EtokUser, type EtokVideo,
 } from "@/lib/etokService";
+import { blockUserAsync, reportContentAsync } from "@/lib/etokPrivacyService";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
 
 type ProfileTab = "videos" | "likes" | "favorites";
@@ -222,10 +223,18 @@ const EtokProfile = () => {
                 </>
               ) : (
                 <>
-                  <button onClick={() => { setShowMore(false); toast.success("User blocked"); }} className="flex items-center gap-4 w-full px-6 py-4">
+                  <button onClick={async () => {
+                    try { await blockUserAsync(currentUserId, resolvedId); toast.success("User blocked"); }
+                    catch (e: any) { toast.error(e?.message ?? "Failed to block"); }
+                    setShowMore(false);
+                  }} className="flex items-center gap-4 w-full px-6 py-4">
                     <span className="text-red-400 text-[15px]">Block @{profile?.username}</span>
                   </button>
-                  <button onClick={() => setShowMore(false)} className="flex items-center gap-4 w-full px-6 py-4">
+                  <button onClick={async () => {
+                    try { await reportContentAsync(currentUserId, "user", resolvedId, "Inappropriate"); toast.success("Reported"); }
+                    catch (e: any) { toast.error(e?.message ?? "Failed to report"); }
+                    setShowMore(false);
+                  }} className="flex items-center gap-4 w-full px-6 py-4">
                     <span className="text-red-400 text-[15px]">Report</span>
                   </button>
                 </>
@@ -245,7 +254,16 @@ const EtokProfile = () => {
               <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
                 <button onClick={() => setShowEdit(false)} className="text-white/60 text-[15px]">Cancel</button>
                 <span className="text-white font-bold text-[16px]">Edit profile</span>
-                <button onClick={() => { toast.success("Profile updated!"); setShowEdit(false); }} className="text-[#ff0050] font-bold text-[15px]">Save</button>
+                <button onClick={async () => {
+                  try {
+                    const updated = await updateEtokProfileAsync(currentUserId, { name: editName, username: editUsername, bio: editBio });
+                    if (updated) setProfile(updated);
+                    toast.success("Profile updated!");
+                    setShowEdit(false);
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Update failed");
+                  }
+                }} className="text-[#ff0050] font-bold text-[15px]">Save</button>
               </div>
               <div className="flex justify-center py-5">
                 <div className="relative">
