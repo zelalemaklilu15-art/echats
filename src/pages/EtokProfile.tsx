@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MoreHorizontal, Settings, Share2, MessageSquare, Edit3, CheckCircle2, BarChart2, Lock, Grid3X3, Heart, Bookmark, Briefcase } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Settings, Share2, MessageSquare, Edit3, CheckCircle2, BarChart2, Lock, Grid3X3, Heart, Bookmark, Briefcase, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -13,8 +14,39 @@ import {
 } from "@/lib/etokService";
 import { blockUserAsync, reportContentAsync } from "@/lib/etokPrivacyService";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 type ProfileTab = "videos" | "likes" | "favorites";
+
+const REPORT_REASONS = [
+  { value: "spam", label: "Spam" },
+  { value: "abuse", label: "Abuse" },
+  { value: "harassment", label: "Harassment" },
+  { value: "hate_speech", label: "Hate speech" },
+  { value: "nudity", label: "Nudity / sexual content" },
+  { value: "violence", label: "Violence" },
+  { value: "other", label: "Other" },
+] as const;
+
+const profileSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(50, "Name must be ≤ 50 chars"),
+  username: z.string().trim().min(3, "Username must be ≥ 3 chars").max(24, "Username must be ≤ 24 chars")
+    .regex(/^[a-zA-Z0-9_.]+$/, "Only letters, numbers, _ and ."),
+  bio: z.string().trim().max(160, "Bio must be ≤ 160 chars"),
+});
+
+const reportSchema = z.object({
+  reason: z.enum(REPORT_REASONS.map(r => r.value) as [string, ...string[]], { message: "Select a reason" }),
+  details: z.string().trim().max(500, "Details must be ≤ 500 chars"),
+});
 
 const EtokProfile = () => {
   const navigate = useNavigate();
@@ -39,6 +71,16 @@ const EtokProfile = () => {
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editBio, setEditBio] = useState("");
+  const [editErrors, setEditErrors] = useState<{ name?: string; username?: string; bio?: string }>({});
+  const [saving, setSaving] = useState(false);
+
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState<string>("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportError, setReportError] = useState<string>("");
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -223,18 +265,22 @@ const EtokProfile = () => {
                 </>
               ) : (
                 <>
-                  <button onClick={async () => {
-                    try { await blockUserAsync(currentUserId, resolvedId); toast.success("User blocked"); }
-                    catch (e: any) { toast.error(e?.message ?? "Failed to block"); }
-                    setShowMore(false);
-                  }} className="flex items-center gap-4 w-full px-6 py-4">
+                  <button
+                    onClick={() => { setShowMore(false); setShowBlockConfirm(true); }}
+                    className="flex items-center gap-4 w-full px-6 py-4"
+                  >
                     <span className="text-red-400 text-[15px]">Block @{profile?.username}</span>
                   </button>
-                  <button onClick={async () => {
-                    try { await reportContentAsync(currentUserId, "user", resolvedId, "Inappropriate"); toast.success("Reported"); }
-                    catch (e: any) { toast.error(e?.message ?? "Failed to report"); }
-                    setShowMore(false);
-                  }} className="flex items-center gap-4 w-full px-6 py-4">
+                  <button
+                    onClick={() => {
+                      setShowMore(false);
+                      setReportReason("");
+                      setReportDetails("");
+                      setReportError("");
+                      setShowReport(true);
+                    }}
+                    className="flex items-center gap-4 w-full px-6 py-4"
+                  >
                     <span className="text-red-400 text-[15px]">Report</span>
                   </button>
                 </>
@@ -254,16 +300,33 @@ const EtokProfile = () => {
               <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
                 <button onClick={() => setShowEdit(false)} className="text-white/60 text-[15px]">Cancel</button>
                 <span className="text-white font-bold text-[16px]">Edit profile</span>
-                <button onClick={async () => {
-                  try {
-                    const updated = await updateEtokProfileAsync(currentUserId, { name: editName, username: editUsername, bio: editBio });
-                    if (updated) setProfile(updated);
-                    toast.success("Profile updated!");
-                    setShowEdit(false);
-                  } catch (e: any) {
-                    toast.error(e?.message ?? "Update failed");
-                  }
-                }} className="text-[#ff0050] font-bold text-[15px]">Save</button>
+                <button
+                  disabled={saving}
+                  onClick={async () => {
+                    const parsed = profileSchema.safeParse({ name: editName, username: editUsername, bio: editBio });
+                    if (!parsed.success) {
+                      const errs: any = {};
+                      for (const issue of parsed.error.issues) errs[issue.path[0] as string] = issue.message;
+                      setEditErrors(errs);
+                      return;
+                    }
+                    setEditErrors({});
+                    setSaving(true);
+                    try {
+                      const updated = await updateEtokProfileAsync(currentUserId, parsed.data);
+                      if (updated) setProfile(updated);
+                      toast.success("Profile updated!");
+                      setShowEdit(false);
+                    } catch (e: any) {
+                      toast.error(e?.message ?? "Update failed");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  className="text-[#ff0050] font-bold text-[15px] disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Save
+                </button>
               </div>
               <div className="flex justify-center py-5">
                 <div className="relative">
@@ -275,14 +338,25 @@ const EtokProfile = () => {
               </div>
               <div className="px-4 space-y-0 divide-y divide-white/10">
                 {[
-                  { label: "Name", value: editName, setter: setEditName, placeholder: "Add name" },
-                  { label: "Username", value: editUsername, setter: setEditUsername, placeholder: "Add username" },
-                  { label: "Bio", value: editBio, setter: setEditBio, placeholder: "Add bio" },
+                  { key: "name", label: "Name", value: editName, setter: setEditName, placeholder: "Add name", maxLength: 50 },
+                  { key: "username", label: "Username", value: editUsername, setter: setEditUsername, placeholder: "Add username", maxLength: 24 },
+                  { key: "bio", label: "Bio", value: editBio, setter: setEditBio, placeholder: "Add bio", maxLength: 160 },
                 ].map(field => (
-                  <div key={field.label} className="flex items-center gap-4 py-3.5">
-                    <span className="text-white/50 text-[14px] w-20 flex-shrink-0">{field.label}</span>
-                    <input value={field.value} onChange={e => field.setter(e.target.value)} placeholder={field.placeholder}
-                      className="flex-1 bg-transparent text-white text-[14px] outline-none placeholder:text-white/20" />
+                  <div key={field.label} className="py-3.5">
+                    <div className="flex items-center gap-4">
+                      <span className="text-white/50 text-[14px] w-20 flex-shrink-0">{field.label}</span>
+                      <input
+                        value={field.value}
+                        onChange={e => { field.setter(e.target.value); if (editErrors[field.key]) setEditErrors(prev => ({ ...prev, [field.key]: undefined })); }}
+                        placeholder={field.placeholder}
+                        maxLength={field.maxLength}
+                        disabled={saving}
+                        className="flex-1 bg-transparent text-white text-[14px] outline-none placeholder:text-white/20 disabled:opacity-50"
+                      />
+                    </div>
+                    {editErrors[field.key] && (
+                      <p className="text-red-400 text-[12px] mt-1 ml-24">{editErrors[field.key]}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -290,6 +364,111 @@ const EtokProfile = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* Block confirmation */}
+      <AlertDialog open={showBlockConfirm} onOpenChange={(o) => !blocking && setShowBlockConfirm(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Block @{profile?.username}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They won't be able to find your profile, videos, or messages on Etok. They won't be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={blocking}
+              onClick={async (e) => {
+                e.preventDefault();
+                setBlocking(true);
+                try {
+                  await blockUserAsync(currentUserId, resolvedId);
+                  toast.success("User blocked");
+                  setShowBlockConfirm(false);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed to block");
+                } finally {
+                  setBlocking(false);
+                }
+              }}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {blocking ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Blocking…</> : "Block"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Report dialog */}
+      <Dialog open={showReport} onOpenChange={(o) => !reporting && setShowReport(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report @{profile?.username}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Reason</Label>
+              <RadioGroup
+                value={reportReason}
+                onValueChange={(v) => { setReportReason(v); setReportError(""); }}
+                disabled={reporting}
+              >
+                {REPORT_REASONS.map(r => (
+                  <div key={r.value} className="flex items-center gap-2">
+                    <RadioGroupItem value={r.value} id={`reason-${r.value}`} />
+                    <Label htmlFor={`reason-${r.value}`} className="text-sm font-normal">{r.label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+            <div>
+              <Label htmlFor="report-details" className="text-sm font-medium mb-2 block">
+                Additional details <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                id="report-details"
+                value={reportDetails}
+                onChange={(e) => { setReportDetails(e.target.value); setReportError(""); }}
+                placeholder="Add any context that helps us review…"
+                maxLength={500}
+                rows={3}
+                disabled={reporting}
+              />
+              <p className="text-xs text-muted-foreground mt-1">{reportDetails.length}/500</p>
+            </div>
+            {reportError && <p className="text-red-500 text-xs">{reportError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReport(false)} disabled={reporting}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={reporting}
+              onClick={async () => {
+                const parsed = reportSchema.safeParse({ reason: reportReason, details: reportDetails });
+                if (!parsed.success) {
+                  setReportError(parsed.error.issues[0]?.message ?? "Invalid input");
+                  return;
+                }
+                
+                setReporting(true);
+                try {
+                  const reasonLabel = REPORT_REASONS.find(r => r.value === parsed.data.reason)?.label ?? parsed.data.reason;
+                  const fullReason = parsed.data.details ? `${reasonLabel}: ${parsed.data.details}` : reasonLabel;
+                  await reportContentAsync(currentUserId, "user", resolvedId, fullReason);
+                  toast.success("Report submitted. Thank you.");
+                  setShowReport(false);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed to submit report");
+                } finally {
+                  setReporting(false);
+                }
+              }}
+            >
+              {reporting ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Submitting…</> : "Submit report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <EtokBottomNav />
     </div>

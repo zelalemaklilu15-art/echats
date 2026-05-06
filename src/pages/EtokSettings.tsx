@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, MessageCircle, Clock, ChevronRight, Bell, Eye, Lock, UserX, Globe, Search, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Shield, MessageCircle, Clock, ChevronRight, Bell, Eye, Lock, UserX, Globe, Search, Download, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -11,6 +11,10 @@ import {
 import { fetchEtokProfile, type EtokUser } from "@/lib/etokService";
 import { toast } from "sonner";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SettingsSection = "main" | "privacy" | "comments" | "screen_time" | "blocked" | "data";
 
@@ -25,6 +29,8 @@ const EtokSettings = () => {
   const [blockedProfiles, setBlockedProfiles] = useState<Record<string, EtokUser>>({});
   const [keywordInput, setKeywordInput] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [unblockTarget, setUnblockTarget] = useState<BlockedUser | null>(null);
+  const [unblocking, setUnblocking] = useState(false);
   const todayMinutes = getScreenTimeToday();
 
   useEffect(() => {
@@ -258,16 +264,7 @@ const EtokSettings = () => {
                     <p className="text-white/50 text-[12px]">{u?.displayName}</p>
                   </div>
                   <button
-                    onClick={async () => {
-                      try {
-                        await unblockUserAsync(currentUserId, bu.blockedId);
-                        const updated = await getBlockedUsersAsync(currentUserId);
-                        setBlockedUsers(updated);
-                        toast.success("Unblocked");
-                      } catch (e: any) {
-                        toast.error(e?.message ?? "Failed");
-                      }
-                    }}
+                    onClick={() => setUnblockTarget(bu)}
                     className="px-3 py-1.5 border border-white/20 rounded-full text-white/70 text-[12px] font-semibold"
                   >
                     Unblock
@@ -363,6 +360,45 @@ const EtokSettings = () => {
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!unblockTarget} onOpenChange={(o) => { if (!o && !unblocking) setUnblockTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Unblock {blockedProfiles[unblockTarget?.blockedId ?? ""]?.username
+                ? `@${blockedProfiles[unblockTarget!.blockedId].username}`
+                : "user"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They'll be able to find your profile, view your videos, and message you again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={unblocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={unblocking}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!unblockTarget) return;
+                setUnblocking(true);
+                try {
+                  await unblockUserAsync(currentUserId, unblockTarget.blockedId);
+                  const updated = await getBlockedUsersAsync(currentUserId);
+                  setBlockedUsers(updated);
+                  toast.success("Unblocked");
+                  setUnblockTarget(null);
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed");
+                } finally {
+                  setUnblocking(false);
+                }
+              }}
+            >
+              {unblocking ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Unblocking…</> : "Unblock"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <EtokBottomNav />
     </div>
