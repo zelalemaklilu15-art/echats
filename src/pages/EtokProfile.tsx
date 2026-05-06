@@ -223,10 +223,18 @@ const EtokProfile = () => {
                 </>
               ) : (
                 <>
-                  <button onClick={() => { setShowMore(false); toast.success("User blocked"); }} className="flex items-center gap-4 w-full px-6 py-4">
+                  <button onClick={async () => {
+                    try { await blockUserAsync(currentUserId, resolvedId); toast.success("User blocked"); }
+                    catch (e: any) { toast.error(e?.message ?? "Failed to block"); }
+                    setShowMore(false);
+                  }} className="flex items-center gap-4 w-full px-6 py-4">
                     <span className="text-red-400 text-[15px]">Block @{profile?.username}</span>
                   </button>
-                  <button onClick={() => setShowMore(false)} className="flex items-center gap-4 w-full px-6 py-4">
+                  <button onClick={async () => {
+                    try { await reportContentAsync(currentUserId, "user", resolvedId, "Inappropriate"); toast.success("Reported"); }
+                    catch (e: any) { toast.error(e?.message ?? "Failed to report"); }
+                    setShowMore(false);
+                  }} className="flex items-center gap-4 w-full px-6 py-4">
                     <span className="text-red-400 text-[15px]">Report</span>
                   </button>
                 </>
