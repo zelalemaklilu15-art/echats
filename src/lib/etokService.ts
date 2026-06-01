@@ -252,6 +252,7 @@ export async function toggleLikeAsync(userId: string, videoId: string): Promise<
     if (vid) {
       await supabase.from("etok_videos").update({ likes: vid.likes + 1 }).eq("id", videoId);
     }
+    await recordVideoInteractionAsync(videoId, "like");
     return true;
   }
 }
@@ -337,6 +338,7 @@ export async function addCommentAsync(videoId: string, authorId: string, text: s
   if (vid) {
     await supabase.from("etok_videos").update({ comments: vid.comments + 1 }).eq("id", videoId);
   }
+  await recordVideoInteractionAsync(videoId, "comment");
   const [comment] = await hydrateComments(data ? [data] : []);
   return comment ?? null;
 }
@@ -485,6 +487,14 @@ export async function uploadVideoAsync(
     throw new Error(error.message || "Could not save video post");
   }
   return data ? mapVideo(data) : null;
+}
+
+export async function recordVideoViewAsync(videoId: string, source: "fyp" | "following" | "search" | "profile" = "fyp"): Promise<void> {
+  await supabase.rpc("record_etok_video_view", { _video_id: videoId, _source: source });
+}
+
+export async function recordVideoInteractionAsync(videoId: string, kind: "like" | "comment" | "share"): Promise<void> {
+  await supabase.rpc("record_etok_video_interaction", { _video_id: videoId, _kind: kind });
 }
 
 /* ═══════════════════════════════════════════
