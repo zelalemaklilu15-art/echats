@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, TrendingUp, Users, Eye, Heart, PlayCircle, Calendar, ChevronDown } from "lucide-react";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchUserVideos, fetchFollowerCount, fetchTotalVideoLikes, formatCount, type EtokVideo } from "@/lib/etokService";
@@ -9,8 +9,6 @@ import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
 
 type Period = "7d" | "28d";
 type AnalyticsTab = "overview" | "content" | "audience";
-
-const PIE_COLORS = ["#ff0050", "#20d5ec", "#7c3aed"];
 
 interface Stats {
   views: number;
@@ -76,8 +74,6 @@ const EtokAnalytics = () => {
     { label: "Followers", value: formatCount(stats.followers), icon: Users, color: "#20d5ec" },
     { label: "Videos", value: stats.videoCount.toString(), icon: PlayCircle, color: "#22c55e" },
   ];
-
-  const hasAudienceData = false;
 
   return (
     <div className="min-h-screen bg-black text-white">
