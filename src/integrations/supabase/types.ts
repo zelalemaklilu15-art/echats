@@ -1566,6 +1566,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      record_etok_video_interaction: {
+        Args: { _kind: string; _video_id: string }
+        Returns: undefined
+      }
+      record_etok_video_view: {
+        Args: { _source?: string; _video_id: string }
+        Returns: undefined
+      }
       search_users_public: {
         Args: { search_term: string }
         Returns: {
