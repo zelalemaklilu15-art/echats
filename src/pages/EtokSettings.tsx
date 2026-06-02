@@ -9,6 +9,7 @@ import {
   getScreenTimeToday, type EtokPrivacySettings, type BlockedUser,
 } from "@/lib/etokPrivacyService";
 import { fetchEtokProfile, type EtokUser } from "@/lib/etokService";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
 import {
