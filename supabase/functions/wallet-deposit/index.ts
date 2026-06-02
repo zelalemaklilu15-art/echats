@@ -48,11 +48,14 @@ Deno.serve(async (req) => {
     }
 
     // Validate method - must be a recognized payment method
-    const validMethods = ['Credit/Debit Card', 'Bank Transfer', 'Mobile Money'];
-    const methodName = method || '';
+    const validMethods = [
+      'Credit/Debit Card', 'Bank Transfer', 'Mobile Money',
+      'Telebirr', 'CBEBirr', 'Awash Bank', 'Dashen Bank',
+    ];
+    const methodName = typeof method === 'string' ? method.trim() : '';
     if (!validMethods.includes(methodName)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid payment method.' }),
+        JSON.stringify({ error: `Invalid payment method: ${methodName || '(empty)'}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
