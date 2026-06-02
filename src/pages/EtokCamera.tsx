@@ -103,6 +103,30 @@ const EtokCamera = () => {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const countdownRef = useRef<ReturnType<typeof setInterval>>();
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const handleGalleryPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("video/")) { toast.error("Please choose a video file"); return; }
+    const MAX = 200 * 1024 * 1024;
+    if (file.size > MAX) { toast.error("Video too large (max 200MB)"); return; }
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    const url = URL.createObjectURL(file);
+    setRecordedBlob(file);
+    setRecordedUrl(url);
+    // Probe duration
+    const probe = document.createElement("video");
+    probe.preload = "metadata";
+    probe.src = url;
+    probe.onloadedmetadata = () => {
+      const d = Math.max(1, Math.min(Math.round(probe.duration || 1), 600));
+      setElapsed(d);
+    };
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    setStage("preview");
+  };
 
   const [sounds, setSounds] = useState<EtokSound[]>([]);
   useEffect(() => { fetchAllSounds().then(setSounds); }, []);
@@ -471,8 +495,19 @@ const EtokCamera = () => {
           )}
 
           <div className="flex items-center gap-8">
-            {/* Gallery placeholder */}
-            <button className="w-14 h-14 rounded-xl bg-white/10 border border-white/30 flex items-center justify-center">
+            {/* Gallery: upload an existing video */}
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={handleGalleryPick}
+            />
+            <button
+              onClick={() => galleryInputRef.current?.click()}
+              className="w-14 h-14 rounded-xl bg-white/10 border border-white/30 flex items-center justify-center active:scale-95 transition-transform"
+              aria-label="Upload from gallery"
+            >
               <Image className="h-6 w-6 text-white" />
             </button>
 

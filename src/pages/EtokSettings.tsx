@@ -9,6 +9,7 @@ import {
   getScreenTimeToday, type EtokPrivacySettings, type BlockedUser,
 } from "@/lib/etokPrivacyService";
 import { fetchEtokProfile, type EtokUser } from "@/lib/etokService";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
 import {
@@ -31,6 +32,8 @@ const EtokSettings = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [unblockTarget, setUnblockTarget] = useState<BlockedUser | null>(null);
   const [unblocking, setUnblocking] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const todayMinutes = getScreenTimeToday();
 
   useEffect(() => {
@@ -153,7 +156,7 @@ const EtokSettings = () => {
               ))}
             </div>
 
-            <button onClick={() => toast.error("Sign out?")} className="w-full mt-6 py-4 text-red-400 font-semibold text-[15px] border border-red-900/30 rounded-2xl">
+            <button onClick={() => setShowLogoutConfirm(true)} className="w-full mt-6 py-4 text-red-400 font-semibold text-[15px] border border-red-900/30 rounded-2xl">
               Log out
             </button>
           </div>
@@ -395,6 +398,39 @@ const EtokSettings = () => {
               }}
             >
               {unblocking ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Unblocking…</> : "Unblock"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showLogoutConfirm} onOpenChange={(o) => { if (!o && !loggingOut) setShowLogoutConfirm(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out of Etok?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You'll need to sign in again to access your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loggingOut}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={loggingOut}
+              onClick={async (e) => {
+                e.preventDefault();
+                setLoggingOut(true);
+                try {
+                  await supabase.auth.signOut();
+                  toast.success("Logged out");
+                  navigate("/auth", { replace: true });
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed to log out");
+                } finally {
+                  setLoggingOut(false);
+                  setShowLogoutConfirm(false);
+                }
+              }}
+            >
+              {loggingOut ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Logging out…</> : "Log out"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
