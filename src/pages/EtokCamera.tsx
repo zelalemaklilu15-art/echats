@@ -495,8 +495,19 @@ const EtokCamera = () => {
           )}
 
           <div className="flex items-center gap-8">
-            {/* Gallery placeholder */}
-            <button className="w-14 h-14 rounded-xl bg-white/10 border border-white/30 flex items-center justify-center">
+            {/* Gallery: upload an existing video */}
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={handleGalleryPick}
+            />
+            <button
+              onClick={() => galleryInputRef.current?.click()}
+              className="w-14 h-14 rounded-xl bg-white/10 border border-white/30 flex items-center justify-center active:scale-95 transition-transform"
+              aria-label="Upload from gallery"
+            >
               <Image className="h-6 w-6 text-white" />
             </button>
 
