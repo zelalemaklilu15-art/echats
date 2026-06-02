@@ -153,7 +153,7 @@ const EtokSettings = () => {
               ))}
             </div>
 
-            <button onClick={() => toast.error("Sign out?")} className="w-full mt-6 py-4 text-red-400 font-semibold text-[15px] border border-red-900/30 rounded-2xl">
+            <button onClick={() => setShowLogoutConfirm(true)} className="w-full mt-6 py-4 text-red-400 font-semibold text-[15px] border border-red-900/30 rounded-2xl">
               Log out
             </button>
           </div>
