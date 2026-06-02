@@ -257,11 +257,17 @@ const EtokLive = () => {
                 <div className="w-11 h-11 rounded-full bg-red-600 flex items-center justify-center"><X className="h-5 w-5 text-white" /></div>
                 <span className="text-white text-[10px]">End</span>
               </button>
-              <button className="flex flex-col items-center gap-1">
+              <button
+                onClick={() => toast.info("Multi-guest LIVE is coming soon")}
+                className="flex flex-col items-center gap-1"
+              >
                 <div className="w-11 h-11 rounded-full bg-black/50 border border-white/20 flex items-center justify-center"><Users className="h-5 w-5 text-white" /></div>
                 <span className="text-white text-[10px]">Guests</span>
               </button>
-              <button className="flex flex-col items-center gap-1">
+              <button
+                onClick={() => toast.info("PK Battle is coming soon")}
+                className="flex flex-col items-center gap-1"
+              >
                 <div className="w-11 h-11 rounded-full bg-black/50 border border-white/20 flex items-center justify-center"><Swords className="h-5 w-5 text-white" /></div>
                 <span className="text-white text-[10px]">Battle</span>
               </button>
