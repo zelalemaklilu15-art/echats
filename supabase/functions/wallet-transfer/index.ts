@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
           reference_id: referenceId,
           type: 'transfer_out',
           amount: transferAmount,
-          balance_after: currentSenderBalance - transferAmount,
+          balance_after: senderTx.balance_after ?? currentSenderBalance - transferAmount,
           recipient: recipientProfile?.name || recipientProfile?.username || 'User',
           status: 'completed',
           created_at: senderTx.created_at,

@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
           id: transaction.id,
           type: 'deposit',
           amount: depositAmount,
-          balance_after: newBalance,
+          balance_after: transaction.balance_after ?? newBalance,
           method: methodName,
           status: 'completed',
           created_at: transaction.created_at,
