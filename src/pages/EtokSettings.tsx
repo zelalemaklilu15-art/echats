@@ -32,6 +32,8 @@ const EtokSettings = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [unblockTarget, setUnblockTarget] = useState<BlockedUser | null>(null);
   const [unblocking, setUnblocking] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const todayMinutes = getScreenTimeToday();
 
   useEffect(() => {
