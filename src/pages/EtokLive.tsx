@@ -295,7 +295,7 @@ const EtokLive = () => {
                   <Crown className="h-4 w-4 text-yellow-400" />
                   <span className="text-white font-bold text-[15px]">{coinBalance} Coins</span>
                 </div>
-                <button className="text-[#ff0050] text-[13px] font-semibold">+ Recharge</button>
+                <button onClick={() => toast.info("Coin recharge is coming soon")} className="text-[#ff0050] text-[13px] font-semibold">+ Recharge</button>
                 <button onClick={() => setShowGifts(false)}><X className="h-5 w-5 text-white/50" /></button>
               </div>
               <div className="grid grid-cols-4 gap-0 pb-8">
