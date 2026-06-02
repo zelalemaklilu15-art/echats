@@ -403,6 +403,39 @@ const EtokSettings = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={showLogoutConfirm} onOpenChange={(o) => { if (!o && !loggingOut) setShowLogoutConfirm(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out of Etok?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You'll need to sign in again to access your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loggingOut}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={loggingOut}
+              onClick={async (e) => {
+                e.preventDefault();
+                setLoggingOut(true);
+                try {
+                  await supabase.auth.signOut();
+                  toast.success("Logged out");
+                  navigate("/auth", { replace: true });
+                } catch (err: any) {
+                  toast.error(err?.message ?? "Failed to log out");
+                } finally {
+                  setLoggingOut(false);
+                  setShowLogoutConfirm(false);
+                }
+              }}
+            >
+              {loggingOut ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Logging out…</> : "Log out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <EtokBottomNav />
     </div>
   );
