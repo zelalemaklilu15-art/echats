@@ -440,6 +440,90 @@ const AIAssistant = () => {
       {/* Share Image Dialog */}
       <ShareImageDialog open={!!shareImageUrl} onClose={() => setShareImageUrl(null)} imageUrl={shareImageUrl || ""} />
     </div>
+      {/* Share Image Dialog */}
+      <ShareImageDialog open={!!shareImageUrl} onClose={() => setShareImageUrl(null)} imageUrl={shareImageUrl || ""} />
+
+      {/* Settings Sheet */}
+      <Sheet open={showSettings} onOpenChange={setShowSettings}>
+        <SheetContent side="right" className="w-[90vw] sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Echat AI Settings</SheetTitle>
+            <SheetDescription>የAI ሞዴል፣ ትዕዛዝ እና ማስታወሻ ቅንብር</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-6 mt-6">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">AI ሞዴል</Label>
+              <div className="grid gap-2">
+                {AI_MODELS.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => updateSettings({ model: m.id })}
+                    className={cn(
+                      "text-left px-3 py-2.5 rounded-xl border text-sm transition-colors",
+                      settings.model === m.id ? "border-primary bg-primary/10 text-primary font-medium" : "border-border bg-card hover:bg-muted/50"
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-card">
+              <div className="flex-1">
+                <Label htmlFor="memory-toggle" className="text-sm font-semibold">የውይይት ማስታወሻ</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">AI ቀዳሚ መልዕክቶችን እንዲያስታውስ ይፍቀዱ</p>
+              </div>
+              <Switch
+                id="memory-toggle"
+                checked={settings.memoryEnabled !== false}
+                onCheckedChange={(v) => updateSettings({ memoryEnabled: v })}
+              />
+            </div>
+
+            <Button variant="outline" onClick={handleClearMemory} className="w-full">
+              <Trash2 className="h-4 w-4 mr-2" /> የውይይት ማስታወሻ አጥፋ
+            </Button>
+
+            <div className="space-y-2">
+              <Label htmlFor="sysprompt" className="text-sm font-semibold">ብጁ ትዕዛዝ (System instructions)</Label>
+              <p className="text-xs text-muted-foreground">AI እንዴት እንዲመልስ የራስዎን መመሪያ ይጨምሩ</p>
+              <Textarea
+                id="sysprompt"
+                value={settings.systemAppend || ""}
+                onChange={(e) => updateSettings({ systemAppend: e.target.value.slice(0, 2000) })}
+                placeholder="ምሳሌ: ሁልጊዜ በአማርኛ መልስ ስጠኝ፣ አጭር እና ግልጽ ይሁን።"
+                rows={5}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground text-right">{(settings.systemAppend || "").length}/2000</p>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Report Dialog */}
+      <AlertDialog open={!!reportTarget} onOpenChange={(o) => !o && setReportTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ምላሹን ሪፖርት ያድርጉ</AlertDialogTitle>
+            <AlertDialogDescription>ለምን ይህ ምላሽ ችግር አለበት?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value.slice(0, 500))}
+            placeholder="ምክንያትዎን ይጻፉ (አማራጭ)…"
+            rows={4}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>ይቅር</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (reportTarget) { handleFeedback(reportTarget, "report", reportReason); setReportTarget(null); } }}>
+              ሪፖርት ላክ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 };
 
