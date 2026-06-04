@@ -200,7 +200,70 @@ export async function generateImage(prompt: string): Promise<{ text: string; ima
   return resp.json();
 }
 
-// ---- Helpers ----
+// ---- Feedback ----
+
+export type FeedbackRating = "like" | "dislike" | "report";
+
+export async function submitMessageFeedback(params: {
+  userId: string;
+  conversationId: string | null;
+  messageId: string;
+  rating: FeedbackRating;
+  reason?: string;
+}) {
+  const { error } = await supabase
+    .from("ai_message_feedback" as any)
+    .upsert(
+      {
+        user_id: params.userId,
+        conversation_id: params.conversationId,
+        message_id: params.messageId,
+        rating: params.rating,
+        reason: params.reason || null,
+        updated_at: new Date().toISOString(),
+      } as any,
+      { onConflict: "user_id,message_id" } as any,
+    );
+  if (error) throw error;
+}
+
+export async function loadFeedback(userId: string, messageIds: string[]) {
+  if (!messageIds.length) return {} as Record<string, FeedbackRating>;
+  const { data } = await supabase
+    .from("ai_message_feedback" as any)
+    .select("message_id, rating")
+    .eq("user_id", userId)
+    .in("message_id", messageIds);
+  const map: Record<string, FeedbackRating> = {};
+  ((data as any[]) || []).forEach((r: any) => { map[r.message_id] = r.rating; });
+  return map;
+}
+
+// ---- Settings (localStorage) ----
+
+const SETTINGS_KEY = "echat_ai_settings_v1";
+export const AI_MODELS = [
+  { id: "google/gemini-2.5-pro", label: "Echat Pro (smartest)" },
+  { id: "google/gemini-2.5-flash", label: "Echat Flash (balanced)" },
+  { id: "google/gemini-2.5-flash-lite", label: "Echat Lite (fastest)" },
+  { id: "openai/gpt-5", label: "Echat GPT-5 (premium)" },
+  { id: "openai/gpt-5-mini", label: "Echat GPT-5 Mini" },
+  { id: "openai/gpt-5-nano", label: "Echat GPT-5 Nano" },
+];
+
+export function loadSettings(): AISettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return { memoryEnabled: true, model: "google/gemini-2.5-pro", systemAppend: "", ...JSON.parse(raw) };
+  } catch {}
+  return { memoryEnabled: true, model: "google/gemini-2.5-pro", systemAppend: "" };
+}
+
+export function saveSettings(s: AISettings) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch {}
+}
+
+
 
 export function isImageRequest(text: string): boolean {
   const lower = text.toLowerCase();
