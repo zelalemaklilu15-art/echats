@@ -88,7 +88,7 @@ export async function streamAIResponse({
   onError: (error: string) => void;
 }) {
   try {
-    const apiMessages = messages.slice(-20).map((m) => ({
+    const apiMessages = messages.slice(-40).map((m) => ({
       role: m.role,
       content: m.content,
     }));
