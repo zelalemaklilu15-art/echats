@@ -306,7 +306,8 @@ const AIAssistant = () => {
             </p>
           </div>
         </div>
-        <button onClick={startNewChat} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors"><Plus className="h-4.5 w-4.5 text-muted-foreground" /></button>
+        <button onClick={() => setShowSettings(true)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors" aria-label="AI settings"><Settings className="h-4.5 w-4.5 text-muted-foreground" /></button>
+        <button onClick={startNewChat} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors" aria-label="New chat"><Plus className="h-4.5 w-4.5 text-muted-foreground" /></button>
       </div>
 
       {/* Messages */}
