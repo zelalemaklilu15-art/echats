@@ -9,9 +9,20 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    const { messages, model: requestedModel, systemAppend } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const ALLOWED_MODELS = new Set([
+      "google/gemini-2.5-pro",
+      "google/gemini-2.5-flash",
+      "google/gemini-2.5-flash-lite",
+      "google/gemini-3-flash-preview",
+      "openai/gpt-5",
+      "openai/gpt-5-mini",
+      "openai/gpt-5-nano",
+    ]);
+    const model = ALLOWED_MODELS.has(requestedModel) ? requestedModel : "google/gemini-2.5-pro";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -20,7 +31,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model,
         messages: [
           {
             role: "system",
@@ -66,7 +77,11 @@ You are powerful and modern, on par with GPT-5, Gemini 2.5 Pro, and Claude. You 
 - Be **safe & respectful**: refuse harmful, illegal, or hateful requests politely and suggest a safer path.
 - Knowledge cutoff: early 2025. For very recent events, note your limit.
 
-You are Echat AI. Be brilliant, warm, and delightful — make every user feel they have a world-class AI in their pocket. 💜`
+You are Echat AI. Be brilliant, warm, and delightful — make every user feel they have a world-class AI in their pocket. 💜${
+              typeof systemAppend === "string" && systemAppend.trim()
+                ? `\n\n# User custom instructions\n${systemAppend.trim().slice(0, 2000)}`
+                : ""
+            }`
           },
           ...messages,
         ],

@@ -1,8 +1,13 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Send, Trash2, Sparkles, Square, Image, Plus, MessageSquare, X, Mic, MicOff, Share2 } from "lucide-react";
+import { ArrowLeft, Send, Trash2, Sparkles, Square, Image, Plus, MessageSquare, X, Mic, MicOff, Share2, Settings, ThumbsUp, ThumbsDown, Flag, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -17,8 +22,15 @@ import {
   loadMessages,
   saveMessage,
   STARTER_SUGGESTIONS,
+  submitMessageFeedback,
+  loadFeedback,
+  loadSettings,
+  saveSettings,
+  AI_MODELS,
   type AIMessage,
   type AIConversation,
+  type AISettings,
+  type FeedbackRating,
 } from "@/lib/aiAssistantService";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,8 +84,15 @@ const AIAssistant = () => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [settings, setSettings] = useState<AISettings>(() => loadSettings());
+  const [showSettings, setShowSettings] = useState(false);
+  const [feedback, setFeedback] = useState<Record<string, FeedbackRating>>({});
+  const [reportTarget, setReportTarget] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef(false);
+  const abortCtrlRef = useRef<AbortController | null>(null);
 
   const { isListening, startListening, stopListening, isSupported: voiceSupported } = useVoiceInput({
     onResult: (text) => setInput(prev => prev ? `${prev} ${text}` : text),
@@ -91,9 +110,15 @@ const AIAssistant = () => {
   }, [userId]);
 
   useEffect(() => {
-    if (!activeConvId) { setMessages([]); return; }
-    loadMessages(activeConvId).then(setMessages);
-  }, [activeConvId]);
+    if (!activeConvId) { setMessages([]); setFeedback({}); return; }
+    loadMessages(activeConvId).then(async (msgs) => {
+      setMessages(msgs);
+      if (userId) {
+        const ids = msgs.filter(m => m.role === "assistant").map(m => m.id);
+        setFeedback(await loadFeedback(userId, ids));
+      }
+    });
+  }, [activeConvId, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -158,9 +183,12 @@ const AIAssistant = () => {
     setIsStreaming(true);
     let assistantContent = "";
     const assistantId = `a_${Date.now()}`;
+    abortCtrlRef.current = new AbortController();
 
     await streamAIResponse({
       messages: updated,
+      settings,
+      signal: abortCtrlRef.current.signal,
       onDelta: (chunk) => {
         if (abortRef.current) return;
         assistantContent += chunk;
@@ -187,9 +215,47 @@ const AIAssistant = () => {
         if (convId) saveMessage(convId, errMsg);
       },
     });
-  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId]);
+  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId, settings]);
 
-  const handleStop = () => { abortRef.current = true; setIsStreaming(false); };
+  const handleStop = () => {
+    abortRef.current = true;
+    abortCtrlRef.current?.abort();
+    setIsStreaming(false);
+  };
+
+  const updateSettings = useCallback((patch: Partial<AISettings>) => {
+    setSettings(prev => {
+      const next = { ...prev, ...patch };
+      saveSettings(next);
+      return next;
+    });
+  }, []);
+
+  const handleClearMemory = useCallback(() => {
+    setMessages([]);
+    setActiveConvId(null);
+    setFeedback({});
+    toast.success("የውይይት ማስታወሻ ጸድቷል");
+  }, []);
+
+  const handleFeedback = useCallback(async (messageId: string, rating: FeedbackRating, reason?: string) => {
+    if (!userId) { toast.error("Sign in required"); return; }
+    try {
+      await submitMessageFeedback({ userId, conversationId: activeConvId, messageId, rating, reason });
+      setFeedback(prev => ({ ...prev, [messageId]: rating }));
+      toast.success(rating === "like" ? "አመሰግናለሁ! 👍" : rating === "dislike" ? "ግብረመልስ ተመዝግቧል" : "ሪፖርት ተልኳል");
+    } catch (e: any) {
+      toast.error(e.message || "Failed");
+    }
+  }, [userId, activeConvId]);
+
+  const copyMessage = useCallback(async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {}
+  }, []);
 
   const isBusy = isStreaming || isGeneratingImage;
   const isEmpty = messages.length === 0;
@@ -240,7 +306,8 @@ const AIAssistant = () => {
             </p>
           </div>
         </div>
-        <button onClick={startNewChat} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors"><Plus className="h-4.5 w-4.5 text-muted-foreground" /></button>
+        <button onClick={() => setShowSettings(true)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors" aria-label="AI settings"><Settings className="h-4.5 w-4.5 text-muted-foreground" /></button>
+        <button onClick={startNewChat} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors" aria-label="New chat"><Plus className="h-4.5 w-4.5 text-muted-foreground" /></button>
       </div>
 
       {/* Messages */}
@@ -270,16 +337,34 @@ const AIAssistant = () => {
                   {msg.role === "assistant" && (
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-white flex-shrink-0 mr-2 mt-1" style={{ background: "var(--gradient-primary)" }}><Sparkles className="h-3.5 w-3.5" /></div>
                   )}
-                  <div className={cn("max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap", msg.role === "user" ? "text-white rounded-br-sm" : "bg-card border border-border/50 text-foreground rounded-bl-sm")} style={msg.role === "user" ? { background: "var(--gradient-primary)" } : undefined}>
-                    {renderMarkdown(msg.content)}
-                    {msg.image_url && (
-                      <div className="mt-2 relative group">
-                        <img src={msg.image_url} alt="Generated" className="rounded-xl max-w-full max-h-80 object-contain border border-border/30" />
-                        <button
-                          onClick={() => setShareImageUrl(msg.image_url!)}
-                          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Share2 className="h-4 w-4" />
+                  <div className="flex flex-col gap-1 max-w-[80%]">
+                    <div className={cn("px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap", msg.role === "user" ? "text-white rounded-br-sm" : "bg-card border border-border/50 text-foreground rounded-bl-sm")} style={msg.role === "user" ? { background: "var(--gradient-primary)" } : undefined}>
+                      {renderMarkdown(msg.content)}
+                      {msg.image_url && (
+                        <div className="mt-2 relative group">
+                          <img src={msg.image_url} alt="Generated" className="rounded-xl max-w-full max-h-80 object-contain border border-border/30" />
+                          <button
+                            onClick={() => setShareImageUrl(msg.image_url!)}
+                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {msg.role === "assistant" && msg.content && !msg.content.startsWith("❌") && !(isStreaming && messages[messages.length - 1]?.id === msg.id) && (
+                      <div className="flex items-center gap-1 px-1 -mt-0.5">
+                        <button onClick={() => copyMessage(msg.id, msg.content)} className="p-1.5 rounded-full hover:bg-muted/60 text-muted-foreground" aria-label="Copy">
+                          {copiedId === msg.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                        <button onClick={() => handleFeedback(msg.id, "like")} className={cn("p-1.5 rounded-full hover:bg-muted/60", feedback[msg.id] === "like" ? "text-emerald-500" : "text-muted-foreground")} aria-label="Like">
+                          <ThumbsUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => handleFeedback(msg.id, "dislike")} className={cn("p-1.5 rounded-full hover:bg-muted/60", feedback[msg.id] === "dislike" ? "text-amber-500" : "text-muted-foreground")} aria-label="Dislike">
+                          <ThumbsDown className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => { setReportTarget(msg.id); setReportReason(""); }} className={cn("p-1.5 rounded-full hover:bg-muted/60", feedback[msg.id] === "report" ? "text-destructive" : "text-muted-foreground")} aria-label="Report">
+                          <Flag className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     )}
@@ -354,6 +439,88 @@ const AIAssistant = () => {
 
       {/* Share Image Dialog */}
       <ShareImageDialog open={!!shareImageUrl} onClose={() => setShareImageUrl(null)} imageUrl={shareImageUrl || ""} />
+
+
+      {/* Settings Sheet */}
+      <Sheet open={showSettings} onOpenChange={setShowSettings}>
+        <SheetContent side="right" className="w-[90vw] sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Echat AI Settings</SheetTitle>
+            <SheetDescription>የAI ሞዴል፣ ትዕዛዝ እና ማስታወሻ ቅንብር</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-6 mt-6">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">AI ሞዴል</Label>
+              <div className="grid gap-2">
+                {AI_MODELS.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => updateSettings({ model: m.id })}
+                    className={cn(
+                      "text-left px-3 py-2.5 rounded-xl border text-sm transition-colors",
+                      settings.model === m.id ? "border-primary bg-primary/10 text-primary font-medium" : "border-border bg-card hover:bg-muted/50"
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-card">
+              <div className="flex-1">
+                <Label htmlFor="memory-toggle" className="text-sm font-semibold">የውይይት ማስታወሻ</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">AI ቀዳሚ መልዕክቶችን እንዲያስታውስ ይፍቀዱ</p>
+              </div>
+              <Switch
+                id="memory-toggle"
+                checked={settings.memoryEnabled !== false}
+                onCheckedChange={(v) => updateSettings({ memoryEnabled: v })}
+              />
+            </div>
+
+            <Button variant="outline" onClick={handleClearMemory} className="w-full">
+              <Trash2 className="h-4 w-4 mr-2" /> የውይይት ማስታወሻ አጥፋ
+            </Button>
+
+            <div className="space-y-2">
+              <Label htmlFor="sysprompt" className="text-sm font-semibold">ብጁ ትዕዛዝ (System instructions)</Label>
+              <p className="text-xs text-muted-foreground">AI እንዴት እንዲመልስ የራስዎን መመሪያ ይጨምሩ</p>
+              <Textarea
+                id="sysprompt"
+                value={settings.systemAppend || ""}
+                onChange={(e) => updateSettings({ systemAppend: e.target.value.slice(0, 2000) })}
+                placeholder="ምሳሌ: ሁልጊዜ በአማርኛ መልስ ስጠኝ፣ አጭር እና ግልጽ ይሁን።"
+                rows={5}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground text-right">{(settings.systemAppend || "").length}/2000</p>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Report Dialog */}
+      <AlertDialog open={!!reportTarget} onOpenChange={(o) => !o && setReportTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ምላሹን ሪፖርት ያድርጉ</AlertDialogTitle>
+            <AlertDialogDescription>ለምን ይህ ምላሽ ችግር አለበት?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value.slice(0, 500))}
+            placeholder="ምክንያትዎን ይጻፉ (አማራጭ)…"
+            rows={4}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>ይቅር</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (reportTarget) { handleFeedback(reportTarget, "report", reportReason); setReportTarget(null); } }}>
+              ሪፖርት ላክ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
