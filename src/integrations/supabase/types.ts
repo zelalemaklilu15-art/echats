@@ -41,6 +41,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_message_feedback: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_id: string
+          rating: string
+          reason: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id: string
+          rating: string
+          reason?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string
+          rating?: string
+          reason?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_messages: {
         Row: {
           content: string | null
