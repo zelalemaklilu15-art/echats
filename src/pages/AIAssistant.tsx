@@ -110,9 +110,15 @@ const AIAssistant = () => {
   }, [userId]);
 
   useEffect(() => {
-    if (!activeConvId) { setMessages([]); return; }
-    loadMessages(activeConvId).then(setMessages);
-  }, [activeConvId]);
+    if (!activeConvId) { setMessages([]); setFeedback({}); return; }
+    loadMessages(activeConvId).then(async (msgs) => {
+      setMessages(msgs);
+      if (userId) {
+        const ids = msgs.filter(m => m.role === "assistant").map(m => m.id);
+        setFeedback(await loadFeedback(userId, ids));
+      }
+    });
+  }, [activeConvId, userId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
