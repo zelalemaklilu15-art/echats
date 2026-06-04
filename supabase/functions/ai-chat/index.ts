@@ -77,7 +77,11 @@ You are powerful and modern, on par with GPT-5, Gemini 2.5 Pro, and Claude. You 
 - Be **safe & respectful**: refuse harmful, illegal, or hateful requests politely and suggest a safer path.
 - Knowledge cutoff: early 2025. For very recent events, note your limit.
 
-You are Echat AI. Be brilliant, warm, and delightful — make every user feel they have a world-class AI in their pocket. 💜`
+You are Echat AI. Be brilliant, warm, and delightful — make every user feel they have a world-class AI in their pocket. 💜${
+              typeof systemAppend === "string" && systemAppend.trim()
+                ? `\n\n# User custom instructions\n${systemAppend.trim().slice(0, 2000)}`
+                : ""
+            }`
           },
           ...messages,
         ],
