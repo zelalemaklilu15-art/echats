@@ -183,9 +183,12 @@ const AIAssistant = () => {
     setIsStreaming(true);
     let assistantContent = "";
     const assistantId = `a_${Date.now()}`;
+    abortCtrlRef.current = new AbortController();
 
     await streamAIResponse({
       messages: updated,
+      settings,
+      signal: abortCtrlRef.current.signal,
       onDelta: (chunk) => {
         if (abortRef.current) return;
         assistantContent += chunk;
@@ -212,9 +215,47 @@ const AIAssistant = () => {
         if (convId) saveMessage(convId, errMsg);
       },
     });
-  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId]);
+  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId, settings]);
 
-  const handleStop = () => { abortRef.current = true; setIsStreaming(false); };
+  const handleStop = () => {
+    abortRef.current = true;
+    abortCtrlRef.current?.abort();
+    setIsStreaming(false);
+  };
+
+  const updateSettings = useCallback((patch: Partial<AISettings>) => {
+    setSettings(prev => {
+      const next = { ...prev, ...patch };
+      saveSettings(next);
+      return next;
+    });
+  }, []);
+
+  const handleClearMemory = useCallback(() => {
+    setMessages([]);
+    setActiveConvId(null);
+    setFeedback({});
+    toast.success("የውይይት ማስታወሻ ጸድቷል");
+  }, []);
+
+  const handleFeedback = useCallback(async (messageId: string, rating: FeedbackRating, reason?: string) => {
+    if (!userId) { toast.error("Sign in required"); return; }
+    try {
+      await submitMessageFeedback({ userId, conversationId: activeConvId, messageId, rating, reason });
+      setFeedback(prev => ({ ...prev, [messageId]: rating }));
+      toast.success(rating === "like" ? "አመሰግናለሁ! 👍" : rating === "dislike" ? "ግብረመልስ ተመዝግቧል" : "ሪፖርት ተልኳል");
+    } catch (e: any) {
+      toast.error(e.message || "Failed");
+    }
+  }, [userId, activeConvId]);
+
+  const copyMessage = useCallback(async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {}
+  }, []);
 
   const isBusy = isStreaming || isGeneratingImage;
   const isEmpty = messages.length === 0;
