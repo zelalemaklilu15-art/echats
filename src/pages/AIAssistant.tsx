@@ -337,16 +337,34 @@ const AIAssistant = () => {
                   {msg.role === "assistant" && (
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-white flex-shrink-0 mr-2 mt-1" style={{ background: "var(--gradient-primary)" }}><Sparkles className="h-3.5 w-3.5" /></div>
                   )}
-                  <div className={cn("max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap", msg.role === "user" ? "text-white rounded-br-sm" : "bg-card border border-border/50 text-foreground rounded-bl-sm")} style={msg.role === "user" ? { background: "var(--gradient-primary)" } : undefined}>
-                    {renderMarkdown(msg.content)}
-                    {msg.image_url && (
-                      <div className="mt-2 relative group">
-                        <img src={msg.image_url} alt="Generated" className="rounded-xl max-w-full max-h-80 object-contain border border-border/30" />
-                        <button
-                          onClick={() => setShareImageUrl(msg.image_url!)}
-                          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Share2 className="h-4 w-4" />
+                  <div className="flex flex-col gap-1 max-w-[80%]">
+                    <div className={cn("px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap", msg.role === "user" ? "text-white rounded-br-sm" : "bg-card border border-border/50 text-foreground rounded-bl-sm")} style={msg.role === "user" ? { background: "var(--gradient-primary)" } : undefined}>
+                      {renderMarkdown(msg.content)}
+                      {msg.image_url && (
+                        <div className="mt-2 relative group">
+                          <img src={msg.image_url} alt="Generated" className="rounded-xl max-w-full max-h-80 object-contain border border-border/30" />
+                          <button
+                            onClick={() => setShareImageUrl(msg.image_url!)}
+                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {msg.role === "assistant" && msg.content && !msg.content.startsWith("❌") && !(isStreaming && messages[messages.length - 1]?.id === msg.id) && (
+                      <div className="flex items-center gap-1 px-1 -mt-0.5">
+                        <button onClick={() => copyMessage(msg.id, msg.content)} className="p-1.5 rounded-full hover:bg-muted/60 text-muted-foreground" aria-label="Copy">
+                          {copiedId === msg.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                        <button onClick={() => handleFeedback(msg.id, "like")} className={cn("p-1.5 rounded-full hover:bg-muted/60", feedback[msg.id] === "like" ? "text-emerald-500" : "text-muted-foreground")} aria-label="Like">
+                          <ThumbsUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => handleFeedback(msg.id, "dislike")} className={cn("p-1.5 rounded-full hover:bg-muted/60", feedback[msg.id] === "dislike" ? "text-amber-500" : "text-muted-foreground")} aria-label="Dislike">
+                          <ThumbsDown className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => { setReportTarget(msg.id); setReportReason(""); }} className={cn("p-1.5 rounded-full hover:bg-muted/60", feedback[msg.id] === "report" ? "text-destructive" : "text-muted-foreground")} aria-label="Report">
+                          <Flag className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     )}
