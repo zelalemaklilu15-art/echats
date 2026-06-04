@@ -84,8 +84,15 @@ const AIAssistant = () => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [settings, setSettings] = useState<AISettings>(() => loadSettings());
+  const [showSettings, setShowSettings] = useState(false);
+  const [feedback, setFeedback] = useState<Record<string, FeedbackRating>>({});
+  const [reportTarget, setReportTarget] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef(false);
+  const abortCtrlRef = useRef<AbortController | null>(null);
 
   const { isListening, startListening, stopListening, isSupported: voiceSupported } = useVoiceInput({
     onResult: (text) => setInput(prev => prev ? `${prev} ${text}` : text),
