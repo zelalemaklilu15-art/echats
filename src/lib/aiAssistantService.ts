@@ -76,19 +76,31 @@ export async function saveMessage(convId: string, msg: AIMessage) {
 
 // ---- Streaming chat ----
 
+export type AISettings = {
+  model?: string;
+  systemAppend?: string;
+  memoryEnabled?: boolean;
+};
+
 export async function streamAIResponse({
   messages,
   onDelta,
   onDone,
   onError,
+  settings,
+  signal,
 }: {
   messages: AIMessage[];
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
+  settings?: AISettings;
+  signal?: AbortSignal;
 }) {
   try {
-    const apiMessages = messages.slice(-40).map((m) => ({
+    const memoryEnabled = settings?.memoryEnabled !== false;
+    const slice = memoryEnabled ? messages.slice(-40) : messages.slice(-1);
+    const apiMessages = slice.map((m) => ({
       role: m.role,
       content: m.content,
     }));
@@ -99,7 +111,12 @@ export async function streamAIResponse({
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages: apiMessages }),
+      body: JSON.stringify({
+        messages: apiMessages,
+        model: settings?.model,
+        systemAppend: settings?.systemAppend,
+      }),
+      signal,
     });
 
     if (!resp.ok) {
