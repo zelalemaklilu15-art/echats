@@ -439,9 +439,7 @@ const AIAssistant = () => {
 
       {/* Share Image Dialog */}
       <ShareImageDialog open={!!shareImageUrl} onClose={() => setShareImageUrl(null)} imageUrl={shareImageUrl || ""} />
-    </div>
-      {/* Share Image Dialog */}
-      <ShareImageDialog open={!!shareImageUrl} onClose={() => setShareImageUrl(null)} imageUrl={shareImageUrl || ""} />
+
 
       {/* Settings Sheet */}
       <Sheet open={showSettings} onOpenChange={setShowSettings}>
