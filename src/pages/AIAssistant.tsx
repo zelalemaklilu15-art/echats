@@ -1,8 +1,13 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Send, Trash2, Sparkles, Square, Image, Plus, MessageSquare, X, Mic, MicOff, Share2 } from "lucide-react";
+import { ArrowLeft, Send, Trash2, Sparkles, Square, Image, Plus, MessageSquare, X, Mic, MicOff, Share2, Settings, ThumbsUp, ThumbsDown, Flag, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -17,8 +22,15 @@ import {
   loadMessages,
   saveMessage,
   STARTER_SUGGESTIONS,
+  submitMessageFeedback,
+  loadFeedback,
+  loadSettings,
+  saveSettings,
+  AI_MODELS,
   type AIMessage,
   type AIConversation,
+  type AISettings,
+  type FeedbackRating,
 } from "@/lib/aiAssistantService";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
