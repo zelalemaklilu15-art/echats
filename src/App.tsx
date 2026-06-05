@@ -4,63 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 import PageTransition from "./components/PageTransition";
-import Splash from "./pages/Splash";
-import Auth from "./pages/Auth";
-import Chats from "./pages/Chats";
-import Chat from "./pages/Chat";
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
-import Contacts from "./pages/Contacts";
-import Calls from "./pages/Calls";
-import SavedMessages from "./pages/SavedMessages";
-import NewGroup from "./pages/NewGroup";
-import GroupChat from "./pages/GroupChat";
-import AddGroupMembers from "./pages/AddGroupMembers";
-import NewMessage from "./pages/NewMessage";
-import NewContact from "./pages/NewContact";
-import Wallet from "./pages/Wallet";
-import WalletQR from "./pages/WalletQR";
-import Features from "./pages/Features";
-import AddMoney from "./pages/AddMoney";
-import SendMoney from "./pages/SendMoney";
-import RequestMoney from "./pages/RequestMoney";
-import TransactionHistory from "./pages/TransactionHistory";
-import TransactionReceipt from "./pages/TransactionReceipt";
-import TransactionDetail from "./pages/TransactionDetail";
-import AddAccount from "./pages/AddAccount";
-import ForgotPassword from "./pages/ForgotPassword";
-import ContactProfile from "./pages/ContactProfile";
-import PrivacySettings from "./pages/PrivacySettings";
-import NotificationSettings from "./pages/NotificationSettings";
-import DataStorageSettings from "./pages/DataStorageSettings";
-import Channels from "./pages/Channels";
-import ChannelView from "./pages/ChannelView";
-import Bots from "./pages/Bots";
-import BotChat from "./pages/BotChat";
-import NearbyPeople from "./pages/NearbyPeople";
-import NotFound from "./pages/NotFound";
-import ActiveSessions from "./pages/ActiveSessions";
-import VoiceChatRoom from "./pages/VoiceChatRoom";
-import LiveStories from "./pages/LiveStories";
-import QuickRepliesSettings from "./pages/QuickRepliesSettings";
-import BusinessProfileSettings from "./pages/BusinessProfileSettings";
-import GiftsPage from "./pages/GiftsPage";
-import BuyStars from "./pages/BuyStars";
-import Etok from "./pages/Etok";
-import EtokOnboarding from "./pages/EtokOnboarding";
-import EtokCamera from "./pages/EtokCamera";
-import EtokSearch from "./pages/EtokSearch";
-import EtokLive from "./pages/EtokLive";
-import EtokProfile from "./pages/EtokProfile";
-import EtokAnalytics from "./pages/EtokAnalytics";
-import EtokCreatorTools from "./pages/EtokCreatorTools";
-import EtokSettings from "./pages/EtokSettings";
-import GlobalSearch from "./pages/GlobalSearch";
-import AIAssistant from "./pages/AIAssistant";
 import { updateOnlineStatus } from "@/lib/supabaseService";
 import logoImage from "@/assets/echat-logo.jpg";
 import { CallProvider } from "@/contexts/CallContext";
@@ -73,30 +19,105 @@ import { initAccentColor } from "@/lib/profileCustomizationService";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import AppLockGate from "./components/AppLockScreen";
 import WalletLockGate from "./components/WalletLockScreen";
-import ScheduledPayments from "./pages/ScheduledPayments";
-import Reminders from "./pages/Reminders";
-import ChatStats from "./pages/ChatStats";
-import GroupCall from "./pages/GroupCall";
-import SavingsGoals from "./pages/SavingsGoals";
-import SoundSettings from "./pages/SoundSettings";
-import BroadcastList from "./pages/BroadcastList";
-import PaymentRequest from "./pages/PaymentRequest";
-import Stories from "./pages/Stories";
-import CloseFriends from "./pages/CloseFriends";
 import { getDueReminders } from "@/lib/reminderService";
 import { checkTodaysBirthdays } from "@/lib/birthdayService";
 import OfflineBanner from "@/components/OfflineBanner";
 
+// Lazy-load every page — massively reduces initial bundle.
+const Splash = lazy(() => import("./pages/Splash"));
+const Auth = lazy(() => import("./pages/Auth"));
+const Chats = lazy(() => import("./pages/Chats"));
+const Chat = lazy(() => import("./pages/Chat"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Contacts = lazy(() => import("./pages/Contacts"));
+const Calls = lazy(() => import("./pages/Calls"));
+const SavedMessages = lazy(() => import("./pages/SavedMessages"));
+const NewGroup = lazy(() => import("./pages/NewGroup"));
+const GroupChat = lazy(() => import("./pages/GroupChat"));
+const AddGroupMembers = lazy(() => import("./pages/AddGroupMembers"));
+const NewMessage = lazy(() => import("./pages/NewMessage"));
+const NewContact = lazy(() => import("./pages/NewContact"));
+const Wallet = lazy(() => import("./pages/Wallet"));
+const WalletQR = lazy(() => import("./pages/WalletQR"));
+const Features = lazy(() => import("./pages/Features"));
+const AddMoney = lazy(() => import("./pages/AddMoney"));
+const SendMoney = lazy(() => import("./pages/SendMoney"));
+const RequestMoney = lazy(() => import("./pages/RequestMoney"));
+const TransactionHistory = lazy(() => import("./pages/TransactionHistory"));
+const TransactionReceipt = lazy(() => import("./pages/TransactionReceipt"));
+const TransactionDetail = lazy(() => import("./pages/TransactionDetail"));
+const AddAccount = lazy(() => import("./pages/AddAccount"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ContactProfile = lazy(() => import("./pages/ContactProfile"));
+const PrivacySettings = lazy(() => import("./pages/PrivacySettings"));
+const NotificationSettings = lazy(() => import("./pages/NotificationSettings"));
+const DataStorageSettings = lazy(() => import("./pages/DataStorageSettings"));
+const Channels = lazy(() => import("./pages/Channels"));
+const ChannelView = lazy(() => import("./pages/ChannelView"));
+const Bots = lazy(() => import("./pages/Bots"));
+const BotChat = lazy(() => import("./pages/BotChat"));
+const NearbyPeople = lazy(() => import("./pages/NearbyPeople"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const ActiveSessions = lazy(() => import("./pages/ActiveSessions"));
+const VoiceChatRoom = lazy(() => import("./pages/VoiceChatRoom"));
+const LiveStories = lazy(() => import("./pages/LiveStories"));
+const QuickRepliesSettings = lazy(() => import("./pages/QuickRepliesSettings"));
+const BusinessProfileSettings = lazy(() => import("./pages/BusinessProfileSettings"));
+const GiftsPage = lazy(() => import("./pages/GiftsPage"));
+const BuyStars = lazy(() => import("./pages/BuyStars"));
+const Etok = lazy(() => import("./pages/Etok"));
+const EtokOnboarding = lazy(() => import("./pages/EtokOnboarding"));
+const EtokCamera = lazy(() => import("./pages/EtokCamera"));
+const EtokSearch = lazy(() => import("./pages/EtokSearch"));
+const EtokLive = lazy(() => import("./pages/EtokLive"));
+const EtokProfile = lazy(() => import("./pages/EtokProfile"));
+const EtokAnalytics = lazy(() => import("./pages/EtokAnalytics"));
+const EtokCreatorTools = lazy(() => import("./pages/EtokCreatorTools"));
+const EtokSettings = lazy(() => import("./pages/EtokSettings"));
+const GlobalSearch = lazy(() => import("./pages/GlobalSearch"));
+const AIAssistant = lazy(() => import("./pages/AIAssistant"));
+const ScheduledPayments = lazy(() => import("./pages/ScheduledPayments"));
+const Reminders = lazy(() => import("./pages/Reminders"));
+const ChatStats = lazy(() => import("./pages/ChatStats"));
+const GroupCall = lazy(() => import("./pages/GroupCall"));
+const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
+const SoundSettings = lazy(() => import("./pages/SoundSettings"));
+const BroadcastList = lazy(() => import("./pages/BroadcastList"));
+const PaymentRequest = lazy(() => import("./pages/PaymentRequest"));
+const Stories = lazy(() => import("./pages/Stories"));
+const CloseFriends = lazy(() => import("./pages/CloseFriends"));
+
 // Initialize accent color from localStorage on app load
 initAccentColor();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+const RouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+  </div>
+);
+
+const guard = (isAuthenticated: boolean, El: JSX.Element, withTransition = true) => {
+  if (!isAuthenticated) return <Navigate to="/auth" replace />;
+  return withTransition ? <PageTransition>{El}</PageTransition> : El;
+};
 
 const AppRoutes = () => {
   const { authState, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const loginToastShownRef = useRef(false);
   const redirectToChatsDoneRef = useRef(false);
 
@@ -104,7 +125,7 @@ const AppRoutes = () => {
   useEffect(() => {
     const check = () => {
       const due = getDueReminders();
-      due.forEach(r => {
+      due.forEach((r) => {
         toast(`🔔 Reminder: "${r.messageText}"`, {
           action: { label: "View", onClick: () => navigate(`/chat/${r.chatId}`) },
           duration: 8000,
@@ -129,17 +150,16 @@ const AppRoutes = () => {
         .neq("id", user.id)
         .then(({ data }) => {
           if (!data) return;
-          const bdays = checkTodaysBirthdays(data as { id: string; name: string | null; username: string; birthday?: string | null }[]);
-          bdays.forEach(c => {
+          const bdays = checkTodaysBirthdays(data as any);
+          bdays.forEach((c) => {
             toast(`🎂 ${c.name || c.username} has a birthday today!`, { duration: 6000 });
           });
         });
     });
   }, [user?.id]);
 
-  const isAuthenticated = authState === 'authenticated';
+  const isAuthenticated = authState === "authenticated";
 
-  // Initialize chat store from the single, already-restored auth state
   useEffect(() => {
     if (user?.id) {
       chatStore.initialize(user.id).catch((err) => {
@@ -150,7 +170,6 @@ const AppRoutes = () => {
     }
   }, [user?.id]);
 
-  // Online status (non-blocking)
   useEffect(() => {
     if (!user?.id) return;
     updateOnlineStatus(user.id, true).catch(console.warn);
@@ -159,21 +178,17 @@ const AppRoutes = () => {
     };
   }, [user?.id]);
 
-  // Post-login toast & redirect
   useEffect(() => {
     if (!isAuthenticated) return;
-
     if (!loginToastShownRef.current) {
       toast.success("Login successful");
       loginToastShownRef.current = true;
     }
-
     if (redirectToChatsDoneRef.current) return;
     if (location.pathname === "/chats") {
       redirectToChatsDoneRef.current = true;
       return;
     }
-
     const publicPaths = new Set(["/", "/auth", "/forgot-password"]);
     if (publicPaths.has(location.pathname)) {
       redirectToChatsDoneRef.current = true;
@@ -181,270 +196,107 @@ const AppRoutes = () => {
     }
   }, [isAuthenticated, location.pathname, navigate]);
 
-  // Loading screen
-  if (authState === 'loading') {
+  if (authState === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-8 overflow-hidden">
+      <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-8">
         <div className="text-center space-y-6">
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15 }}
-            className="relative mx-auto w-32 h-32"
-          >
-            <motion.div
-              className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl"
-              animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0.8, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            />
+          <div className="relative mx-auto w-32 h-32">
             <div className="relative w-32 h-32 rounded-3xl overflow-hidden shadow-primary">
-              <img 
-                src={logoImage} 
-                alt="Echat Logo" 
-                className="w-full h-full object-cover"
-              />
+              <img src={logoImage} alt="Echat Logo" className="w-full h-full object-cover" />
             </div>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.6 }}
-            className="space-y-2"
-          >
-            <h1 className="text-4xl font-bold text-foreground">
-              Echat
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Fast. Simple. Secure.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="mt-8 flex justify-center"
-          >
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold text-foreground">Echat</h1>
+            <p className="text-lg text-muted-foreground">Fast. Simple. Secure.</p>
+          </div>
+          <div className="mt-8 flex justify-center">
             <div className="w-48 h-1 bg-muted rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-gradient-primary rounded-full"
-                animate={{ x: ["-100%", "100%"] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                style={{ width: "50%" }}
-              />
+              <div className="h-1 w-1/2 bg-gradient-primary rounded-full animate-pulse" />
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     );
   }
 
   const isEtokRoute = location.pathname.startsWith("/etok");
-  const showBottomNav = isAuthenticated && !isEtokRoute && ["/chats", "/calls", "/channels", "/contacts", "/settings", "/bots", "/nearby"].includes(location.pathname);
+  const showBottomNav =
+    isAuthenticated &&
+    !isEtokRoute &&
+    ["/chats", "/calls", "/channels", "/contacts", "/settings", "/bots", "/nearby"].includes(location.pathname);
 
   return (
     <>
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route path="/" element={
-            isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Splash /></PageTransition>
-          } />
-          <Route path="/auth" element={
-            isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Auth /></PageTransition>
-          } />
-          <Route path="/forgot-password" element={
-            isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><ForgotPassword /></PageTransition>
-          } />
-          <Route path="/chats" element={
-            isAuthenticated ? <PageTransition><Chats /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/chat" element={
-            isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />
-          } />
-          <Route path="/chat/:chatId" element={
-            isAuthenticated ? <PageTransition><Chat /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/profile" element={
-            isAuthenticated ? <PageTransition><Profile /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/settings" element={
-            isAuthenticated ? <PageTransition><Settings /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/contacts" element={
-            isAuthenticated ? <PageTransition><Contacts /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/calls" element={
-            isAuthenticated ? <PageTransition><Calls /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/saved-messages" element={
-            isAuthenticated ? <PageTransition><SavedMessages /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/new-group" element={
-            isAuthenticated ? <PageTransition><NewGroup /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/group/:groupId" element={
-            isAuthenticated ? <PageTransition><GroupChat /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/group/:groupId/add-members" element={
-            isAuthenticated ? <PageTransition><AddGroupMembers /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/contact/:userId" element={
-            isAuthenticated ? <PageTransition><ContactProfile /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/privacy-settings" element={
-            isAuthenticated ? <PageTransition><PrivacySettings /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/notification-settings" element={
-            isAuthenticated ? <PageTransition><NotificationSettings /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/data-storage" element={
-            isAuthenticated ? <PageTransition><DataStorageSettings /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/new-message" element={
-            isAuthenticated ? <PageTransition><NewMessage /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/new-contact" element={
-            isAuthenticated ? <PageTransition><NewContact /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/wallet" element={
-            isAuthenticated ? <PageTransition><WalletLockGate><Wallet /></WalletLockGate></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/scheduled-payments" element={
-            isAuthenticated ? <PageTransition><ScheduledPayments /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/wallet/qr" element={
-            isAuthenticated ? <PageTransition><WalletQR /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/features" element={
-            isAuthenticated ? <PageTransition><Features /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/add-money" element={
-            isAuthenticated ? <PageTransition><AddMoney /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/send-money" element={
-            isAuthenticated ? <PageTransition><SendMoney /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/request-money" element={
-            isAuthenticated ? <PageTransition><RequestMoney /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/transaction-history" element={
-            isAuthenticated ? <PageTransition><TransactionHistory /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/transaction-receipt" element={
-            isAuthenticated ? <PageTransition><TransactionReceipt /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/transaction-detail/:transactionId" element={
-            isAuthenticated ? <PageTransition><TransactionDetail /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/add-account" element={
-            isAuthenticated ? <PageTransition><AddAccount /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/channels" element={
-            isAuthenticated ? <PageTransition><Channels /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/channel/:id" element={
-            isAuthenticated ? <PageTransition><ChannelView /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/bots" element={
-            isAuthenticated ? <PageTransition><Bots /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/bot/:id" element={
-            isAuthenticated ? <PageTransition><BotChat /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/nearby" element={
-            isAuthenticated ? <PageTransition><NearbyPeople /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/active-sessions" element={
-            isAuthenticated ? <PageTransition><ActiveSessions /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/voice-chat/:id" element={
-            isAuthenticated ? <PageTransition><VoiceChatRoom /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/live-stories" element={
-            isAuthenticated ? <PageTransition><LiveStories /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/quick-replies" element={
-            isAuthenticated ? <PageTransition><QuickRepliesSettings /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/business-profile" element={
-            isAuthenticated ? <PageTransition><BusinessProfileSettings /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/gifts" element={
-            isAuthenticated ? <PageTransition><GiftsPage /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/buy-stars" element={
-            isAuthenticated ? <PageTransition><BuyStars /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/search" element={
-            isAuthenticated ? <GlobalSearch /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/ai-assistant" element={
-            isAuthenticated ? <AIAssistant /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/onboarding" element={
-            isAuthenticated ? <EtokOnboarding /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok" element={
-            isAuthenticated ? <Etok /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/camera" element={
-            isAuthenticated ? <EtokCamera /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/search" element={
-            isAuthenticated ? <EtokSearch /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/live" element={
-            isAuthenticated ? <EtokLive /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/live/:streamId" element={
-            isAuthenticated ? <EtokLive /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/profile/:userId" element={
-            isAuthenticated ? <EtokProfile /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/me" element={
-            isAuthenticated ? <EtokProfile /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/analytics" element={
-            isAuthenticated ? <EtokAnalytics /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/creator-tools" element={
-            isAuthenticated ? <EtokCreatorTools /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/etok/settings" element={
-            isAuthenticated ? <EtokSettings /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/reminders" element={
-            isAuthenticated ? <PageTransition><Reminders /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/chat-stats/:chatId" element={
-            isAuthenticated ? <PageTransition><ChatStats /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/group-call/:roomId" element={
-            isAuthenticated ? <GroupCall /> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/savings-goals" element={
-            isAuthenticated ? <PageTransition><SavingsGoals /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/sound-settings" element={
-            isAuthenticated ? <PageTransition><SoundSettings /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/broadcast" element={
-            isAuthenticated ? <PageTransition><BroadcastList /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/payment-request" element={
-            isAuthenticated ? <PageTransition><PaymentRequest /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/stories" element={
-            isAuthenticated ? <PageTransition><Stories /></PageTransition> : <Navigate to="/auth" replace />
-          } />
-          <Route path="/close-friends" element={
-            isAuthenticated ? <PageTransition><CloseFriends /></PageTransition> : <Navigate to="/auth" replace />
-          } />
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Splash /></PageTransition>} />
+          <Route path="/auth" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Auth /></PageTransition>} />
+          <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><ForgotPassword /></PageTransition>} />
+          <Route path="/chats" element={guard(isAuthenticated, <Chats />)} />
+          <Route path="/chat" element={isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />} />
+          <Route path="/chat/:chatId" element={guard(isAuthenticated, <Chat />)} />
+          <Route path="/profile" element={guard(isAuthenticated, <Profile />)} />
+          <Route path="/settings" element={guard(isAuthenticated, <Settings />)} />
+          <Route path="/contacts" element={guard(isAuthenticated, <Contacts />)} />
+          <Route path="/calls" element={guard(isAuthenticated, <Calls />)} />
+          <Route path="/saved-messages" element={guard(isAuthenticated, <SavedMessages />)} />
+          <Route path="/new-group" element={guard(isAuthenticated, <NewGroup />)} />
+          <Route path="/group/:groupId" element={guard(isAuthenticated, <GroupChat />)} />
+          <Route path="/group/:groupId/add-members" element={guard(isAuthenticated, <AddGroupMembers />)} />
+          <Route path="/contact/:userId" element={guard(isAuthenticated, <ContactProfile />)} />
+          <Route path="/privacy-settings" element={guard(isAuthenticated, <PrivacySettings />)} />
+          <Route path="/notification-settings" element={guard(isAuthenticated, <NotificationSettings />)} />
+          <Route path="/data-storage" element={guard(isAuthenticated, <DataStorageSettings />)} />
+          <Route path="/new-message" element={guard(isAuthenticated, <NewMessage />)} />
+          <Route path="/new-contact" element={guard(isAuthenticated, <NewContact />)} />
+          <Route path="/wallet" element={guard(isAuthenticated, <WalletLockGate><Wallet /></WalletLockGate>)} />
+          <Route path="/scheduled-payments" element={guard(isAuthenticated, <ScheduledPayments />)} />
+          <Route path="/wallet/qr" element={guard(isAuthenticated, <WalletQR />)} />
+          <Route path="/features" element={guard(isAuthenticated, <Features />)} />
+          <Route path="/add-money" element={guard(isAuthenticated, <AddMoney />)} />
+          <Route path="/send-money" element={guard(isAuthenticated, <SendMoney />)} />
+          <Route path="/request-money" element={guard(isAuthenticated, <RequestMoney />)} />
+          <Route path="/transaction-history" element={guard(isAuthenticated, <TransactionHistory />)} />
+          <Route path="/transaction-receipt" element={guard(isAuthenticated, <TransactionReceipt />)} />
+          <Route path="/transaction-detail/:transactionId" element={guard(isAuthenticated, <TransactionDetail />)} />
+          <Route path="/add-account" element={guard(isAuthenticated, <AddAccount />)} />
+          <Route path="/channels" element={guard(isAuthenticated, <Channels />)} />
+          <Route path="/channel/:id" element={guard(isAuthenticated, <ChannelView />)} />
+          <Route path="/bots" element={guard(isAuthenticated, <Bots />)} />
+          <Route path="/bot/:id" element={guard(isAuthenticated, <BotChat />)} />
+          <Route path="/nearby" element={guard(isAuthenticated, <NearbyPeople />)} />
+          <Route path="/active-sessions" element={guard(isAuthenticated, <ActiveSessions />)} />
+          <Route path="/voice-chat/:id" element={guard(isAuthenticated, <VoiceChatRoom />)} />
+          <Route path="/live-stories" element={guard(isAuthenticated, <LiveStories />)} />
+          <Route path="/quick-replies" element={guard(isAuthenticated, <QuickRepliesSettings />)} />
+          <Route path="/business-profile" element={guard(isAuthenticated, <BusinessProfileSettings />)} />
+          <Route path="/gifts" element={guard(isAuthenticated, <GiftsPage />)} />
+          <Route path="/buy-stars" element={guard(isAuthenticated, <BuyStars />)} />
+          <Route path="/search" element={guard(isAuthenticated, <GlobalSearch />, false)} />
+          <Route path="/ai-assistant" element={guard(isAuthenticated, <AIAssistant />, false)} />
+          <Route path="/etok/onboarding" element={guard(isAuthenticated, <EtokOnboarding />, false)} />
+          <Route path="/etok" element={guard(isAuthenticated, <Etok />, false)} />
+          <Route path="/etok/camera" element={guard(isAuthenticated, <EtokCamera />, false)} />
+          <Route path="/etok/search" element={guard(isAuthenticated, <EtokSearch />, false)} />
+          <Route path="/etok/live" element={guard(isAuthenticated, <EtokLive />, false)} />
+          <Route path="/etok/live/:streamId" element={guard(isAuthenticated, <EtokLive />, false)} />
+          <Route path="/etok/profile/:userId" element={guard(isAuthenticated, <EtokProfile />, false)} />
+          <Route path="/etok/me" element={guard(isAuthenticated, <EtokProfile />, false)} />
+          <Route path="/etok/analytics" element={guard(isAuthenticated, <EtokAnalytics />, false)} />
+          <Route path="/etok/creator-tools" element={guard(isAuthenticated, <EtokCreatorTools />, false)} />
+          <Route path="/etok/settings" element={guard(isAuthenticated, <EtokSettings />, false)} />
+          <Route path="/reminders" element={guard(isAuthenticated, <Reminders />)} />
+          <Route path="/chat-stats/:chatId" element={guard(isAuthenticated, <ChatStats />)} />
+          <Route path="/group-call/:roomId" element={guard(isAuthenticated, <GroupCall />, false)} />
+          <Route path="/savings-goals" element={guard(isAuthenticated, <SavingsGoals />)} />
+          <Route path="/sound-settings" element={guard(isAuthenticated, <SoundSettings />)} />
+          <Route path="/broadcast" element={guard(isAuthenticated, <BroadcastList />)} />
+          <Route path="/payment-request" element={guard(isAuthenticated, <PaymentRequest />)} />
+          <Route path="/stories" element={guard(isAuthenticated, <Stories />)} />
+          <Route path="/close-friends" element={guard(isAuthenticated, <CloseFriends />)} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
-      </AnimatePresence>
+      </Suspense>
       {showBottomNav && <BottomNavigation />}
     </>
   );
@@ -457,7 +309,9 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter
+            future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          >
             <OfflineBanner />
             <AuthProvider>
               <AppLockGate>
