@@ -1599,6 +1599,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      is_group_admin: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       record_etok_video_interaction: {
         Args: { _kind: string; _video_id: string }
         Returns: undefined
