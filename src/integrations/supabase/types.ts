@@ -1567,6 +1567,13 @@ export type Database = {
         Args: { user1_id: string; user2_id: string }
         Returns: string
       }
+      get_my_private_profile: {
+        Args: never
+        Returns: {
+          birthday: string
+          phone: string
+        }[]
+      }
       get_public_profile: {
         Args: { profile_id: string }
         Returns: {

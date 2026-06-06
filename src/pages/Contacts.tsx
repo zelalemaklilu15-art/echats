@@ -139,14 +139,9 @@ const Contacts = () => {
   }, [currentUserId, contactIds.length]);
 
   useEffect(() => {
-    if (!currentUserId || contactIds.length === 0) return;
-    supabase
-      .from("profiles")
-      .select("id, name, username, birthday")
-      .in("id", contactIds)
-      .then(({ data }) => {
-        if (data) setBirthdayContacts(checkTodaysBirthdays(data as { id: string; name: string | null; username: string; birthday?: string | null }[]));
-      });
+    // Other users' birthdays are now private. Disable cross-user birthday
+    // notifications to respect privacy.
+    setBirthdayContacts([]);
   }, [currentUserId, contactIds.length]);
 
   const handleAddContact = async (userId: string) => {

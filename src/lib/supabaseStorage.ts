@@ -28,16 +28,26 @@ export const uploadProfilePicture = async (
   return uploadFile('avatars', path, file, onProgress);
 };
 
-// Upload chat image
+// Helper — current authenticated user id for path-scoped uploads.
+const requireUserId = async (): Promise<string> => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user?.id) {
+    throw new Error('Not authenticated');
+  }
+  return data.user.id;
+};
+
+// Upload chat image — path is "{userId}/{chatId}/{file}" so storage RLS
+// can enforce that users only write into their own folder.
 export const uploadChatImage = async (
   chatId: string,
   file: File,
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadResult> => {
+  const userId = await requireUserId();
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}.${fileExt}`;
-  const path = `${chatId}/${fileName}`;
-
+  const path = `${userId}/${chatId}/${fileName}`;
   return uploadFile('chat-media', path, file, onProgress);
 };
 
@@ -47,9 +57,9 @@ export const uploadChatFile = async (
   file: File,
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadResult> => {
+  const userId = await requireUserId();
   const fileName = `${Date.now()}-${file.name}`;
-  const path = `${chatId}/${fileName}`;
-
+  const path = `${userId}/${chatId}/${fileName}`;
   return uploadFile('chat-media', path, file, onProgress);
 };
 
@@ -59,10 +69,10 @@ export const uploadVoiceMessage = async (
   audioBlob: Blob,
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadResult> => {
+  const userId = await requireUserId();
   const fileName = `${Date.now()}.webm`;
-  const path = `${chatId}/${fileName}`;
+  const path = `${userId}/${chatId}/${fileName}`;
   const file = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
-
   return uploadFile('chat-media', path, file, onProgress);
 };
 

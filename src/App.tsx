@@ -137,25 +137,10 @@ const AppRoutes = () => {
     return () => clearInterval(interval);
   }, [navigate]);
 
-  // Birthday checker (runs once on auth)
+  // Birthday checker — disabled. Other users' birthdays are private now.
   useEffect(() => {
     if (!user?.id) return;
-    const shown = sessionStorage.getItem("echat_bday_checked");
-    if (shown) return;
     sessionStorage.setItem("echat_bday_checked", "1");
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      supabase
-        .from("profiles")
-        .select("id, name, username, birthday")
-        .neq("id", user.id)
-        .then(({ data }) => {
-          if (!data) return;
-          const bdays = checkTodaysBirthdays(data as any);
-          bdays.forEach((c) => {
-            toast(`🎂 ${c.name || c.username} has a birthday today!`, { duration: 6000 });
-          });
-        });
-    });
   }, [user?.id]);
 
   const isAuthenticated = authState === "authenticated";
