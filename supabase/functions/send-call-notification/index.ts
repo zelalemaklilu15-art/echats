@@ -33,17 +33,49 @@ serve(async (req) => {
       );
     }
 
+    // --- Require authenticated caller ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const authClient = createClient(
+      supabaseUrl,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+    );
+    const { data: claimsData, error: claimsErr } = await authClient.auth.getClaims(
+      authHeader.replace('Bearer ', ''),
+    );
+    if (claimsErr || !claimsData?.claims?.sub) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const callerUserId = claimsData.claims.sub as string;
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload: PushPayload = await req.json();
-    const { receiverId, callerName, callType, roomId } = payload;
+    const { receiverId, callType, roomId } = payload;
 
-    if (!receiverId || !callerName || !callType || !roomId) {
+    if (!receiverId || !callType || !roomId) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Look up the real caller name from the server — ignore client-supplied value
+    // to prevent caller-name impersonation.
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('name, username')
+      .eq('id', callerUserId)
+      .maybeSingle();
+    const callerName = callerProfile?.name || callerProfile?.username || 'Someone';
 
     // Get push subscriptions for the receiver
     const { data: subscriptions, error: fetchError } = await supabase
