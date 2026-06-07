@@ -18,7 +18,7 @@ import { getProfileMusic } from "@/lib/profileMusicService";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { GiftPicker } from "@/components/chat/GiftPicker";
-import { sendGift, getStarsBalance } from "@/lib/giftsService";
+import { sendGift, getStarsBalance, refreshStarsBalance } from "@/lib/giftsService";
 
 interface ProfileData {
   id: string;
@@ -67,7 +67,7 @@ const ContactProfile = () => {
     setChatId(null);
     setIsBlocked(isUserBlocked(userId));
     setNote(getContactNote(userId));
-    setStarsBalance(getStarsBalance());
+    refreshStarsBalance().then(setStarsBalance).catch(() => setStarsBalance(getStarsBalance()));
     loadProfile();
     loadChatId();
   }, [userId]);
@@ -193,12 +193,12 @@ const ContactProfile = () => {
     toast.success("Note saved");
   };
 
-  const handleSendGift = (giftId: string, message?: string) => {
+  const handleSendGift = async (giftId: string, message?: string) => {
     if (!currentUser || !userId || !chatId) {
       toast.error("Open a chat first to send a gift");
       return;
     }
-    const result = sendGift(giftId, currentUser.id, userId, chatId, message);
+    const result = await sendGift(giftId, currentUser.id, userId, chatId, message);
     if (result) {
       toast.success("Gift sent! 🎁");
       setStarsBalance(getStarsBalance());

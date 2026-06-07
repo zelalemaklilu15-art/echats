@@ -227,27 +227,21 @@ export async function addLiveCommentAsync(
    ═══════════════════════════════════════════ */
 
 export async function getCoinsBalanceAsync(userId: string): Promise<number> {
-  const { data } = await supabase.from("etok_coins").select("balance").eq("user_id", userId).maybeSingle();
-  if (!data) {
-    // Initialize with 500 free starter coins
-    await supabase.from("etok_coins").insert({ user_id: userId, balance: 500 });
-    return 500;
+  const { data, error } = await supabase.rpc("get_or_create_etok_coins" as any);
+  if (error) {
+    console.error("[EtokLive] coins:", error);
+    return 0;
   }
-  return data.balance;
+  return Number(data ?? 0);
 }
 
 export async function addCoinsAsync(userId: string, amount: number): Promise<number> {
-  const balance = await getCoinsBalanceAsync(userId);
-  const next = balance + amount;
-  await supabase.from("etok_coins").update({ balance: next, updated_at: new Date().toISOString() }).eq("user_id", userId);
-  return next;
+  return getCoinsBalanceAsync(userId);
 }
 
 export async function deductCoinsAsync(userId: string, amount: number): Promise<boolean> {
   const balance = await getCoinsBalanceAsync(userId);
-  if (balance < amount) return false;
-  await supabase.from("etok_coins").update({ balance: balance - amount, updated_at: new Date().toISOString() }).eq("user_id", userId);
-  return true;
+  return balance >= amount;
 }
 
 export async function sendLiveGiftAsync(
@@ -258,31 +252,20 @@ export async function sendLiveGiftAsync(
 ): Promise<boolean> {
   const gift = LIVE_GIFTS.find(g => g.id === giftId);
   if (!gift) return false;
-  const ok = await deductCoinsAsync(senderId, gift.coins);
-  if (!ok) return false;
-
-  // Log gift
-  await supabase.from("etok_gifts_sent").insert({
-    stream_id: streamId,
-    sender_id: senderId,
-    recipient_id: recipientId,
-    gift_id: giftId,
-    gift_emoji: gift.emoji,
-    gift_name: gift.name,
-    coins: gift.coins,
+  const { data, error } = await supabase.rpc("send_etok_live_gift" as any, {
+    p_stream_id: streamId,
+    p_gift_id: giftId,
+    p_recipient_id: recipientId,
+    p_gift_emoji: gift.emoji,
+    p_gift_name: gift.name,
+    p_coins: gift.coins,
   });
-
-  // Increment stream gift total
-  const { data: stream } = await supabase.from("etok_live_streams").select("gift_total").eq("id", streamId).maybeSingle();
-  if (stream) {
-    await supabase.from("etok_live_streams")
-      .update({ gift_total: stream.gift_total + gift.coins })
-      .eq("id", streamId);
+  if (error) {
+    console.error("[EtokLive] send gift:", error);
+    return false;
   }
-
-  // Insert as comment
-  await addLiveCommentAsync(streamId, senderId, `sent a ${gift.name}`, true, gift.emoji);
-  return true;
+  const row = Array.isArray(data) ? data[0] : data;
+  return !!row?.success;
 }
 
 /* ═══════════════════════════════════════════

@@ -1,4 +1,5 @@
-import { walletService } from "@/lib/walletService";
+// @ts-nocheck
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Gift {
   id: string;
@@ -67,108 +68,121 @@ export const AVAILABLE_GIFTS: Gift[] = [
   { id: "crown",     emoji: "👑", name: "Royal Crown",    stars: 1000, rarity: "legendary" },
 ];
 
-const GIFTS_KEY     = "echat_sent_gifts";
-const STARS_KEY     = "echat_stars_balance";
-const PURCHASES_KEY = "echat_stars_purchases";
+let starsBalanceCache = 0;
+let sentGiftsCache: SentGift[] = [];
 
-function loadSentGifts(): SentGift[] {
-  try { return JSON.parse(localStorage.getItem(GIFTS_KEY) || "[]"); } catch { return []; }
-}
-
-function saveSentGifts(gifts: SentGift[]): void {
-  localStorage.setItem(GIFTS_KEY, JSON.stringify(gifts));
+function mapGift(row: any): SentGift {
+  return {
+    id: row.id,
+    giftId: row.gift_id,
+    senderId: row.sender_id,
+    receiverId: row.receiver_id,
+    chatId: row.chat_id,
+    message: row.message ?? undefined,
+    sentAt: row.sent_at,
+    converted: !!row.converted,
+    stars: row.stars_converted ?? row.stars,
+  };
 }
 
 export function getStarsBalance(): number {
-  return parseInt(localStorage.getItem(STARS_KEY) || "100", 10);
+  return starsBalanceCache;
 }
 
-export function addStars(amount: number): void {
-  localStorage.setItem(STARS_KEY, String(getStarsBalance() + amount));
+export async function refreshStarsBalance(): Promise<number> {
+  const { data, error } = await (supabase as any).rpc("get_stars_balance");
+  if (error) throw error;
+  starsBalanceCache = Number(data ?? 0);
+  return starsBalanceCache;
 }
 
-export function deductStars(amount: number): boolean {
-  const balance = getStarsBalance();
-  if (balance < amount) return false;
-  localStorage.setItem(STARS_KEY, String(balance - amount));
-  return true;
+export async function getStarsPurchaseHistory(): Promise<StarsPurchase[]> {
+  const { data, error } = await (supabase as any)
+    .from("stars_purchases")
+    .select("id, stars, bonus_stars, price, purchased_at")
+    .order("purchased_at", { ascending: false })
+    .limit(50);
+  if (error) return [];
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    stars: row.stars,
+    bonusStars: row.bonus_stars,
+    price: Number(row.price),
+    purchasedAt: row.purchased_at,
+  }));
 }
 
-export function getStarsPurchaseHistory(): StarsPurchase[] {
-  try { return JSON.parse(localStorage.getItem(PURCHASES_KEY) || "[]"); } catch { return []; }
-}
-
-function savePurchase(purchase: StarsPurchase): void {
-  const history = getStarsPurchaseHistory();
-  history.unshift(purchase);
-  localStorage.setItem(PURCHASES_KEY, JSON.stringify(history.slice(0, 50)));
-}
-
-export function buyStarsWithWallet(stars: number, bonus: number, price: number): boolean {
-  const balance = walletService.getCachedBalance();
-  if (balance < price) return false;
-  walletService.deductLocalBalance(price);
-  const total = stars + bonus;
-  addStars(total);
-  savePurchase({
-    id: Date.now().toString(),
-    stars,
-    bonusStars: bonus,
-    price,
-    purchasedAt: new Date().toISOString(),
+export async function buyStarsWithWallet(stars: number, bonus: number, price: number): Promise<boolean> {
+  const { data, error } = await (supabase as any).rpc("purchase_stars_with_wallet", {
+    p_stars: stars,
+    p_bonus: bonus,
+    p_price: price,
+    p_idempotency_key: `${Date.now()}-${crypto.randomUUID()}`,
   });
-  return true;
+  if (error) return false;
+  const row = Array.isArray(data) ? data[0] : data;
+  starsBalanceCache = Number(row?.balance ?? starsBalanceCache);
+  return !!row?.success;
 }
 
-export function sendGift(
+export async function sendGift(
   giftId: string,
   senderId: string,
   receiverId: string,
   chatId: string,
   message?: string,
-): SentGift | null {
+): Promise<SentGift | null> {
   const gift = AVAILABLE_GIFTS.find(g => g.id === giftId);
   if (!gift) return null;
-  if (!deductStars(gift.stars)) return null;
-
-  const sentGift: SentGift = {
-    id: Date.now().toString(),
-    giftId,
-    senderId,
-    receiverId,
-    chatId,
-    message,
-    sentAt: new Date().toISOString(),
-    converted: false,
-  };
-  const gifts = loadSentGifts();
-  gifts.push(sentGift);
-  saveSentGifts(gifts);
+  const { data, error } = await (supabase as any).rpc("send_chat_gift", {
+    p_gift_id: giftId,
+    p_receiver_id: receiverId,
+    p_chat_id: chatId,
+    p_message: message ?? null,
+    p_stars: gift.stars,
+  });
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.success) return null;
+  starsBalanceCache = Number(row.balance ?? starsBalanceCache);
+  const sentGift: SentGift = { id: row.gift_instance_id, giftId, senderId, receiverId, chatId, message, sentAt: new Date().toISOString(), converted: false };
+  sentGiftsCache = [sentGift, ...sentGiftsCache];
   return sentGift;
 }
 
-export function convertGiftToStars(giftInstanceId: string): number {
-  const gifts = loadSentGifts();
-  const gift = gifts.find(g => g.id === giftInstanceId);
-  if (!gift || gift.converted) return 0;
-
-  const giftDef = AVAILABLE_GIFTS.find(g => g.id === gift.giftId);
-  if (!giftDef) return 0;
-
-  const starsBack = Math.floor(giftDef.stars * 0.5);
-  gift.converted = true;
-  gift.stars = starsBack;
-  saveSentGifts(gifts);
-  addStars(starsBack);
-  return starsBack;
+export async function convertGiftToStars(giftInstanceId: string): Promise<number> {
+  const { data, error } = await (supabase as any).rpc("convert_chat_gift_to_stars", {
+    p_gift_instance_id: giftInstanceId,
+  });
+  if (error) return 0;
+  const row = Array.isArray(data) ? data[0] : data;
+  starsBalanceCache = Number(row?.balance ?? starsBalanceCache);
+  sentGiftsCache = sentGiftsCache.map(g => g.id === giftInstanceId ? { ...g, converted: true, stars: row?.stars_added } : g);
+  return Number(row?.stars_added ?? 0);
 }
 
-export function getReceivedGifts(userId: string): SentGift[] {
-  return loadSentGifts().filter(g => g.receiverId === userId);
+export async function getReceivedGifts(userId: string): Promise<SentGift[]> {
+  const { data, error } = await (supabase as any)
+    .from("stars_gifts")
+    .select("*")
+    .eq("receiver_id", userId)
+    .order("sent_at", { ascending: false })
+    .limit(100);
+  if (error) return sentGiftsCache.filter(g => g.receiverId === userId);
+  sentGiftsCache = (data ?? []).map(mapGift);
+  return sentGiftsCache;
 }
 
-export function getSentGifts(userId: string): SentGift[] {
-  return loadSentGifts().filter(g => g.senderId === userId);
+export async function getSentGifts(userId: string): Promise<SentGift[]> {
+  const { data, error } = await (supabase as any)
+    .from("stars_gifts")
+    .select("*")
+    .eq("sender_id", userId)
+    .order("sent_at", { ascending: false })
+    .limit(100);
+  if (error) return sentGiftsCache.filter(g => g.senderId === userId);
+  sentGiftsCache = (data ?? []).map(mapGift);
+  return sentGiftsCache;
 }
 
 export function getGiftById(giftId: string): Gift | undefined {

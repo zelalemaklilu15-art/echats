@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Gift as GiftIcon, Star, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   AVAILABLE_GIFTS,
   getStarsBalance,
+  refreshStarsBalance,
   RARITY_COLORS,
   RARITY_BG,
   type Gift,
@@ -27,7 +28,12 @@ export const GiftPicker = ({ open, onClose, onSend }: GiftPickerProps) => {
   const [message, setMessage] = useState("");
   const [filter, setFilter] = useState<string>("all");
 
-  const balance = getStarsBalance();
+  const [balance, setBalance] = useState(getStarsBalance());
+
+  useEffect(() => {
+    if (!open) return;
+    refreshStarsBalance().then(setBalance).catch(() => setBalance(getStarsBalance()));
+  }, [open]);
 
   const filtered = filter === "all"
     ? AVAILABLE_GIFTS

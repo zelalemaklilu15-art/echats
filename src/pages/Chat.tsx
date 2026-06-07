@@ -78,7 +78,7 @@ import { getBillSplit } from "@/lib/billSplitService";
 import { GiftMessageBubble } from "@/components/chat/GiftMessageBubble";
 import { createChecklist, getChecklistsForChat, toggleChecklistItem, deleteChecklist, type Checklist } from "@/lib/checklistService";
 import { getSharingSettings, updateSharingSettings, isForwardingPrevented } from "@/lib/sharingPreventionService";
-import { sendGift, getStarsBalance, getGiftById, getReceivedGifts, type SentGift } from "@/lib/giftsService";
+import { sendGift, getStarsBalance, getGiftById, refreshStarsBalance, getReceivedGifts, type SentGift } from "@/lib/giftsService";
 import { searchQuickReplies } from "@/lib/quickReplyService";
 import { getSmartReplies, type SmartReply } from "@/lib/smartReplyService";
 import { ListTodo, Gift as GiftIcon, ShieldOff, Wallet2, Receipt, FileText, Video as VideoIcon2, Gamepad2, BarChart2, Bell as BellIcon2, Pencil } from "lucide-react";
@@ -858,16 +858,16 @@ const Chat = () => {
     toast.success("Checklist removed");
   }, [chatId]);
 
-  const handleGiftSend = useCallback((giftId: string, message?: string) => {
+  const handleGiftSend = useCallback(async (giftId: string, message?: string) => {
     if (!chatId || !currentUserId) return;
-    const balance = getStarsBalance();
     const gift = getGiftById(giftId);
     if (!gift) return;
+    const balance = await refreshStarsBalance().catch(() => getStarsBalance());
     if (balance < gift.stars) {
       toast.error(`Not enough Stars! You need ${gift.stars} Stars.`);
       return;
     }
-    const result = sendGift(giftId, currentUserId, otherUserId || "", chatId, message);
+    const result = await sendGift(giftId, currentUserId, otherUserId || "", chatId, message);
     if (!result) {
       toast.error("Failed to send gift");
       return;

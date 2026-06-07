@@ -9,6 +9,7 @@ import {
   BUY_STARS_PACKAGES,
   buyStarsWithWallet,
   getStarsBalance,
+  refreshStarsBalance,
   type StarsPurchasePackage,
 } from "@/lib/giftsService";
 import { walletService } from "@/lib/walletService";
@@ -43,6 +44,7 @@ export default function BuyStars() {
   const [purchasing,    setPurchasing]   = useState(false);
 
   useEffect(() => {
+    refreshStarsBalance().then(setStarsBalance).catch(() => {});
     walletService.getWalletBalance().then(d => {
       if (d.wallet) setWalletBalance(d.wallet.balance);
     }).catch(() => {});
@@ -56,10 +58,12 @@ export default function BuyStars() {
     if (!selected) return;
     setPurchasing(true);
     await new Promise(r => setTimeout(r, 900));
-    const ok = buyStarsWithWallet(selected.stars, selected.bonus, selected.price);
+    const ok = await buyStarsWithWallet(selected.stars, selected.bonus, selected.price);
     if (ok) {
       setStarsBalance(getStarsBalance());
-      setWalletBalance(walletService.getCachedBalance());
+      walletService.getWalletBalance(true).then(d => {
+        if (d.wallet) setWalletBalance(d.wallet.balance);
+      }).catch(() => {});
       toast.success(`${(selected.stars + selected.bonus).toLocaleString()} Stars added to your account!`);
       setSelected(null);
       navigate("/gifts");

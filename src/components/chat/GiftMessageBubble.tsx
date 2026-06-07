@@ -17,8 +17,8 @@ export const GiftMessageBubble = ({ gift, isOwn, isReceiver }: GiftMessageBubble
 
   if (!giftDef) return null;
 
-  const handleConvert = () => {
-    const stars = convertGiftToStars(gift.id);
+  const handleConvert = async () => {
+    const stars = await convertGiftToStars(gift.id);
     if (stars > 0) {
       setConverted(true);
       toast.success(`Converted to ${stars} ⭐ Stars!`);

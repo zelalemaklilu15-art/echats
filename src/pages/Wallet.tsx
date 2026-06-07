@@ -9,7 +9,7 @@ import {
   TrendingUp, TrendingDown, ChevronDown,
   Home, Wallet as WalletIcon, BarChart2, User,
 } from "lucide-react";
-import { getStarsBalance } from "@/lib/giftsService";
+import { getStarsBalance, refreshStarsBalance } from "@/lib/giftsService";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { walletService, type WalletData, type WalletTransaction } from "@/lib/walletService";
@@ -117,6 +117,7 @@ const Wallet = () => {
   const [showTerms, setShowTerms]     = useState(false);
   const [copied, setCopied]           = useState(false);
   const [pendingReqs, setPendingReqs] = useState<PaymentRequest[]>([]);
+  const [stars, setStars]             = useState(getStarsBalance());
 
   const load = useCallback(async (force = false) => {
     try {
@@ -130,6 +131,7 @@ const Wallet = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { refreshStarsBalance().then(setStars).catch(() => {}); }, []);
   useEffect(() => {
     const fn = () => load(true);
     window.addEventListener("focus", fn); return () => window.removeEventListener("focus", fn);
@@ -166,7 +168,6 @@ const Wallet = () => {
   const balance       = wallet?.balance ?? 0;
   const recentTxns    = txns.slice(0, 8);
   const last4         = wallet ? cardLast4(wallet.id) : "0000";
-  const stars         = getStarsBalance();
   const weekIncome    = chartData.reduce((s, d) => s + d.income, 0);
   const weekExpense   = chartData.reduce((s, d) => s + d.expense, 0);
 
