@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, MoreVertical, Star, Gift,
@@ -6,7 +6,7 @@ import {
   Wallet, PieChart, User,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getStarsBalance } from "@/lib/giftsService";
+import { getStarsBalance, refreshStarsBalance } from "@/lib/giftsService";
 import { toast } from "sonner";
 
 /* ─── design tokens ─── */
@@ -41,7 +41,11 @@ type Tab = "received" | "sent";
 const GiftsPage = () => {
   const navigate      = useNavigate();
   const [tab, setTab] = useState<Tab>("received");
-  const starsBalance  = getStarsBalance();
+  const [starsBalance, setStarsBalance] = useState(getStarsBalance());
+
+  useEffect(() => {
+    refreshStarsBalance().then(setStarsBalance).catch(() => setStarsBalance(getStarsBalance()));
+  }, []);
 
   const items = tab === "received" ? DEMO_RECEIVED : DEMO_SENT;
 
