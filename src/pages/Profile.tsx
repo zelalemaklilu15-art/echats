@@ -20,7 +20,7 @@ import { getSessionUserSafe } from "@/lib/authSession";
 import { QRCodeSVG } from "qrcode.react";
 import { getProfileMusic, setProfileMusic, removeProfileMusic, toggleProfileMusic } from "@/lib/profileMusicService";
 import { getVerification, getBadgeConfig } from "@/lib/verificationService";
-import { getStarsBalance } from "@/lib/giftsService";
+import { getStarsBalance, refreshStarsBalance } from "@/lib/giftsService";
 import { Switch } from "@/components/ui/switch";
 import {
   getHighlights,
@@ -60,7 +60,7 @@ const Profile = () => {
 
   useEffect(() => {
     loadProfile();
-    setStarsBalance(getStarsBalance());
+    refreshStarsBalance().then(setStarsBalance).catch(() => setStarsBalance(getStarsBalance()));
   }, []);
 
   const loadProfile = async () => {
