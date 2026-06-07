@@ -98,6 +98,13 @@ export async function streamAIResponse({
   signal?: AbortSignal;
 }) {
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      onError("Please sign in to use Echat AI.");
+      return;
+    }
+
     const memoryEnabled = settings?.memoryEnabled !== false;
     const slice = memoryEnabled ? messages.slice(-40) : messages.slice(-1);
     const apiMessages = slice.map((m) => ({
@@ -109,7 +116,7 @@ export async function streamAIResponse({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         messages: apiMessages,
@@ -183,11 +190,15 @@ export async function streamAIResponse({
 // ---- Image generation ----
 
 export async function generateImage(prompt: string): Promise<{ text: string; imageUrl: string | null }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Please sign in to generate images.");
+
   const resp = await fetch(IMAGE_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ prompt }),
   });
