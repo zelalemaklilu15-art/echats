@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { isUserOnline } from "@/lib/formatLastSeen";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Search, Loader2, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";

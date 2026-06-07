@@ -17,7 +17,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "
 import { StoriesBar } from "@/components/stories/StoriesBar";
 import { SpeedDialFAB } from "@/components/SpeedDialFAB";
 import { usePinnedChats } from "@/hooks/usePinnedChats";
-import { formatLastSeen } from "@/lib/formatLastSeen";
+import { formatLastSeen, isUserOnline } from "@/lib/formatLastSeen";
 import { getDraft } from "@/lib/draftService";
 import { archiveChat, unarchiveChat, getArchivedChatIds, isChatArchived } from "@/lib/archiveService";
 import { getChatFolders, getFolderChatIds, addChatFolder, removeChatFolder, updateChatFolder, addChatToFolder, removeChatFromFolder, getChatFolderId, type ChatFolder } from "@/lib/chatFolderService";

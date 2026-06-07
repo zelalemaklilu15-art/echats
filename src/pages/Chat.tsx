@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { isUserOnline } from "@/lib/formatLastSeen";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ArrowLeft, MoreVertical, Paperclip, Send, Image, File, Loader2, Search, Mic, Images, Video, VolumeX, Volume2, ImageIcon, Trash2, BellOff, Bell, X, Pin, Timer, CheckSquare, Square, Clock, Lock, Palette, BarChart3, MapPin, Download, KeyRound, BadgeCheck, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
