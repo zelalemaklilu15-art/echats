@@ -71,7 +71,7 @@ export function LinkPreviewCard({ url }: LinkPreviewCardProps) {
         )}
         <div className="p-2 space-y-0.5">
           <div className="flex items-center gap-1.5">
-            <img src={faviconUrl} alt="" className="w-3.5 h-3.5 rounded-sm flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            {faviconUrl && <img src={faviconUrl} alt="" className="w-3.5 h-3.5 rounded-sm flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
             <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide truncate">{hostname}</span>
             <ExternalLink className="w-2.5 h-2.5 text-muted-foreground/50 flex-shrink-0 ml-auto" />
           </div>
