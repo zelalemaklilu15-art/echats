@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCall } from "@/contexts/CallContext";
-import { formatLastSeen } from "@/lib/formatLastSeen";
+import { formatLastSeen, isUserOnline } from "@/lib/formatLastSeen";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isUserBlocked, blockUser, unblockUser as unblockUserService } from "@/lib/blockService";
@@ -225,7 +225,8 @@ const ContactProfile = () => {
   }
 
   const displayName = profile.name || profile.username;
-  const lastSeenText = formatLastSeen(profile.last_seen, profile.is_online || false);
+  const effectiveOnline = isUserOnline(profile.last_seen, profile.is_online || false);
+  const lastSeenText = formatLastSeen(profile.last_seen, effectiveOnline);
   const verification = getVerification(userId || "");
   const music = getProfileMusic(userId || "");
 

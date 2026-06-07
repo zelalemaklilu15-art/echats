@@ -17,7 +17,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "
 import { StoriesBar } from "@/components/stories/StoriesBar";
 import { SpeedDialFAB } from "@/components/SpeedDialFAB";
 import { usePinnedChats } from "@/hooks/usePinnedChats";
-import { formatLastSeen } from "@/lib/formatLastSeen";
+import { formatLastSeen, isUserOnline } from "@/lib/formatLastSeen";
 import { getDraft } from "@/lib/draftService";
 import { archiveChat, unarchiveChat, getArchivedChatIds, isChatArchived } from "@/lib/archiveService";
 import { getChatFolders, getFolderChatIds, addChatFolder, removeChatFolder, updateChatFolder, addChatToFolder, removeChatFromFolder, getChatFolderId, type ChatFolder } from "@/lib/chatFolderService";
@@ -101,7 +101,7 @@ const ChatItem = ({ chat, onClick, index, pinned, onTogglePin, onArchive, onMove
   
   const name = profile?.name || profile?.username || "Loading...";
   const avatar = profile?.avatar_url || "";
-  const isOnline = profile?.is_online || false;
+  const isOnline = isUserOnline(profile?.last_seen, profile?.is_online || false);
   const lastSeenText = formatLastSeen(profile?.last_seen, isOnline);
   const timestamp = formatTimestamp(chat.last_message_time);
   

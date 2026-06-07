@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isUserOnline } from "@/lib/formatLastSeen";
 import { ArrowLeft, Users, Camera, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,7 @@ const ContactItem = ({ userId, selected, onToggle }: ContactItemProps) => {
       <ChatAvatar
         name={profile.name || profile.username}
         src={profile.avatar_url || undefined}
-        status={profile.is_online ? "online" : "offline"}
+        status={isUserOnline(profile.last_seen, profile.is_online) ? "online" : "offline"}
         size="md"
       />
       

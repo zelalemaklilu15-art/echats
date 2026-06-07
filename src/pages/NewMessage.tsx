@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { isUserOnline } from "@/lib/formatLastSeen";
 import { ArrowLeft, Search, Users, UserPlus, Hash, Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,7 @@ const ContactItem = ({ userId, onClick }: ContactItemProps) => {
       <ChatAvatar
         name={profile.name || profile.username}
         src={profile.avatar_url || undefined}
-        status={profile.is_online ? "online" : "offline"}
+        status={isUserOnline(profile.last_seen, profile.is_online) ? "online" : "offline"}
         size="md"
       />
       
@@ -237,7 +238,7 @@ const NewMessage = () => {
                   <ChatAvatar
                     name={user.name || user.username}
                     src={user.avatar_url || undefined}
-                    status={user.is_online ? "online" : "offline"}
+                    status={isUserOnline(user.last_seen, user.is_online) ? "online" : "offline"}
                     size="md"
                   />
                   

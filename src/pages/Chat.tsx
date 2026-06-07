@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { isUserOnline } from "@/lib/formatLastSeen";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { ArrowLeft, MoreVertical, Paperclip, Send, Image, File, Loader2, Search, Mic, Images, Video, VolumeX, Volume2, ImageIcon, Trash2, BellOff, Bell, X, Pin, Timer, CheckSquare, Square, Clock, Lock, Palette, BarChart3, MapPin, Download, KeyRound, BadgeCheck, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -563,7 +564,7 @@ const Chat = () => {
   // Derived state
   const chatName = otherProfile?.name || otherProfile?.username || "Chat";
   const chatAvatar = otherProfile?.avatar_url || "";
-  const isOnline = otherProfile?.is_online || false;
+  const isOnline = isUserOnline(otherProfile?.last_seen, otherProfile?.is_online || false);
   const isTyping = typingUsers.length > 0;
   
   const hasCachedMessages = messages.length > 0;

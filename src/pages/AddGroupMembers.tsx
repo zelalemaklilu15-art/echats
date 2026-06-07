@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { isUserOnline } from "@/lib/formatLastSeen";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Search, Loader2, UserPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -225,7 +226,7 @@ const AddGroupMembers = () => {
                 <ChatAvatar
                   name={user.name || user.username}
                   src={user.avatar_url || undefined}
-                  status={user.is_online ? "online" : "offline"}
+                  status={isUserOnline(user.last_seen, user.is_online) ? "online" : "offline"}
                   size="md"
                 />
                 <div>

@@ -13,7 +13,7 @@ const BG   = "#0D0A1A";
 const CARD = "#1A1030";
 const P    = "#7C3AED";
 
-interface Contact { id: string; name: string; username: string; avatar_url?: string; is_online?: boolean; }
+interface Contact { id: string; name: string; username: string; avatar_url?: string; is_online?: boolean; last_seen?: string; }
 
 function groupAlpha(contacts: Contact[]): { letter: string; items: Contact[] }[] {
   const map = new Map<string, Contact[]>();
@@ -69,7 +69,7 @@ const SendMoney = () => {
         const { data } = await supabase.rpc("search_users_public", { search_term: "" });
         setAll((data || []).slice(0, 50).map((u: any) => ({
           id: u.id, name: u.name || u.username, username: u.username,
-          avatar_url: u.avatar_url, is_online: u.is_online,
+          avatar_url: u.avatar_url, is_online: u.is_online, last_seen: u.last_seen,
         })));
       } catch {}
     };
@@ -84,7 +84,7 @@ const SendMoney = () => {
         const { data } = await supabase.rpc("search_users_public", { search_term: query });
         setResults((data || []).map((u: any) => ({
           id: u.id, name: u.name || u.username, username: u.username,
-          avatar_url: u.avatar_url, is_online: u.is_online,
+          avatar_url: u.avatar_url, is_online: u.is_online, last_seen: u.last_seen,
         })));
       } catch { toast.error("Search failed"); }
       finally { setSearching(false); }
@@ -119,7 +119,7 @@ const SendMoney = () => {
   /* ── AVATAR helper ── */
   const Avatar = ({ c, size = 56 }: { c: Contact; size?: number }) => (
     <div className="rounded-full overflow-hidden flex-shrink-0" style={{ width: size, height: size }}>
-      <ChatAvatar name={c.name} src={c.avatar_url} size="md" status={c.is_online ? "online" : undefined} />
+      <ChatAvatar name={c.name} src={c.avatar_url} size="md" status={isUserOnline(c.last_seen, c.is_online || false) ? "online" : undefined} />
     </div>
   );
 
@@ -211,7 +211,7 @@ const SendMoney = () => {
                           className="flex items-center gap-3 w-full py-3 text-left"
                           data-testid={`contact-${c.username}`}>
                           <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                            <ChatAvatar name={c.name} src={c.avatar_url} size="md" status={c.is_online ? "online" : undefined} />
+                            <ChatAvatar name={c.name} src={c.avatar_url} size="md" status={isUserOnline(c.last_seen, c.is_online || false) ? "online" : undefined} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-[15px] text-white truncate">{c.name}</p>
