@@ -1307,6 +1307,93 @@ export type Database = {
           },
         ]
       }
+      stars_balances: {
+        Row: {
+          balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      stars_gifts: {
+        Row: {
+          chat_id: string
+          converted: boolean
+          gift_id: string
+          id: string
+          message: string | null
+          receiver_id: string
+          sender_id: string
+          sent_at: string
+          stars: number
+          stars_converted: number | null
+        }
+        Insert: {
+          chat_id: string
+          converted?: boolean
+          gift_id: string
+          id?: string
+          message?: string | null
+          receiver_id: string
+          sender_id: string
+          sent_at?: string
+          stars: number
+          stars_converted?: number | null
+        }
+        Update: {
+          chat_id?: string
+          converted?: boolean
+          gift_id?: string
+          id?: string
+          message?: string | null
+          receiver_id?: string
+          sender_id?: string
+          sent_at?: string
+          stars?: number
+          stars_converted?: number | null
+        }
+        Relationships: []
+      }
+      stars_purchases: {
+        Row: {
+          bonus_stars: number
+          id: string
+          price: number
+          purchased_at: string
+          stars: number
+          user_id: string
+          wallet_transaction_id: string | null
+        }
+        Insert: {
+          bonus_stars?: number
+          id?: string
+          price: number
+          purchased_at?: string
+          stars: number
+          user_id: string
+          wallet_transaction_id?: string | null
+        }
+        Update: {
+          bonus_stars?: number
+          id?: string
+          price?: number
+          purchased_at?: string
+          stars?: number
+          user_id?: string
+          wallet_transaction_id?: string | null
+        }
+        Relationships: []
+      }
       story_views: {
         Row: {
           id: string
@@ -1563,6 +1650,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      convert_chat_gift_to_stars: {
+        Args: { p_gift_instance_id: string }
+        Returns: {
+          balance: number
+          stars_added: number
+          success: boolean
+        }[]
+      }
       find_or_create_chat: {
         Args: { user1_id: string; user2_id: string }
         Returns: string
@@ -1574,6 +1669,7 @@ export type Database = {
           phone: string
         }[]
       }
+      get_or_create_etok_coins: { Args: never; Returns: number }
       get_public_profile: {
         Args: { profile_id: string }
         Returns: {
@@ -1587,6 +1683,7 @@ export type Database = {
           username: string
         }[]
       }
+      get_stars_balance: { Args: never; Returns: number }
       get_user_wallet: {
         Args: { p_user_id: string }
         Returns: {
@@ -1614,6 +1711,20 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      purchase_stars_with_wallet: {
+        Args: {
+          p_bonus: number
+          p_idempotency_key?: string
+          p_price: number
+          p_stars: number
+        }
+        Returns: {
+          balance: number
+          purchase_id: string
+          success: boolean
+          wallet_balance: number
+        }[]
+      }
       record_etok_video_interaction: {
         Args: { _kind: string; _video_id: string }
         Returns: undefined
@@ -1633,6 +1744,34 @@ export type Database = {
           last_seen: string
           name: string
           username: string
+        }[]
+      }
+      send_chat_gift: {
+        Args: {
+          p_chat_id: string
+          p_gift_id: string
+          p_message: string
+          p_receiver_id: string
+          p_stars: number
+        }
+        Returns: {
+          balance: number
+          gift_instance_id: string
+          success: boolean
+        }[]
+      }
+      send_etok_live_gift: {
+        Args: {
+          p_coins: number
+          p_gift_emoji: string
+          p_gift_id: string
+          p_gift_name: string
+          p_recipient_id: string
+          p_stream_id: string
+        }
+        Returns: {
+          balance: number
+          success: boolean
         }[]
       }
     }
