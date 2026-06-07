@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-interface Contact { id: string; name: string; username: string; avatar_url?: string; is_online?: boolean; }
+interface Contact { id: string; name: string; username: string; avatar_url?: string; is_online?: boolean; last_seen?: string; }
 
 export interface PaymentRequest {
   id: string;
@@ -61,7 +61,7 @@ const RequestMoney = () => {
         if (error) throw error;
         setContacts((data || []).map((u: any) => ({
           id: u.id, name: u.name || u.username, username: u.username,
-          avatar_url: u.avatar_url, is_online: u.is_online,
+          avatar_url: u.avatar_url, is_online: u.is_online, last_seen: u.last_seen,
         })));
       } catch { toast.error("Search failed"); }
       finally { setSearching(false); }
@@ -165,7 +165,7 @@ const RequestMoney = () => {
                     className="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-muted/30 transition-colors"
                     data-testid={`request-contact-${c.username}`}
                   >
-                    <ChatAvatar name={c.name} src={c.avatar_url} size="md" status={c.is_online ? "online" : undefined} />
+                    <ChatAvatar name={c.name} src={c.avatar_url} size="md" status={isUserOnline(c.last_seen, c.is_online || false) ? "online" : undefined} />
                     <div className="flex-1 text-left">
                       <p className="font-semibold text-[14px]">{c.name}</p>
                       <p className="text-muted-foreground text-[12px]">@{c.username}</p>
@@ -195,7 +195,7 @@ const RequestMoney = () => {
           <div className="px-4 pt-6 pb-6">
             {/* Selected pill */}
             <div className="flex items-center gap-3 bg-card border border-border/50 rounded-2xl px-4 py-3 mb-6">
-              <ChatAvatar name={selected.name} src={selected.avatar_url} size="md" status={selected.is_online ? "online" : undefined} />
+              <ChatAvatar name={selected.name} src={selected.avatar_url} size="md" status={isUserOnline(selected.last_seen, selected.is_online || false) ? "online" : undefined} />
               <div className="flex-1">
                 <p className="font-semibold text-[14px]">{selected.name}</p>
                 <p className="text-muted-foreground text-[12px]">@{selected.username}</p>
