@@ -11,7 +11,7 @@ import { searchUsers, findOrCreateChat } from "@/lib/supabaseService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatLastSeen } from "@/lib/formatLastSeen";
+import { formatLastSeen, isUserOnline } from "@/lib/formatLastSeen";
 
 const ContactItem = ({ userId, onClick }: { userId: string; onClick: (id: string) => void }) => {
   const { profile, loading } = useProfile(userId);
@@ -28,6 +28,7 @@ const ContactItem = ({ userId, onClick }: { userId: string; onClick: (id: string
     );
   }
 
+  const online = isUserOnline(profile.last_seen, profile.is_online);
   const lastSeen = formatLastSeen(profile.last_seen, profile.is_online);
 
   return (
@@ -40,7 +41,7 @@ const ContactItem = ({ userId, onClick }: { userId: string; onClick: (id: string
       <ChatAvatar
         name={profile.name || profile.username}
         src={profile.avatar_url || undefined}
-        status={profile.is_online ? "online" : "offline"}
+        status={online ? "online" : "offline"}
         size="md"
       />
       <div className="flex-1 min-w-0">
@@ -57,7 +58,7 @@ const ContactItem = ({ userId, onClick }: { userId: string; onClick: (id: string
         </div>
         <p className="text-[12px] text-muted-foreground truncate mt-0.5">@{profile.username}</p>
         {lastSeen && (
-          <p className={`text-[11px] mt-0.5 font-medium ${profile.is_online ? "text-emerald-400" : "text-muted-foreground"}`}>
+          <p className={`text-[11px] mt-0.5 font-medium ${online ? "text-emerald-400" : "text-muted-foreground"}`}>
             {lastSeen}
           </p>
         )}
@@ -78,7 +79,7 @@ const SearchResultRow = ({ user, onClick }: { user: PublicProfile; onClick: () =
     <ChatAvatar
       name={user.name || user.username}
       src={user.avatar_url || undefined}
-      status={user.is_online ? "online" : "offline"}
+      status={isUserOnline(user.last_seen, user.is_online) ? "online" : "offline"}
       size="md"
     />
     <div className="flex-1 min-w-0">
