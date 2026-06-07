@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import PageTransition from "./components/PageTransition";
-import { updateOnlineStatus } from "@/lib/supabaseService";
+import { usePresence } from "@/hooks/usePresence";
 import logoImage from "@/assets/echat-logo.jpg";
 import { CallProvider } from "@/contexts/CallContext";
 import { CallOverlay } from "@/components/call/CallOverlay";
@@ -155,13 +155,7 @@ const AppRoutes = () => {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    updateOnlineStatus(user.id, true).catch(console.warn);
-    return () => {
-      updateOnlineStatus(user.id, false).catch(console.warn);
-    };
-  }, [user?.id]);
+  usePresence(user?.id);
 
   useEffect(() => {
     if (!isAuthenticated) return;
