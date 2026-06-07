@@ -41,7 +41,7 @@ const ContactItem = ({ userId, selected, onToggle }: ContactItemProps) => {
       <ChatAvatar
         name={profile.name || profile.username}
         src={profile.avatar_url || undefined}
-        status={profile.is_online ? "online" : "offline"}
+        status={isUserOnline(profile.last_seen, profile.is_online) ? "online" : "offline"}
         size="md"
       />
       

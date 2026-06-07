@@ -563,7 +563,7 @@ const Chat = () => {
   // Derived state
   const chatName = otherProfile?.name || otherProfile?.username || "Chat";
   const chatAvatar = otherProfile?.avatar_url || "";
-  const isOnline = otherProfile?.is_online || false;
+  const isOnline = isUserOnline(otherProfile?.last_seen, otherProfile?.is_online || false);
   const isTyping = typingUsers.length > 0;
   
   const hasCachedMessages = messages.length > 0;

@@ -101,7 +101,7 @@ const ChatItem = ({ chat, onClick, index, pinned, onTogglePin, onArchive, onMove
   
   const name = profile?.name || profile?.username || "Loading...";
   const avatar = profile?.avatar_url || "";
-  const isOnline = profile?.is_online || false;
+  const isOnline = isUserOnline(profile?.last_seen, profile?.is_online || false);
   const lastSeenText = formatLastSeen(profile?.last_seen, isOnline);
   const timestamp = formatTimestamp(chat.last_message_time);
   

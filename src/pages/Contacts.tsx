@@ -251,7 +251,7 @@ const Contacts = () => {
                 <ChatAvatar
                   name={u.name || u.username}
                   src={u.avatar_url || undefined}
-                  status={u.is_online ? "online" : "offline"}
+                  status={isUserOnline(u.last_seen, u.is_online) ? "online" : "offline"}
                   size="md"
                 />
                 <p className="text-[11px] font-semibold text-center truncate w-full">{u.name || u.username}</p>

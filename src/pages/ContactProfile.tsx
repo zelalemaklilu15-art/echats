@@ -225,7 +225,8 @@ const ContactProfile = () => {
   }
 
   const displayName = profile.name || profile.username;
-  const lastSeenText = formatLastSeen(profile.last_seen, profile.is_online || false);
+  const effectiveOnline = isUserOnline(profile.last_seen, profile.is_online || false);
+  const lastSeenText = formatLastSeen(profile.last_seen, effectiveOnline);
   const verification = getVerification(userId || "");
   const music = getProfileMusic(userId || "");
 

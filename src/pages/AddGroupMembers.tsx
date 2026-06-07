@@ -225,7 +225,7 @@ const AddGroupMembers = () => {
                 <ChatAvatar
                   name={user.name || user.username}
                   src={user.avatar_url || undefined}
-                  status={user.is_online ? "online" : "offline"}
+                  status={isUserOnline(user.last_seen, user.is_online) ? "online" : "offline"}
                   size="md"
                 />
                 <div>
