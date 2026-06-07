@@ -6,10 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
 
 export async function generateImage(prompt: string): Promise<string> {
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("Not authenticated");
+
     const { data, error } = await supabase.functions.invoke("ai-image", {
+      headers: { Authorization: `Bearer ${token}` },
       body: { prompt },
     });
-    if (!error && data?.url) return data.url as string;
+    if (!error && (data?.imageUrl || data?.url)) return (data.imageUrl || data.url) as string;
   } catch {
     // fall through to free fallback
   }
