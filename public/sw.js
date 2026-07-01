@@ -1,85 +1,59 @@
-// Service Worker for Echat — Push Notifications + Offline App Shell Caching
+// Service Worker for Echat — Push Notifications + Safe Runtime Caching
+// NOTE: We intentionally do NOT cache the HTML shell or hashed JS/CSS assets.
+// Caching them broke reloads after deploys (stale HTML → missing chunks → black screen).
 
-const CACHE_NAME = 'echat-v1';
-const APP_SHELL = ['/', '/favicon.ico', '/manifest.json'];
+const CACHE_NAME = 'echat-v3';
+const STATIC_ASSETS = ['/favicon.ico', '/manifest.json'];
 
 // =============================================
-// INSTALL — cache the app shell
+// INSTALL — cache only stable static assets
 // =============================================
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).catch(() => {})
   );
   self.skipWaiting();
 });
 
 // =============================================
-// ACTIVATE — clean up old caches
+// ACTIVATE — purge ALL old caches (fixes stale bundle black-screen)
 // =============================================
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating');
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 // =============================================
-// FETCH — serve from cache with network fallback
+// FETCH — network-only for HTML/JS/CSS to prevent stale-deploy black screens.
+//   Only cache tiny stable assets (icons/manifest).
 // =============================================
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-  // Never intercept Supabase API calls, non-GET requests, or browser extensions
-  if (
-    event.request.method !== 'GET' ||
-    url.hostname.includes('supabase.co') ||
-    url.protocol === 'chrome-extension:'
-  ) {
-    return;
+  const url = new URL(req.url);
+  if (url.protocol === 'chrome-extension:' || url.hostname.includes('supabase.co')) return;
+
+  // Never intercept HTML navigation or hashed app bundles — always go to network.
+  if (req.mode === 'navigate' || url.pathname.startsWith('/assets/') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.html')) {
+    return; // let the browser handle it (network)
   }
 
-  // HTML navigation requests — Network First, fall back to cached '/'
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match('/').then((cached) => cached || fetch(event.request))
-      )
-    );
-    return;
-  }
-
-  // Static assets (/assets/ JS/CSS bundles) — Cache First
-  if (url.pathname.startsWith('/assets/')) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        });
-      })
-    );
-    return;
-  }
-
-  // Everything else — Network First, fall back to cache
+  // Small static files — cache-first with silent update.
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
+    caches.match(req).then((cached) => {
+      const fetchPromise = fetch(req).then((response) => {
         if (response.ok) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)).catch(() => {});
         }
         return response;
-      })
-      .catch(() => caches.match(event.request))
+      }).catch(() => cached);
+      return cached || fetchPromise;
+    })
   );
 });
 
@@ -87,8 +61,6 @@ self.addEventListener('fetch', (event) => {
 // PUSH — incoming push notifications
 // =============================================
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received:', event);
-
   let data = {
     title: 'Echat',
     body: 'You have a new notification',
@@ -120,49 +92,19 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
-// =============================================
-// NOTIFICATION CLICK
-// =============================================
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked:', event);
-
   event.notification.close();
-
-  const action = event.action;
-  const data = event.notification.data || {};
-
+  const url = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if ('focus' in client) {
-          if (action === 'accept' && data.roomId) {
-            client.postMessage({ type: 'CALL_ACCEPT', roomId: data.roomId });
-          } else if (action === 'reject' && data.roomId) {
-            client.postMessage({ type: 'CALL_REJECT', roomId: data.roomId });
-          }
-          return client.focus();
-        }
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) { client.navigate(url); return client.focus(); }
       }
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(data.url || '/');
-      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
 });
 
-// =============================================
-// MESSAGES FROM APP
-// =============================================
 self.addEventListener('message', (event) => {
-  console.log('[SW] Message received:', event.data);
-
-  if (event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-
-  if (event.data.type === 'CLOSE_NOTIFICATION') {
-    self.registration.getNotifications({ tag: event.data.tag }).then((notifications) => {
-      notifications.forEach((n) => n.close());
-    });
-  }
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
