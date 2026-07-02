@@ -151,29 +151,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get current balance
-    const { data: balanceResult } = await supabaseAdmin
-      .rpc('get_wallet_balance', { p_wallet_id: wallet.id });
-    
-    const currentBalance = parseFloat(balanceResult) || 0;
-    const newBalance = currentBalance + depositAmount;
-
-    // Create transaction record
+    // ==========================================================
+    // IMPORTANT: Deposits are now created in "pending" status and
+    // MUST be confirmed by a verified payment-provider webhook
+    // (Telebirr / CBEBirr / Awash / Dashen / card gateway) before
+    // the balance is credited. The DB trigger only applies the
+    // balance change when a transaction moves to `completed`.
+    // ==========================================================
     const { data: transaction, error: txError } = await supabaseAdmin
       .from('wallet_transactions')
       .insert({
         wallet_id: wallet.id,
         idempotency_key: idempotency_key || null,
         type: 'deposit',
-        status: 'completed',
+        status: 'pending',
         amount: depositAmount,
-        balance_before: currentBalance,
-        balance_after: newBalance,
-        description: `Added money via ${methodName}`,
+        description: `Deposit via ${methodName} (awaiting confirmation)`,
         metadata: {
           method: methodName,
           timestamp: new Date().toISOString(),
           user_agent: req.headers.get('user-agent'),
+          requires_webhook_confirmation: true,
         }
       })
       .select()
@@ -182,21 +180,22 @@ Deno.serve(async (req) => {
     if (txError) {
       console.error('Transaction error:', txError);
       return new Response(
-        JSON.stringify({ error: 'Failed to process deposit. Please try again.' }),
+        JSON.stringify({ error: 'Failed to create deposit request. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
+        pending: true,
+        message: 'Deposit request created. Complete payment with the provider — your balance will update once the payment is confirmed.',
         transaction: {
           id: transaction.id,
           type: 'deposit',
           amount: depositAmount,
-          balance_after: transaction.balance_after ?? newBalance,
+          status: 'pending',
           method: methodName,
-          status: 'completed',
           created_at: transaction.created_at,
         }
       }),
