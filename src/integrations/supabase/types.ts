@@ -1081,6 +1081,38 @@ export type Database = {
           },
         ]
       }
+      group_mutes: {
+        Row: {
+          created_at: string
+          group_id: string
+          muted_by: string | null
+          muted_until: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          muted_by?: string | null
+          muted_until?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          muted_by?: string | null
+          muted_until?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_mutes_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groups: {
         Row: {
           avatar_url: string | null
@@ -1501,6 +1533,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_verifications: {
+        Row: {
+          badge: Database["public"]["Enums"]["verification_badge"]
+          created_at: string
+          description: string | null
+          updated_at: string
+          user_id: string
+          verified_by: string
+        }
+        Insert: {
+          badge: Database["public"]["Enums"]["verification_badge"]
+          created_at?: string
+          description?: string | null
+          updated_at?: string
+          user_id: string
+          verified_by?: string
+        }
+        Update: {
+          badge?: Database["public"]["Enums"]["verification_badge"]
+          created_at?: string
+          description?: string | null
+          updated_at?: string
+          user_id?: string
+          verified_by?: string
+        }
+        Relationships: []
+      }
       wallet_terms_acceptance: {
         Row: {
           accepted_at: string
@@ -1703,6 +1762,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      has_wallet_pin: { Args: never; Returns: boolean }
       is_group_admin: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
@@ -1710,6 +1770,19 @@ export type Database = {
       is_group_member: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
+      }
+      is_group_member_muted: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      mute_group_member: {
+        Args: {
+          p_group_id: string
+          p_mute: boolean
+          p_muted_until?: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       purchase_stars_with_wallet: {
         Args: {
@@ -1774,8 +1847,19 @@ export type Database = {
           success: boolean
         }[]
       }
+      set_wallet_pin: { Args: { p_pin: string }; Returns: undefined }
+      verify_wallet_pin: {
+        Args: { p_pin: string; p_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
+      verification_badge:
+        | "official"
+        | "press"
+        | "business"
+        | "government"
+        | "premium"
       wallet_status: "active" | "suspended" | "pending_activation"
       wallet_transaction_status:
         | "pending"
@@ -1919,6 +2003,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      verification_badge: [
+        "official",
+        "press",
+        "business",
+        "government",
+        "premium",
+      ],
       wallet_status: ["active", "suspended", "pending_activation"],
       wallet_transaction_status: [
         "pending",
