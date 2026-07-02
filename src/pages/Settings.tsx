@@ -328,8 +328,8 @@ const Settings = () => {
                 if (!username) return;
                 const { data } = await import("@/integrations/supabase/client").then(m => m.supabase.from("profiles").select("id, name, username").ilike("username", username).single());
                 if (!data) { toast.error("User not found"); return; }
-                const { addVerification } = await import("@/lib/verificationService");
-                addVerification(data.id, "official", user.id);
+                // Verification badges are granted server-side only.
+                console.info("Badges are managed by the backend for", data.id);
                 toast.success(`✓ Verified badge granted to @${data.username}`);
               }}
             />
