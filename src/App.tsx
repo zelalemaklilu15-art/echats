@@ -209,6 +209,7 @@ const AppRoutes = () => {
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Splash /></PageTransition>} />
+          <Route path="/index" element={isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />} />
           <Route path="/auth" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Auth /></PageTransition>} />
           <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><ForgotPassword /></PageTransition>} />
           <Route path="/chats" element={guard(isAuthenticated, <Chats />)} />
