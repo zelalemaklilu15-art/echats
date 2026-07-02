@@ -40,7 +40,7 @@ import {
 } from "@/lib/slowModeService";
 import {
   getGroupPermissions, setGroupPermissions, isMemberMuted, muteMember,
-  unmuteMember, type GroupPermissions,
+  unmuteMember, preloadGroupMutes, type GroupPermissions,
 } from "@/lib/adminService";
 import {
   getTopics, createTopic, deleteTopic, getTopicMessages, addTopicMessage,
@@ -444,6 +444,7 @@ const GroupChat = () => {
         setSlowModeInterval(sm?.intervalSeconds || 0);
         setPermissions(getGroupPermissions(groupId));
         setTopics(getTopics(groupId));
+        void preloadGroupMutes(groupId);
         const profs = new Map();
         await Promise.all(md.map(async m => {
           const p = await chatStore.getProfile(m.user_id);
@@ -615,10 +616,14 @@ const GroupChat = () => {
     setPermissions(getGroupPermissions(groupId));
   }, [groupId]);
 
-  const handleToggleMute = useCallback((memberId: string) => {
+  const handleToggleMute = useCallback(async (memberId: string) => {
     if (!groupId) return;
-    if (isMemberMuted(groupId, memberId)) { unmuteMember(groupId, memberId); toast.success("Unmuted"); }
-    else { muteMember(groupId, memberId); toast.success("Muted"); }
+    try {
+      if (isMemberMuted(groupId, memberId)) { await unmuteMember(groupId, memberId); toast.success("Unmuted"); }
+      else { await muteMember(groupId, memberId); toast.success("Muted"); }
+    } catch (e: any) {
+      toast.error(e?.message || "Only admins can mute members");
+    }
   }, [groupId]);
 
   const handleCreateTopic = useCallback(() => {

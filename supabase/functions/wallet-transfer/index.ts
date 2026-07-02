@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { recipient_id, amount, note, idempotency_key } = await req.json();
+    const { recipient_id, amount, note, idempotency_key, pin } = await req.json();
 
     // Validate inputs
     if (!recipient_id) {
@@ -66,6 +66,27 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // ---- Wallet PIN enforcement (server-side) ----
+    // If the sender has a wallet PIN configured, it must be provided and valid.
+    const { data: hasPinData } = await supabaseAdmin
+      .rpc('verify_wallet_pin', { p_user_id: user.id, p_pin: typeof pin === 'string' ? pin : '' });
+    const { data: walletRowForPin } = await supabaseAdmin
+      .from('wallets').select('pin_hash').eq('user_id', user.id).maybeSingle();
+    if (walletRowForPin?.pin_hash) {
+      if (typeof pin !== 'string' || !/^\d{4,8}$/.test(pin)) {
+        return new Response(
+          JSON.stringify({ error: 'Wallet PIN is required for transfers.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!hasPinData) {
+        return new Response(
+          JSON.stringify({ error: 'Incorrect wallet PIN.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Check for idempotency
     if (idempotency_key) {

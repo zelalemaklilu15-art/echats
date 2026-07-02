@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Smile, CreditCard } from "lucide-react";
-import { verifyWalletPin, isWalletLockEnabled } from "@/lib/chatLockService";
+import { verifyWalletPinAsync, isWalletLockEnabled } from "@/lib/chatLockService";
 
 let _walletUnlocked = false;
 export function resetWalletSession() { _walletUnlocked = false; }
@@ -18,19 +18,23 @@ export default function WalletLockGate({ children }: Props) {
   const [pin,    setPin]    = useState("");
   const [shake,  setShake]  = useState(false);
   const [error,  setError]  = useState("");
+  const [checking, setChecking] = useState(false);
 
   const handleDigit = (d: string) => {
-    if (pin.length >= PIN_LENGTH) return;
+    if (pin.length >= PIN_LENGTH || checking) return;
     const next = pin + d;
     setPin(next);
     setError("");
     if (next.length >= 4) {
-      setTimeout(() => tryUnlock(next), 100);
+      setTimeout(() => void tryUnlock(next), 100);
     }
   };
 
-  const tryUnlock = (p: string) => {
-    if (verifyWalletPin(p)) {
+  const tryUnlock = async (p: string) => {
+    setChecking(true);
+    const ok = await verifyWalletPinAsync(p);
+    setChecking(false);
+    if (ok) {
       _walletUnlocked = true;
       setLocked(false);
     } else if (p.length >= PIN_LENGTH) {

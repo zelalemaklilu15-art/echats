@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getPrivacySettings, updatePrivacySettings, type PrivacySettings as PrivacySettingsType } from "@/lib/privacyService";
 import { getBlockedUsers, unblockUser } from "@/lib/blockService";
 import { getGhostMode, setGhostMode, type GhostModeSettings } from "@/lib/ghostModeService";
-import { isAppLockEnabled, setAppLock, removeAppLock, isWalletLockEnabled, setWalletLock, removeWalletLock } from "@/lib/chatLockService";
+import { isAppLockEnabled, setAppLock, removeAppLock, isWalletLockEnabled, setWalletPinAsync, removeWalletLockAsync } from "@/lib/chatLockService";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -200,14 +200,23 @@ const PrivacySettings = () => {
     setSheet({ open: true, title, field, options, value, labels });
   };
 
-  const handlePinSet = () => {
+  const handlePinSet = async () => {
     if (pinStep === "enter") {
       if (pinInput.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
       setPinStep("confirm"); setPinConfirm("");
     } else {
       if (pinInput !== pinConfirm) { toast.error("PINs don't match"); setPinConfirm(""); setPinStep("enter"); setPinInput(""); return; }
       if (pinDialogMode === "app") { setAppLock(pinInput); setAppLockEnabled(true); toast.success("App lock enabled"); }
-      else { setWalletLock(pinInput); setWalletLockEnabled(true); toast.success("Wallet passcode enabled"); }
+      else {
+        try {
+          await setWalletPinAsync(pinInput);
+          setWalletLockEnabled(true);
+          toast.success("Wallet passcode enabled");
+        } catch (e: any) {
+          toast.error(e?.message || "Failed to set wallet PIN");
+          return;
+        }
+      }
       setShowPinDialog(false); setPinInput(""); setPinConfirm(""); setPinStep("enter");
     }
   };
@@ -304,7 +313,7 @@ const PrivacySettings = () => {
           value={walletLockEnabled ? "On" : "Off"}
           chevron
           onClick={() => {
-            if (walletLockEnabled) { removeWalletLock(); setWalletLockEnabled(false); toast.success("Wallet passcode removed"); }
+            if (walletLockEnabled) { void removeWalletLockAsync(); setWalletLockEnabled(false); toast.success("Wallet passcode disabled"); }
             else { setPinDialogMode("wallet"); setShowPinDialog(true); setPinStep("enter"); setPinInput(""); }
           }}
         />

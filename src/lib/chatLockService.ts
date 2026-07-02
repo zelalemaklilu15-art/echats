@@ -102,36 +102,69 @@ export function isAppLockEnabled(): boolean {
   return !!lock?.enabled;
 }
 
-// Wallet-level lock
-const WALLET_LOCK_KEY = "echat_wallet_lock";
+// Wallet-level lock — PIN is now stored HASHED ON THE SERVER using bcrypt
+// (public.set_wallet_pin / public.verify_wallet_pin RPCs). The local
+// `WALLET_LOCK_KEY` flag is kept ONLY as a UI hint indicating whether the user
+// enabled the lock; it never contains the PIN.
+const WALLET_LOCK_KEY = "echat_wallet_lock_enabled";
 
-export function getWalletLock(): AppLock | null {
-  try {
-    const stored = localStorage.getItem(WALLET_LOCK_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
+import { supabase } from "@/integrations/supabase/client";
+
+export function isWalletLockEnabled(): boolean {
+  return localStorage.getItem(WALLET_LOCK_KEY) === "true";
 }
 
-export function setWalletLock(pin: string): void {
-  const lock: AppLock = { pinHash: hashPin(pin), enabled: true };
-  localStorage.setItem(WALLET_LOCK_KEY, JSON.stringify(lock));
+export async function refreshWalletLockFlag(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("has_wallet_pin");
+  const enabled = !error && !!data;
+  localStorage.setItem(WALLET_LOCK_KEY, enabled ? "true" : "false");
+  return enabled;
 }
 
-export function removeWalletLock(): void {
+export async function setWalletPinAsync(pin: string): Promise<void> {
+  const { error } = await supabase.rpc("set_wallet_pin", { p_pin: pin });
+  if (error) throw error;
+  localStorage.setItem(WALLET_LOCK_KEY, "true");
+}
+
+export async function removeWalletLockAsync(): Promise<void> {
+  // Clear PIN server-side by setting empty is not allowed; instead we use a
+  // dedicated edge function or simply mark the flag off. For now we require the
+  // user to keep a PIN if enabled; disabling only clears the local UI flag.
   localStorage.removeItem(WALLET_LOCK_KEY);
 }
 
-export function verifyWalletPin(pin: string): boolean {
-  const lock = getWalletLock();
-  if (!lock) return true;
-  return lock.pinHash === hashPin(pin);
+/**
+ * Verifies a PIN by delegating to the wallet-verify-pin edge function.
+ * Returns true on success; on server error or bad PIN returns false.
+ */
+export async function verifyWalletPinAsync(pin: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke("wallet-verify-pin", {
+      body: { pin },
+    });
+    if (error) return false;
+    return !!(data as any)?.ok;
+  } catch {
+    return false;
+  }
 }
 
-export function isWalletLockEnabled(): boolean {
-  const lock = getWalletLock();
-  return !!lock?.enabled;
+// Deprecated sync API — kept only to avoid breaking legacy call sites.
+// It now always returns true so the UI does not falsely gate access based on
+// a local hash. Real enforcement happens server-side on money-moving RPCs.
+export function verifyWalletPin(_pin: string): boolean {
+  return true;
+}
+export function getWalletLock(): { pinHash: string; enabled: boolean } | null {
+  return isWalletLockEnabled() ? { pinHash: "", enabled: true } : null;
+}
+export function setWalletLock(_pin: string): void {
+  // No-op: PIN must be set via setWalletPinAsync.
+  console.warn("setWalletLock is deprecated — use setWalletPinAsync().");
+}
+export function removeWalletLock(): void {
+  localStorage.removeItem(WALLET_LOCK_KEY);
 }
 
 // Session tracking - avoid repeated PIN prompts

@@ -32,7 +32,40 @@ serve(async (req) => {
       });
     }
 
-    const { messages, model: requestedModel, systemAppend } = await req.json();
+    const body = await req.json();
+    const requestedModel = body.model;
+    const systemAppend = body.systemAppend;
+
+    // -------- Validate & sanitize client-provided messages --------
+    // Reject anything that isn't a plain user/assistant message so the
+    // client cannot inject additional "system" messages to hijack the AI.
+    const rawMessages: unknown = body.messages;
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
+      return new Response(JSON.stringify({ error: "Invalid messages payload" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const MAX_MESSAGES = 40;
+    const MAX_CONTENT = 10_000;
+    const messages = (rawMessages as any[])
+      .filter((m) =>
+        m && typeof m === "object" &&
+        (m.role === "user" || m.role === "assistant") &&
+        typeof m.content === "string"
+      )
+      .slice(-MAX_MESSAGES)
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content.slice(0, MAX_CONTENT),
+      }));
+    if (messages.length === 0) {
+      return new Response(JSON.stringify({ error: "No valid messages" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
