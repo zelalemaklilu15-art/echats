@@ -313,7 +313,7 @@ const PrivacySettings = () => {
           value={walletLockEnabled ? "On" : "Off"}
           chevron
           onClick={() => {
-            if (walletLockEnabled) { removeWalletLock(); setWalletLockEnabled(false); toast.success("Wallet passcode removed"); }
+            if (walletLockEnabled) { void removeWalletLockAsync(); setWalletLockEnabled(false); toast.success("Wallet passcode disabled"); }
             else { setPinDialogMode("wallet"); setShowPinDialog(true); setPinStep("enter"); setPinInput(""); }
           }}
         />
