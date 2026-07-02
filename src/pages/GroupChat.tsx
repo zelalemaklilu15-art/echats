@@ -615,10 +615,14 @@ const GroupChat = () => {
     setPermissions(getGroupPermissions(groupId));
   }, [groupId]);
 
-  const handleToggleMute = useCallback((memberId: string) => {
+  const handleToggleMute = useCallback(async (memberId: string) => {
     if (!groupId) return;
-    if (isMemberMuted(groupId, memberId)) { unmuteMember(groupId, memberId); toast.success("Unmuted"); }
-    else { muteMember(groupId, memberId); toast.success("Muted"); }
+    try {
+      if (isMemberMuted(groupId, memberId)) { await unmuteMember(groupId, memberId); toast.success("Unmuted"); }
+      else { await muteMember(groupId, memberId); toast.success("Muted"); }
+    } catch (e: any) {
+      toast.error(e?.message || "Only admins can mute members");
+    }
   }, [groupId]);
 
   const handleCreateTopic = useCallback(() => {
