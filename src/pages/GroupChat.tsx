@@ -40,7 +40,7 @@ import {
 } from "@/lib/slowModeService";
 import {
   getGroupPermissions, setGroupPermissions, isMemberMuted, muteMember,
-  unmuteMember, type GroupPermissions,
+  unmuteMember, preloadGroupMutes, type GroupPermissions,
 } from "@/lib/adminService";
 import {
   getTopics, createTopic, deleteTopic, getTopicMessages, addTopicMessage,
@@ -444,6 +444,7 @@ const GroupChat = () => {
         setSlowModeInterval(sm?.intervalSeconds || 0);
         setPermissions(getGroupPermissions(groupId));
         setTopics(getTopics(groupId));
+        void preloadGroupMutes(groupId);
         const profs = new Map();
         await Promise.all(md.map(async m => {
           const p = await chatStore.getProfile(m.user_id);
