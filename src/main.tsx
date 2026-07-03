@@ -9,16 +9,6 @@ createRoot(document.getElementById("root")!).render(
   </ErrorBoundary>
 );
 
-const isLovablePreviewHost = (hostname: string) =>
-  hostname.startsWith('id-preview--') ||
-  hostname.startsWith('preview--') ||
-  hostname === 'lovableproject.com' ||
-  hostname.endsWith('.lovableproject.com') ||
-  hostname === 'lovableproject-dev.com' ||
-  hostname.endsWith('.lovableproject-dev.com') ||
-  hostname === 'beta.lovable.dev' ||
-  hostname.endsWith('.beta.lovable.dev');
-
 const unregisterAppServiceWorkers = async () => {
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
