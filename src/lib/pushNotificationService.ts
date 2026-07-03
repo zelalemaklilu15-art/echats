@@ -40,7 +40,7 @@ class PushNotificationService {
     if (!this.isSupported()) return null;
 
     try {
-      this.registration = await navigator.serviceWorker.register('/sw.js', {
+      this.registration = await navigator.serviceWorker.register('/push-sw.js', {
         scope: '/',
       });
       console.log('[Push] Service Worker registered');
