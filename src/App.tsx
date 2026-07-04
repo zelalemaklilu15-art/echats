@@ -87,6 +87,7 @@ const BroadcastList = lazy(() => import("./pages/BroadcastList"));
 const PaymentRequest = lazy(() => import("./pages/PaymentRequest"));
 const Stories = lazy(() => import("./pages/Stories"));
 const CloseFriends = lazy(() => import("./pages/CloseFriends"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 
 // Initialize accent color from localStorage on app load
 initAccentColor();
