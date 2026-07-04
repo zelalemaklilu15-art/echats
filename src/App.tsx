@@ -165,6 +165,14 @@ const AppRoutes = () => {
       loginToastShownRef.current = true;
     }
     if (redirectToChatsDoneRef.current) return;
+    const search = new URLSearchParams(location.search);
+    const nextRaw = search.get("next");
+    const safeNext = nextRaw && nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : null;
+    if (safeNext) {
+      redirectToChatsDoneRef.current = true;
+      navigate(safeNext, { replace: true });
+      return;
+    }
     if (location.pathname === "/chats") {
       redirectToChatsDoneRef.current = true;
       return;
@@ -174,7 +182,7 @@ const AppRoutes = () => {
       redirectToChatsDoneRef.current = true;
       navigate("/chats", { replace: true });
     }
-  }, [isAuthenticated, location.pathname, navigate]);
+  }, [isAuthenticated, location.pathname, location.search, navigate]);
 
   if (authState === "loading") {
     return (
