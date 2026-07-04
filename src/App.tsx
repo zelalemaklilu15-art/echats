@@ -283,6 +283,7 @@ const AppRoutes = () => {
           <Route path="/payment-request" element={guard(isAuthenticated, <PaymentRequest />)} />
           <Route path="/stories" element={guard(isAuthenticated, <Stories />)} />
           <Route path="/close-friends" element={guard(isAuthenticated, <CloseFriends />)} />
+          <Route path="/.lovable/oauth/consent" element={<PageTransition><OAuthConsent /></PageTransition>} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
       </Suspense>
