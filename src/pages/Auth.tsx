@@ -56,11 +56,11 @@ const Auth = () => {
         if (!(await isUsernameUnique(n))) { toast.error("Username already taken"); return; }
         const { user, error } = await signUpWithEmail(email, password, n, email.split("@")[0]);
         if (error) throw error;
-        if (user) { toast.success("Account created!"); navigate("/chats", { replace: true }); }
+        if (user) { toast.success("Account created!"); navigate(safeNext, { replace: true }); }
       } else {
         const { user, error } = await signInWithEmail(email, password);
         if (error) throw error;
-        if (user) { toast.success("Welcome back!"); navigate("/chats", { replace: true }); }
+        if (user) { toast.success("Welcome back!"); navigate(safeNext, { replace: true }); }
       }
     } catch (err: any) {
       const m = err?.message || "Authentication failed";
