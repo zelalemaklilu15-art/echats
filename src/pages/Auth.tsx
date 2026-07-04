@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useRef } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { signUpWithEmail, signInWithEmail, isUsernameUnique } from "@/lib/supabaseAuth";
 import { toast } from "sonner";
