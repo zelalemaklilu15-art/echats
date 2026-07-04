@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useRef } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { signUpWithEmail, signInWithEmail, isUsernameUnique } from "@/lib/supabaseAuth";
 import { toast } from "sonner";
@@ -27,6 +27,9 @@ const FieldWrap = ({ children, icon: Icon, label }: { children: React.ReactNode;
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextParam = searchParams.get("next");
+  const safeNext = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/chats";
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
@@ -53,11 +56,11 @@ const Auth = () => {
         if (!(await isUsernameUnique(n))) { toast.error("Username already taken"); return; }
         const { user, error } = await signUpWithEmail(email, password, n, email.split("@")[0]);
         if (error) throw error;
-        if (user) { toast.success("Account created!"); navigate("/chats", { replace: true }); }
+        if (user) { toast.success("Account created!"); navigate(safeNext, { replace: true }); }
       } else {
         const { user, error } = await signInWithEmail(email, password);
         if (error) throw error;
-        if (user) { toast.success("Welcome back!"); navigate("/chats", { replace: true }); }
+        if (user) { toast.success("Welcome back!"); navigate(safeNext, { replace: true }); }
       }
     } catch (err: any) {
       const m = err?.message || "Authentication failed";

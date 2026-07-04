@@ -87,6 +87,7 @@ const BroadcastList = lazy(() => import("./pages/BroadcastList"));
 const PaymentRequest = lazy(() => import("./pages/PaymentRequest"));
 const Stories = lazy(() => import("./pages/Stories"));
 const CloseFriends = lazy(() => import("./pages/CloseFriends"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 
 // Initialize accent color from localStorage on app load
 initAccentColor();
@@ -164,6 +165,14 @@ const AppRoutes = () => {
       loginToastShownRef.current = true;
     }
     if (redirectToChatsDoneRef.current) return;
+    const search = new URLSearchParams(location.search);
+    const nextRaw = search.get("next");
+    const safeNext = nextRaw && nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : null;
+    if (safeNext) {
+      redirectToChatsDoneRef.current = true;
+      navigate(safeNext, { replace: true });
+      return;
+    }
     if (location.pathname === "/chats") {
       redirectToChatsDoneRef.current = true;
       return;
@@ -173,7 +182,7 @@ const AppRoutes = () => {
       redirectToChatsDoneRef.current = true;
       navigate("/chats", { replace: true });
     }
-  }, [isAuthenticated, location.pathname, navigate]);
+  }, [isAuthenticated, location.pathname, location.search, navigate]);
 
   if (authState === "loading") {
     return (
@@ -274,6 +283,7 @@ const AppRoutes = () => {
           <Route path="/payment-request" element={guard(isAuthenticated, <PaymentRequest />)} />
           <Route path="/stories" element={guard(isAuthenticated, <Stories />)} />
           <Route path="/close-friends" element={guard(isAuthenticated, <CloseFriends />)} />
+          <Route path="/.lovable/oauth/consent" element={<PageTransition><OAuthConsent /></PageTransition>} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
       </Suspense>
