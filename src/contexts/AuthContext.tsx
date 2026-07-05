@@ -20,34 +20,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
 
-    // Listen first
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const applySession = (u: User | null) => {
       if (!mounted) return;
-      const u = session?.user ?? null;
       setUser(u);
       setAuthState(u ? "authenticated" : "unauthenticated");
-    });
+    };
 
-    // Then restore session once (deduped)
+    // Restore the persisted session before protected routes make auth decisions.
     getSessionUserSafe()
       .then(({ session, user: fallbackUser }) => {
-        if (!mounted) return;
         const u = session?.user ?? fallbackUser ?? null;
-        setUser(u);
-        setAuthState(u ? "authenticated" : "unauthenticated");
+        applySession(u);
+
+        const result = supabase.auth.onAuthStateChange((_event, nextSession) => {
+          applySession(nextSession?.user ?? null);
+        });
+        subscription = result.data.subscription;
       })
       .catch(() => {
-        if (!mounted) return;
-        setUser(null);
-        setAuthState("unauthenticated");
+        applySession(null);
+
+        const result = supabase.auth.onAuthStateChange((_event, nextSession) => {
+          applySession(nextSession?.user ?? null);
+        });
+        subscription = result.data.subscription;
       });
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 

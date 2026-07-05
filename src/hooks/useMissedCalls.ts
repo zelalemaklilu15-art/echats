@@ -42,7 +42,9 @@ export function useMissedCalls() {
       setCount(missedCount || 0);
     };
 
-    fetchMissed();
+    const initialFetch = window.setTimeout(() => {
+      fetchMissed();
+    }, 2500);
 
     const channel = supabase
       .channel(`missed-calls-badge-${user.id}`)
@@ -61,6 +63,7 @@ export function useMissedCalls() {
       .subscribe();
 
     return () => {
+      window.clearTimeout(initialFetch);
       supabase.removeChannel(channel);
     };
   }, [user?.id, version]);

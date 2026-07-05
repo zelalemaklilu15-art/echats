@@ -74,35 +74,57 @@ export interface TypingIndicator {
 // =============================================
 
 export const getProfile = async (userId: string): Promise<Profile | null> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
+  const [{ data: publicData, error: publicError }, { data: privateData, error: privateError }, { data: authData }] = await Promise.all([
+    supabase.rpc('get_public_profile', { profile_id: userId }),
+    supabase.rpc('get_my_private_profile'),
+    supabase.auth.getUser(),
+  ]);
 
-  if (error) {
-    console.error('Error fetching profile:', error);
+  if (publicError) {
+    console.error('Error fetching profile:', publicError);
     return null;
   }
-  return data;
+
+  if (privateError) {
+    console.warn('Error fetching private profile fields:', privateError);
+  }
+
+  const publicProfile = publicData?.[0];
+  if (!publicProfile) return null;
+
+  const privateProfile = privateData?.[0] ?? {};
+  return {
+    id: publicProfile.id,
+    username: publicProfile.username,
+    name: publicProfile.name,
+    email: authData?.user?.id === userId ? authData.user.email ?? null : null,
+    phone_number: privateProfile.phone ?? null,
+    phone: privateProfile.phone ?? null,
+    birthday: privateProfile.birthday ?? null,
+    avatar_url: publicProfile.avatar_url,
+    bio: publicProfile.bio,
+    is_active: publicProfile.is_active,
+    is_online: publicProfile.is_online,
+    last_seen: publicProfile.last_seen,
+    created_at: publicProfile.created_at ?? '',
+    updated_at: '',
+  } as Profile;
 };
 
 export const updateProfile = async (
   userId: string,
   updates: Partial<Omit<Profile, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<Profile | null> => {
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('profiles')
     .update(updates)
-    .eq('id', userId)
-    .select()
-    .single();
+    .eq('id', userId);
 
   if (error) {
     console.error('Error updating profile:', error);
     throw error;
   }
-  return data;
+  return getProfile(userId);
 };
 
 // Get public profile data (excludes email/phone) for other users
