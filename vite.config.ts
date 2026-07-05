@@ -22,21 +22,5 @@ export default defineConfig({
     target: "es2020",
     cssCodeSplit: true,
     chunkSizeWarningLimit: 1200,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) return;
-          if (id.includes("react-router")) return "router";
-          if (id.includes("@tanstack/react-query")) return "query";
-          if (id.includes("framer-motion")) return "motion";
-          if (id.includes("@supabase")) return "supabase";
-          if (id.includes("lucide-react")) return "icons";
-          if (id.includes("@radix-ui")) return "radix";
-          if (id.includes("react-window")) return "vlist";
-          if (id.includes("react-dom") || id.match(/[\\/]react[\\/]/)) return "react";
-          return "vendor";
-        },
-      },
-    },
   },
 });
