@@ -61,17 +61,10 @@ export function usePresence(userId: string | undefined) {
       else goOffline();
     };
 
-    const onPageHide = () => {
-      // Best-effort offline marker before unload
-      goOffline();
-    };
-
     const onOnline = () => goOnline();
     const onOffline = () => goOffline();
 
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", onPageHide);
-    window.addEventListener("beforeunload", onPageHide);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
 
@@ -84,12 +77,9 @@ export function usePresence(userId: string | undefined) {
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("pagehide", onPageHide);
-      window.removeEventListener("beforeunload", onPageHide);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       if (heartbeat) window.clearInterval(heartbeat);
-      setPresence(userId, false);
     };
   }, [userId]);
 }

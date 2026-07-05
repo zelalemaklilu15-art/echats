@@ -2,8 +2,8 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useCallManager, CallState, ActiveCall } from '@/hooks/useCallManager';
 import { CallType } from '@/hooks/useWebRTC';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPublicProfile } from '@/lib/supabaseService';
 
 interface CallContextType {
   // State
@@ -65,11 +65,7 @@ export const CallProvider: React.FC<CallProviderProps> = ({ children }) => {
       setUserId(user.id);
 
       try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('name, avatar_url')
-          .eq('id', user.id)
-          .maybeSingle();
+        const profile = await getPublicProfile(user.id);
 
         if (cancelled) return;
 
