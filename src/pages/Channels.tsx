@@ -93,7 +93,7 @@ const Channels = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-24" data-testid="page-channels">
+    <div className="min-h-screen bg-background pb-nav" data-testid="page-channels">
       {/* Header */}
       <div
         className="sticky top-0 z-20"

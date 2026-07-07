@@ -137,7 +137,7 @@ const Bots = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background pb-20" data-testid="page-bots">
+    <div className="min-h-screen bg-background pb-nav" data-testid="page-bots">
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
