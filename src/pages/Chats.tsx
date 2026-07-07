@@ -684,7 +684,7 @@ const Chats = () => {
   const isLoading = loading || loadingGroups;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-nav">
       {/* Header */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
