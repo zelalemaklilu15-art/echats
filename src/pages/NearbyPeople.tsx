@@ -76,7 +76,7 @@ const NearbyPeople = () => {
   }, [userId]);
 
   return (
-    <div className="min-h-screen bg-background pb-24" data-testid="page-nearby">
+    <div className="min-h-screen bg-background pb-nav" data-testid="page-nearby">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50">
         <div className="flex items-center gap-3 px-4 py-3">
