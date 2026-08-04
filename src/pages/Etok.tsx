@@ -150,7 +150,13 @@ const Etok = () => {
 
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-12 pb-3">
-        <button onClick={() => navigate("/etok/camera")}><Camera className="h-6 w-6 text-white drop-shadow" /></button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate("/chats")} aria-label="Back to Echat"
+            className="h-9 w-9 -ml-1 rounded-full flex items-center justify-center bg-black/35 backdrop-blur-sm">
+            <ArrowLeft className="h-5 w-5 text-white drop-shadow" />
+          </button>
+          <button onClick={() => navigate("/etok/camera")}><Camera className="h-6 w-6 text-white drop-shadow" /></button>
+        </div>
         <div className="flex items-center gap-1">
           {[
             { id: "following" as FeedTab, label: "Following" },
