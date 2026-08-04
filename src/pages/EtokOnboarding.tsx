@@ -148,6 +148,16 @@ const EtokOnboarding = () => {
     }
   }, [currentUserId]);
 
+  // Already set up? Never ask again until sign-out.
+  useEffect(() => {
+    if (!currentUserId) return;
+    let active = true;
+    isEtokOnboardedAsync(currentUserId).then((done) => {
+      if (active && done) navigate("/etok", { replace: true });
+    });
+    return () => { active = false; };
+  }, [currentUserId, navigate]);
+
   const [step, setStep] = useState<Step>("welcome");
   const [accountType, setAccountType] = useState<AccountType>(null);
   const [newUsername, setNewUsername] = useState("");
