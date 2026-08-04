@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchFYPVideos, fetchFollowingVideos, fetchVideoById, subscribeToPublicEtokVideos, type EtokVideo } from "@/lib/etokService";
 import { EtokVideoCard } from "@/components/etok/EtokVideoCard";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
-import { isEtokOnboarded } from "./EtokOnboarding";
+import { isEtokOnboardedAsync } from "./EtokOnboarding";
 
 type FeedTab = "fyp" | "following";
 
