@@ -7,7 +7,7 @@ import {
   Copy, Check, Send, History, ArrowRightLeft,
   Clock, Star, Target, Link as LinkIcon, ChevronRight, Zap,
   TrendingUp, TrendingDown, ChevronDown,
-  Home, Wallet as WalletIcon, BarChart2, User,
+  Home, Wallet as WalletIcon, BarChart2, User, ArrowLeft,
 } from "lucide-react";
 import { getStarsBalance, refreshStarsBalance } from "@/lib/giftsService";
 import { motion, AnimatePresence } from "framer-motion";
