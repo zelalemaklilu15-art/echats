@@ -34,9 +34,12 @@ const Etok = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isEtokOnboarded(currentUserId)) {
-      navigate("/etok/onboarding", { replace: true });
-    }
+    if (!currentUserId) return;
+    let active = true;
+    isEtokOnboardedAsync(currentUserId).then((done) => {
+      if (active && !done) navigate("/etok/onboarding", { replace: true });
+    });
+    return () => { active = false; };
   }, [currentUserId, navigate]);
 
   const loadVideos = useCallback(async (showLoading = true) => {
