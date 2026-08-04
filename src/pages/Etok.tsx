@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchFYPVideos, fetchFollowingVideos, fetchVideoById, subscribeToPublicEtokVideos, type EtokVideo } from "@/lib/etokService";
 import { EtokVideoCard } from "@/components/etok/EtokVideoCard";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
-import { isEtokOnboarded } from "./EtokOnboarding";
+import { isEtokOnboardedAsync } from "./EtokOnboarding";
 
 type FeedTab = "fyp" | "following";
 
@@ -34,9 +34,12 @@ const Etok = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isEtokOnboarded(currentUserId)) {
-      navigate("/etok/onboarding", { replace: true });
-    }
+    if (!currentUserId) return;
+    let active = true;
+    isEtokOnboardedAsync(currentUserId).then((done) => {
+      if (active && !done) navigate("/etok/onboarding", { replace: true });
+    });
+    return () => { active = false; };
   }, [currentUserId, navigate]);
 
   const loadVideos = useCallback(async (showLoading = true) => {
