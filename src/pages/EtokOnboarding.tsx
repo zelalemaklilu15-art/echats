@@ -90,6 +90,7 @@ function formatTermsText(text: string) {
 
 const ONBOARDING_KEY = "etok_onboarded";
 
+/** Local (fast) cache check — used only as an optimistic hint. */
 export function isEtokOnboarded(userId: string): boolean {
   try {
     const data = localStorage.getItem(`${ONBOARDING_KEY}_${userId}`);
@@ -101,8 +102,37 @@ export function isEtokOnboarded(userId: string): boolean {
   }
 }
 
-export function markEtokOnboarded(userId: string, data: object): void {
+/** Source of truth: server record. Falls back to local cache when offline. */
+export async function isEtokOnboardedAsync(userId: string): Promise<boolean> {
+  if (!userId) return true; // don't bounce while auth is still resolving
+  try {
+    const { data, error } = await supabase
+      .from("etok_onboarding")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return isEtokOnboarded(userId);
+    if (data) {
+      localStorage.setItem(`${ONBOARDING_KEY}_${userId}`, JSON.stringify({ acceptedTerms: true }));
+      return true;
+    }
+    return false;
+  } catch {
+    return isEtokOnboarded(userId);
+  }
+}
+
+export async function markEtokOnboarded(userId: string, data: Record<string, unknown>): Promise<void> {
   localStorage.setItem(`${ONBOARDING_KEY}_${userId}`, JSON.stringify({ ...data, acceptedTerms: true, createdAt: new Date().toISOString() }));
+  try {
+    await supabase.from("etok_onboarding").upsert({
+      user_id: userId,
+      account_type: (data as { accountType?: string }).accountType ?? null,
+      details: data as never,
+    }, { onConflict: "user_id" });
+  } catch (e) {
+    console.warn("[etok] onboarding save failed", e);
+  }
 }
 
 const EtokOnboarding = () => {
