@@ -189,7 +189,14 @@ const Wallet = () => {
       {/* ─── HEADER ─── */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3"
         style={{ background: `${BG}EE`, backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Back to main app */}
+          <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate("/chats")}
+            aria-label="Back to Echat"
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <ArrowLeft style={{ color: "rgba(255,255,255,0.85)", width: 18, height: 18 }} />
+          </motion.button>
           {/* Avatar */}
           <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-[16px] text-white flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #7C3AED, #a855f7)" }}>
