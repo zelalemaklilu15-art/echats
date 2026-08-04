@@ -557,6 +557,30 @@ export type Database = {
           },
         ]
       }
+      etok_onboarding: {
+        Row: {
+          account_type: string | null
+          created_at: string
+          details: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string | null
+          created_at?: string
+          details?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string | null
+          created_at?: string
+          details?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       etok_privacy_settings: {
         Row: {
           allow_comments: string
