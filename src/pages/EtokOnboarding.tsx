@@ -5,6 +5,7 @@ import { ChevronRight, ChevronLeft, Check, ArrowRight, User, Sparkles } from "lu
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchEtokProfile, type EtokUser } from "@/lib/etokService";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 type Step = "welcome" | "account_type" | "new_account" | "terms";
