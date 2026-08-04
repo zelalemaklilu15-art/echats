@@ -169,14 +169,14 @@ const EtokOnboarding = () => {
 
   const canProceedTerms = termsAccepted && privacyAccepted;
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!canProceedTerms) return;
 
     const etokUsername = accountType === "echat"
       ? (echatProfile?.username ?? currentUserId)
       : newUsername.trim() || `user_${currentUserId.slice(0, 6)}`;
 
-    markEtokOnboarded(currentUserId, {
+    await markEtokOnboarded(currentUserId, {
       accountType,
       etokUsername,
       displayName: accountType === "echat" ? echatProfile?.displayName : newDisplayName,
