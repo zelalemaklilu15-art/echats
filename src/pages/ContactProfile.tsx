@@ -75,14 +75,15 @@ const ContactProfile = () => {
   const loadProfile = async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    setLoadError(null);
+    const { data, error } = await supabase.rpc("get_public_profile", { profile_id: userId });
 
-    if (!error && data) {
-      setProfile(data as ProfileData);
+    if (error) {
+      setProfile(null);
+      setLoadError(error.message || "Failed to load profile");
+    } else {
+      const row = Array.isArray(data) ? data[0] : data;
+      setProfile((row as ProfileData) || null);
     }
     setLoading(false);
   };
@@ -95,8 +96,9 @@ const ContactProfile = () => {
     const { data } = await supabase
       .from("chats")
       .select("id")
-      .or(`and(user1_id.eq.${user.id},user2_id.eq.${userId}),and(user1_id.eq.${userId},user2_id.eq.${user.id})`)
+      .or(`and(participant_1.eq.${user.id},participant_2.eq.${userId}),and(participant_1.eq.${userId},participant_2.eq.${user.id})`)
       .maybeSingle();
+
 
     if (data) {
       setChatId(data.id);
