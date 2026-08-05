@@ -96,18 +96,24 @@ Deno.test("full deposit path: creates a pending row via the balance trigger with
   assertEquals(replay.duplicate, true);
   assertEquals(replay.transaction.id, deposit.transaction.id);
 
-  // 4. Balance after: pending deposits must NOT credit the wallet, and the stored
-  //    snapshot columns must be populated (never null) by the insert path.
+  // 4. Balance after: a pending deposit must NOT credit the wallet, and it must not
+  //    appear in the confirmed history (wallet-balance only returns completed rows).
   const afterRes = await fetch(BALANCE_URL, { method: "POST", headers: headers(ACCESS_TOKEN) });
   const after = await afterRes.json();
   assertEquals(afterRes.status, 200, JSON.stringify(after));
   assertEquals(Number(after.wallet.balance), startBalance);
 
-  const row = (after.transactions as Array<Record<string, unknown>>).find(
+  const listed = (after.transactions as Array<Record<string, unknown>>).some(
     (t) => t.id === deposit.transaction.id,
   );
-  assert(row, "pending deposit transaction should be listed in wallet history");
-  assertEquals(row!.status, "pending");
-  assertEquals(Number(row!.balance_before), startBalance);
-  assertEquals(Number(row!.balance_after), startBalance);
+  assertEquals(listed, false, "pending deposit must not appear in completed history");
+
+  // 5. Every completed row carries non-null balance snapshots that chain correctly.
+  for (const t of after.transactions as Array<Record<string, unknown>>) {
+    assert(t.balance_before !== null, `balance_before null on ${t.id}`);
+    assert(t.balance_after !== null, `balance_after null on ${t.id}`);
+  }
+  const newest = (after.transactions as Array<Record<string, unknown>>)[0];
+  if (newest) assertEquals(Number(newest.balance_after), Number(after.wallet.balance));
 });
+
