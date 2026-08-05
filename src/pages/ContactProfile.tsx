@@ -54,6 +54,8 @@ const ContactProfile = () => {
   const [chatId, setChatId] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
 
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
@@ -75,14 +77,15 @@ const ContactProfile = () => {
   const loadProfile = async () => {
     if (!userId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    setLoadError(null);
+    const { data, error } = await supabase.rpc("get_public_profile", { profile_id: userId });
 
-    if (!error && data) {
-      setProfile(data as ProfileData);
+    if (error) {
+      setProfile(null);
+      setLoadError(error.message || "Failed to load profile");
+    } else {
+      const row = Array.isArray(data) ? data[0] : data;
+      setProfile((row as ProfileData) || null);
     }
     setLoading(false);
   };
@@ -95,8 +98,9 @@ const ContactProfile = () => {
     const { data } = await supabase
       .from("chats")
       .select("id")
-      .or(`and(user1_id.eq.${user.id},user2_id.eq.${userId}),and(user1_id.eq.${userId},user2_id.eq.${user.id})`)
+      .or(`and(participant_1.eq.${user.id},participant_2.eq.${userId}),and(participant_1.eq.${userId},participant_2.eq.${user.id})`)
       .maybeSingle();
+
 
     if (data) {
       setChatId(data.id);
@@ -215,6 +219,19 @@ const ContactProfile = () => {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="h-screen bg-background flex flex-col items-center justify-center gap-4 px-8 text-center">
+        <p className="text-foreground font-medium">Couldn't load this profile</p>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+        <div className="flex gap-2">
+          <Button onClick={loadProfile}>Retry</Button>
+          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="h-screen bg-background flex flex-col items-center justify-center gap-4">
@@ -223,6 +240,7 @@ const ContactProfile = () => {
       </div>
     );
   }
+
 
   const displayName = profile.name || profile.username;
   const effectiveOnline = isUserOnline(profile.last_seen, profile.is_online || false);
