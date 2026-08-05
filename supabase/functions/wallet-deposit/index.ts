@@ -108,16 +108,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Rate limiting: max 5 deposits per hour per user
+    // Rate limiting: max 20 successful deposits per hour per user
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count: recentDeposits } = await supabaseAdmin
       .from('wallet_transactions')
       .select('*', { count: 'exact', head: true })
       .eq('wallet_id', wallet.id)
       .eq('type', 'deposit')
+      .eq('status', 'completed')
       .gte('created_at', oneHourAgo);
 
-    if ((recentDeposits || 0) >= 5) {
+    if ((recentDeposits || 0) >= 20) {
       return new Response(
         JSON.stringify({ error: 'Too many deposit attempts. Please try again later.' }),
         { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
