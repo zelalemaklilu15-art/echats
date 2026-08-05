@@ -219,6 +219,19 @@ const ContactProfile = () => {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="h-screen bg-background flex flex-col items-center justify-center gap-4 px-8 text-center">
+        <p className="text-foreground font-medium">Couldn't load this profile</p>
+        <p className="text-sm text-muted-foreground">{loadError}</p>
+        <div className="flex gap-2">
+          <Button onClick={loadProfile}>Retry</Button>
+          <Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="h-screen bg-background flex flex-col items-center justify-center gap-4">
@@ -227,6 +240,7 @@ const ContactProfile = () => {
       </div>
     );
   }
+
 
   const displayName = profile.name || profile.username;
   const effectiveOnline = isUserOnline(profile.last_seen, profile.is_online || false);
