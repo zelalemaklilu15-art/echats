@@ -1,65 +1,27 @@
-## Deep performance refactor
+# Fix "User not found" on a contact's profile
 
-Goal: make Echat feel as fast and stable as Telegram across chat, media, navigation, and the whole app.
+## What's happening
 
-### 1. Fix the recursive RLS that's failing in production
-`group_members` SELECT policy queries itself → `42P17 infinite recursion`. This breaks `/chats` group loading on every render.
+Opening another user's profile from a chat always shows "User not found", even though the user exists.
 
-- Add `public.is_group_member(_group_id uuid, _user_id uuid)` and `public.is_group_admin(...)` as `SECURITY DEFINER` functions.
-- Replace `gm_select` and `gm_delete` policies to call those functions instead of self-querying.
+Confirmed cause: the contact profile page asks the database for *all* profile columns, including private ones (phone, birthday). For privacy those two columns are readable only by their owner, so the whole request is rejected and the page treats the rejection as "this user doesn't exist".
 
-### 2. Route-level code splitting (biggest single win)
-Currently `src/App.tsx` eagerly imports ~60 page components → giant initial bundle, slow first paint.
+A second, smaller bug on the same page: the shared media/files lookup uses old column names for the chat table, so the Media/Files tabs are always empty on that page.
 
-- Convert every page import to `React.lazy(() => import(...))`.
-- Wrap `<Routes>` in `<Suspense>` with a lightweight skeleton (no logo animation — instant).
-- Keep `Chats`, `Chat`, `Splash`, `Auth` as priority chunks via `/* webpackPrefetch */`-style `<link rel="modulepreload">` hints after auth.
+## The fix
 
-### 3. Vite build optimization
-- Add `build.target: "es2020"`, `cssCodeSplit: true`, `chunkSizeWarningLimit`.
-- `manualChunks`: split `react`, `react-router`, `@tanstack/react-query`, `framer-motion`, `@supabase/*`, `lucide-react`, radix UI into vendor chunks.
-- Drop `framer-motion` from the splash/loading screen and lazy-load it only where needed (heavy: ~120 KB gzipped).
+1. Load the contact's public profile through the existing secure backend function that returns only public fields (id, username, name, avatar, bio, online state, last seen). This is the same path other screens already use successfully.
+2. Distinguish real states in the UI:
+   - loading spinner while fetching
+   - "User not found" only when the backend truly returns no profile
+   - a clear error message with a Retry button when the request fails (network/permission), instead of silently claiming the user doesn't exist
+3. Stop requesting private fields (phone, birthday) for other users; birthday-related UI on this page only shows when the data is actually available.
+4. Fix the chat lookup to use the correct participant columns so shared media and files load.
 
-### 4. React Query defaults
-Default `QueryClient` re-fetches aggressively. Set:
-- `staleTime: 30_000`, `gcTime: 5 * 60_000`
-- `refetchOnWindowFocus: false`, `retry: 1`.
+## Technical notes
 
-### 5. Chat list & message list virtualization
-- `src/pages/Chats.tsx` (1431 lines) renders all chats — switch to `react-window` `FixedSizeList` for >30 items.
-- `src/pages/Chat.tsx` (2025 lines) renders full message history — use `react-window` `VariableSizeList` reversed, with `overscanCount={8}` for Telegram-like smooth scroll.
-
-### 6. Realtime / store stability
-- Add reconnect backoff in chat realtime channel (logs show repeated CLOSED ↔ SUBSCRIBED).
-- Debounce `loadChats` calls (currently re-fires on every store event).
-- Single shared realtime channel per user instead of per-feature.
-
-### 7. Image & media performance
-- Add `loading="lazy"` + `decoding="async"` to every `<img>` (chat avatars, message images, stories).
-- Image thumbnails: use Supabase Storage `transform: { width, quality }` on list views.
-- Add a simple `<Img>` component with blurhash/placeholder + intersection-observer based load.
-
-### 8. Animation pruning
-- Remove `AnimatePresence` page transition wrapper (currently re-mounts every page on navigation, causing jank). Replace with CSS-only fade.
-- Keep framer-motion only inside Splash, CallOverlay, Story viewer.
-
-### 9. Service worker prefetch
-- `public/sw.js` already exists — cache built JS/CSS chunks + avatars with stale-while-revalidate so repeat opens are instant.
-
-### 10. Console hygiene
-- Add React Router `v7_startTransition` + `v7_relativeSplatPath` future flags to silence warnings and enable concurrent transitions (also improves nav perf).
-
-### Out of scope (this turn)
-- Replacing chat backend protocol (would require WebSocket server work).
-- Native push beyond current `usePushNotifications` hook.
-
-### Execution order
-1. Migration: fix `group_members` recursion.
-2. `vite.config.ts`: manualChunks + target.
-3. `src/App.tsx`: lazy routes + Suspense + router future flags + react-query defaults + drop AnimatePresence.
-4. Install `react-window` and virtualize `Chats.tsx` + `Chat.tsx` message list.
-5. Add `<Img>` lazy component, swap heavy `<img>` usages.
-6. Chat realtime: debounce + reconnect.
-7. Verify in preview, watch console for the recursion error gone and bundle size drop.
-
-After step 1 (migration approval) I'll proceed straight through 2–7.
+- File: `src/pages/ContactProfile.tsx`
+- Replace `supabase.from("profiles").select("*").eq("id", userId).single()` with `supabase.rpc("get_public_profile", { profile_id: userId })` and read the first row.
+- Add `error` state alongside `loading`/`profile`; render three distinct branches.
+- Chat lookup filter becomes `and(participant_1.eq.<me>,participant_2.eq.<them>),and(participant_1.eq.<them>,participant_2.eq.<me>)`.
+- No database or policy changes needed.
