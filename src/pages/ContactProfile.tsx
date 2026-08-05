@@ -54,6 +54,8 @@ const ContactProfile = () => {
   const [chatId, setChatId] = useState<string | null>(null);
   const [isBlocked, setIsBlocked] = useState(false);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
 
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
