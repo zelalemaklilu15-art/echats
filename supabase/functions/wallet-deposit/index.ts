@@ -166,6 +166,9 @@ Deno.serve(async (req) => {
         type: 'deposit',
         status: 'pending',
         amount: depositAmount,
+        // Pending rows don't change the balance; the trigger only fills these on completion.
+        balance_before: wallet.balance,
+        balance_after: wallet.balance,
         description: `Deposit via ${methodName} (awaiting confirmation)`,
         metadata: {
           method: methodName,
