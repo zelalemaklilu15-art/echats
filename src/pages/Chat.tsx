@@ -125,7 +125,17 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [showSearch, setShowSearch] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showSearch, setShowSearch] = useState(searchParams.get("search") === "1");
+
+  useEffect(() => {
+    if (searchParams.get("search") === "1") {
+      setShowSearch(true);
+      searchParams.delete("search");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showMediaGallery, setShowMediaGallery] = useState(false);
