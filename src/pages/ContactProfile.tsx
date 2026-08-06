@@ -567,8 +567,8 @@ const ContactProfile = () => {
               { label: "Send a gift", icon: Gift, action: () => setShowGiftPicker(true), testid: "menu-gift" },
               { label: "Search in chat", icon: Search, action: handleSearchInChat, testid: "menu-search" },
               { label: "Copy username", icon: Copy, action: () => handleCopy(`@${profile?.username}`, "Username"), testid: "menu-copy-username" },
-              { label: "Copy profile link", icon: Link2, action: () => handleCopy(`${window.location.origin}/profile/${userId}`, "Profile link"), testid: "menu-copy-link" },
-              { label: "Share via QR", icon: QrCode, action: () => navigate(`/wallet-qr?user=${userId}`), testid: "menu-qr" },
+              { label: "Copy profile link", icon: Link2, action: () => handleCopy(`${window.location.origin}/contact/${userId}`, "Profile link"), testid: "menu-copy-link" },
+              { label: "Share contact", icon: QrCode, action: handleShareContact, testid: "menu-share" },
             ].map(({ label, icon: Icon, action, testid }) => (
               <button
                 key={label}
