@@ -553,6 +553,94 @@ const ContactProfile = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Sheet open={showMenu} onOpenChange={setShowMenu}>
+        <SheetContent side="bottom" className="rounded-t-3xl px-0 pb-[calc(env(safe-area-inset-bottom)+12px)] max-h-[85vh] overflow-y-auto">
+          <SheetHeader className="px-5 pb-2 text-left">
+            <SheetTitle className="text-base">{profile?.name || `@${profile?.username}`}</SheetTitle>
+          </SheetHeader>
+          <div className="px-3 space-y-1">
+            {[
+              { label: "Message", icon: MessageSquare, action: handleMessage, testid: "menu-message" },
+              { label: "Voice call", icon: Phone, action: () => handleCall("voice"), testid: "menu-voice" },
+              { label: "Video call", icon: Video, action: () => handleCall("video"), testid: "menu-video" },
+              { label: isMuted ? "Unmute notifications" : "Mute notifications", icon: isMuted ? Bell : BellOff, action: handleToggleMute, testid: "menu-mute" },
+              { label: "Send a gift", icon: Gift, action: () => setShowGiftPicker(true), testid: "menu-gift" },
+              { label: "Search in chat", icon: Search, action: handleSearchInChat, testid: "menu-search" },
+              { label: "Copy username", icon: Copy, action: () => handleCopy(`@${profile?.username}`, "Username"), testid: "menu-copy-username" },
+              { label: "Copy profile link", icon: Link2, action: () => handleCopy(`${window.location.origin}/profile/${userId}`, "Profile link"), testid: "menu-copy-link" },
+              { label: "Share via QR", icon: QrCode, action: () => navigate(`/wallet-qr?user=${userId}`), testid: "menu-qr" },
+            ].map(({ label, icon: Icon, action, testid }) => (
+              <button
+                key={label}
+                onClick={() => runFromMenu(action)}
+                data-testid={testid}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left hover:bg-muted/70 active:scale-[0.99] transition-all"
+              >
+                <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
+                <span className="text-[15px] text-foreground">{label}</span>
+              </button>
+            ))}
+
+            <div className="my-2 h-px bg-border mx-4" />
+
+            <button
+              onClick={() => runFromMenu(() => setShowReportDialog(true))}
+              data-testid="menu-report"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left hover:bg-destructive/10 active:scale-[0.99] transition-all"
+            >
+              <Flag className="h-5 w-5 text-destructive shrink-0" />
+              <span className="text-[15px] text-destructive">Report user</span>
+            </button>
+            <button
+              onClick={() => runFromMenu(handleBlockToggle)}
+              data-testid="menu-block"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left hover:bg-destructive/10 active:scale-[0.99] transition-all"
+            >
+              {isBlocked ? <ShieldOff className="h-5 w-5 text-destructive shrink-0" /> : <UserX className="h-5 w-5 text-destructive shrink-0" />}
+              <span className="text-[15px] text-destructive">{isBlocked ? "Unblock user" : "Block user"}</span>
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="max-w-[92vw] sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Report user</DialogTitle>
+            <DialogDescription>Tell us what's wrong. Reports are reviewed confidentially.</DialogDescription>
+          </DialogHeader>
+          <RadioGroup value={reportReason} onValueChange={setReportReason} className="gap-2">
+            {[
+              { value: "spam", label: "Spam or scam" },
+              { value: "harassment", label: "Harassment or bullying" },
+              { value: "abuse", label: "Abusive or hateful content" },
+              { value: "impersonation", label: "Impersonation / fake account" },
+              { value: "other", label: "Something else" },
+            ].map(({ value, label }) => (
+              <div key={value} className="flex items-center gap-3 rounded-xl border border-border px-3 py-2.5">
+                <RadioGroupItem value={value} id={`report-${value}`} />
+                <Label htmlFor={`report-${value}`} className="text-sm font-normal cursor-pointer flex-1">{label}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+          <Textarea
+            value={reportDetails}
+            onChange={e => setReportDetails(e.target.value)}
+            placeholder="Add details (optional)"
+            maxLength={500}
+            className="resize-none"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReportDialog(false)} disabled={reporting}>Cancel</Button>
+            <Button onClick={handleSubmitReport} disabled={reporting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {reporting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Submit report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       <GiftPicker
         open={showGiftPicker}
         onClose={() => setShowGiftPicker(false)}
