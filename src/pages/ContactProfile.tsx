@@ -1,6 +1,11 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
-import { ArrowLeft, MessageSquare, Phone, Video, BellOff, Bell, MoreVertical, Loader2, QrCode, FileIcon, UserX, StickyNote, Cake, Gift, Star, BadgeCheck } from "lucide-react";
+import { ArrowLeft, MessageSquare, Phone, Video, BellOff, Bell, MoreVertical, Loader2, QrCode, FileIcon, UserX, StickyNote, Cake, Gift, Star, BadgeCheck, Search, Copy, Link2, Flag, ShieldOff } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { reportContentAsync } from "@/lib/etokPrivacyService";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
