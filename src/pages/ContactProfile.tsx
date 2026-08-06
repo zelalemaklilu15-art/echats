@@ -221,6 +221,44 @@ const ContactProfile = () => {
     }
   };
 
+  const runFromMenu = (fn: () => void) => {
+    setShowMenu(false);
+    setTimeout(fn, 160);
+  };
+
+  const handleCopy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error("Couldn't copy");
+    }
+  };
+
+  const handleSearchInChat = () => {
+    if (chatId) navigate(`/chat/${chatId}?search=1`);
+    else toast.error("No chat with this user yet");
+  };
+
+  const handleSubmitReport = async () => {
+    if (!currentUser || !userId) return;
+    setReporting(true);
+    try {
+      const reason = reportDetails.trim() ? `${reportReason}: ${reportDetails.trim()}` : reportReason;
+      await reportContentAsync(currentUser.id, "user", userId, reason);
+      toast.success("Report submitted. Thank you.");
+      setShowReportDialog(false);
+      setReportDetails("");
+      setReportReason("spam");
+    } catch {
+      toast.error("Couldn't submit report");
+    } finally {
+      setReporting(false);
+    }
+  };
+
+
+
   if (loading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
