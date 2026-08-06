@@ -66,6 +66,11 @@ const ContactProfile = () => {
   const [savingNote, setSavingNote] = useState(false);
   const [showGiftPicker, setShowGiftPicker] = useState(false);
   const [starsBalance, setStarsBalance] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("spam");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
