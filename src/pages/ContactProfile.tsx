@@ -330,7 +330,7 @@ const ContactProfile = () => {
               <Star className="h-3 w-3" />
               {starsBalance} · Gift
             </button>
-            <Button variant="ghost" size="icon" data-testid="button-contact-menu">
+            <Button variant="ghost" size="icon" data-testid="button-contact-menu" onClick={() => setShowMenu(true)}>
               <MoreVertical className="h-5 w-5" />
             </Button>
           </div>
