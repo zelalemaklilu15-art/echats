@@ -240,6 +240,19 @@ const ContactProfile = () => {
     else toast.error("No chat with this user yet");
   };
 
+  const handleShareContact = async () => {
+    const url = `${window.location.origin}/contact/${userId}`;
+    const title = profile?.name || `@${profile?.username}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text: `${title} on Echat`, url });
+        return;
+      } catch { /* cancelled */ }
+    }
+    handleCopy(url, "Profile link");
+  };
+
+
   const handleSubmitReport = async () => {
     if (!currentUser || !userId) return;
     setReporting(true);
