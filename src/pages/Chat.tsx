@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { MessageBubble } from "@/components/ui/message-bubble";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMessages, useTypingIndicator, useProfile, useChatInfo } from "@/hooks/useChatStore";
 import { chatStore } from "@/lib/chatStore";
 import { uploadChatImage, uploadChatFile, compressImage, validateFile } from "@/lib/supabaseStorage";
