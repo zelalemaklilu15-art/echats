@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { MessageBubble } from "@/components/ui/message-bubble";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMessages, useTypingIndicator, useProfile, useChatInfo } from "@/hooks/useChatStore";
 import { chatStore } from "@/lib/chatStore";
 import { uploadChatImage, uploadChatFile, compressImage, validateFile } from "@/lib/supabaseStorage";
@@ -125,7 +125,17 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [showSearch, setShowSearch] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showSearch, setShowSearch] = useState(searchParams.get("search") === "1");
+
+  useEffect(() => {
+    if (searchParams.get("search") === "1") {
+      setShowSearch(true);
+      searchParams.delete("search");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [showMediaGallery, setShowMediaGallery] = useState(false);

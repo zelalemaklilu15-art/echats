@@ -1,6 +1,11 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
-import { ArrowLeft, MessageSquare, Phone, Video, BellOff, Bell, MoreVertical, Loader2, QrCode, FileIcon, UserX, StickyNote, Cake, Gift, Star, BadgeCheck } from "lucide-react";
+import { ArrowLeft, MessageSquare, Phone, Video, BellOff, Bell, MoreVertical, Loader2, QrCode, FileIcon, UserX, StickyNote, Cake, Gift, Star, BadgeCheck, Search, Copy, Link2, Flag, ShieldOff } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { reportContentAsync } from "@/lib/etokPrivacyService";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +66,11 @@ const ContactProfile = () => {
   const [savingNote, setSavingNote] = useState(false);
   const [showGiftPicker, setShowGiftPicker] = useState(false);
   const [starsBalance, setStarsBalance] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("spam");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -211,6 +221,57 @@ const ContactProfile = () => {
     }
   };
 
+  const runFromMenu = (fn: () => void) => {
+    setShowMenu(false);
+    setTimeout(fn, 160);
+  };
+
+  const handleCopy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error("Couldn't copy");
+    }
+  };
+
+  const handleSearchInChat = () => {
+    if (chatId) navigate(`/chat/${chatId}?search=1`);
+    else toast.error("No chat with this user yet");
+  };
+
+  const handleShareContact = async () => {
+    const url = `${window.location.origin}/contact/${userId}`;
+    const title = profile?.name || `@${profile?.username}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text: `${title} on Echat`, url });
+        return;
+      } catch { /* cancelled */ }
+    }
+    handleCopy(url, "Profile link");
+  };
+
+
+  const handleSubmitReport = async () => {
+    if (!currentUser || !userId) return;
+    setReporting(true);
+    try {
+      const reason = reportDetails.trim() ? `${reportReason}: ${reportDetails.trim()}` : reportReason;
+      await reportContentAsync(currentUser.id, "user", userId, reason);
+      toast.success("Report submitted. Thank you.");
+      setShowReportDialog(false);
+      setReportDetails("");
+      setReportReason("spam");
+    } catch {
+      toast.error("Couldn't submit report");
+    } finally {
+      setReporting(false);
+    }
+  };
+
+
+
   if (loading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
@@ -282,7 +343,7 @@ const ContactProfile = () => {
               <Star className="h-3 w-3" />
               {starsBalance} · Gift
             </button>
-            <Button variant="ghost" size="icon" data-testid="button-contact-menu">
+            <Button variant="ghost" size="icon" data-testid="button-contact-menu" onClick={() => setShowMenu(true)}>
               <MoreVertical className="h-5 w-5" />
             </Button>
           </div>
@@ -504,6 +565,94 @@ const ContactProfile = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Sheet open={showMenu} onOpenChange={setShowMenu}>
+        <SheetContent side="bottom" className="rounded-t-3xl px-0 pb-[calc(env(safe-area-inset-bottom)+12px)] max-h-[85vh] overflow-y-auto">
+          <SheetHeader className="px-5 pb-2 text-left">
+            <SheetTitle className="text-base">{profile?.name || `@${profile?.username}`}</SheetTitle>
+          </SheetHeader>
+          <div className="px-3 space-y-1">
+            {[
+              { label: "Message", icon: MessageSquare, action: handleMessage, testid: "menu-message" },
+              { label: "Voice call", icon: Phone, action: () => handleCall("voice"), testid: "menu-voice" },
+              { label: "Video call", icon: Video, action: () => handleCall("video"), testid: "menu-video" },
+              { label: isMuted ? "Unmute notifications" : "Mute notifications", icon: isMuted ? Bell : BellOff, action: handleToggleMute, testid: "menu-mute" },
+              { label: "Send a gift", icon: Gift, action: () => setShowGiftPicker(true), testid: "menu-gift" },
+              { label: "Search in chat", icon: Search, action: handleSearchInChat, testid: "menu-search" },
+              { label: "Copy username", icon: Copy, action: () => handleCopy(`@${profile?.username}`, "Username"), testid: "menu-copy-username" },
+              { label: "Copy profile link", icon: Link2, action: () => handleCopy(`${window.location.origin}/contact/${userId}`, "Profile link"), testid: "menu-copy-link" },
+              { label: "Share contact", icon: QrCode, action: handleShareContact, testid: "menu-share" },
+            ].map(({ label, icon: Icon, action, testid }) => (
+              <button
+                key={label}
+                onClick={() => runFromMenu(action)}
+                data-testid={testid}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left hover:bg-muted/70 active:scale-[0.99] transition-all"
+              >
+                <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
+                <span className="text-[15px] text-foreground">{label}</span>
+              </button>
+            ))}
+
+            <div className="my-2 h-px bg-border mx-4" />
+
+            <button
+              onClick={() => runFromMenu(() => setShowReportDialog(true))}
+              data-testid="menu-report"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left hover:bg-destructive/10 active:scale-[0.99] transition-all"
+            >
+              <Flag className="h-5 w-5 text-destructive shrink-0" />
+              <span className="text-[15px] text-destructive">Report user</span>
+            </button>
+            <button
+              onClick={() => runFromMenu(handleBlockToggle)}
+              data-testid="menu-block"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left hover:bg-destructive/10 active:scale-[0.99] transition-all"
+            >
+              {isBlocked ? <ShieldOff className="h-5 w-5 text-destructive shrink-0" /> : <UserX className="h-5 w-5 text-destructive shrink-0" />}
+              <span className="text-[15px] text-destructive">{isBlocked ? "Unblock user" : "Block user"}</span>
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="max-w-[92vw] sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Report user</DialogTitle>
+            <DialogDescription>Tell us what's wrong. Reports are reviewed confidentially.</DialogDescription>
+          </DialogHeader>
+          <RadioGroup value={reportReason} onValueChange={setReportReason} className="gap-2">
+            {[
+              { value: "spam", label: "Spam or scam" },
+              { value: "harassment", label: "Harassment or bullying" },
+              { value: "abuse", label: "Abusive or hateful content" },
+              { value: "impersonation", label: "Impersonation / fake account" },
+              { value: "other", label: "Something else" },
+            ].map(({ value, label }) => (
+              <div key={value} className="flex items-center gap-3 rounded-xl border border-border px-3 py-2.5">
+                <RadioGroupItem value={value} id={`report-${value}`} />
+                <Label htmlFor={`report-${value}`} className="text-sm font-normal cursor-pointer flex-1">{label}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+          <Textarea
+            value={reportDetails}
+            onChange={e => setReportDetails(e.target.value)}
+            placeholder="Add details (optional)"
+            maxLength={500}
+            className="resize-none"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReportDialog(false)} disabled={reporting}>Cancel</Button>
+            <Button onClick={handleSubmitReport} disabled={reporting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {reporting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Submit report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <GiftPicker
         open={showGiftPicker}
