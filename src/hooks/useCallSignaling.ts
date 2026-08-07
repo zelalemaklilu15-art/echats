@@ -37,48 +37,52 @@ interface SignalingCallbacks {
   onCallStateChange?: (event: CallStateEvent) => void;
 }
 
+const SUBSCRIBE_TIMEOUT_MS = 8000;
+
 export const useCallSignaling = (userId: string | null) => {
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const subscribedUserRef = useRef<string | null>(null);
   const callbacksRef = useRef<SignalingCallbacks>({});
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Persistent outgoing channels per peer: peerId -> { channel, ready }
+  const peerChannelsRef = useRef<
+    Map<string, { channel: RealtimeChannel; ready: Promise<boolean> }>
+  >(new Map());
 
-  // Generate unique room ID for a call between two users
   const generateRoomId = useCallback((user1: string, user2: string): string => {
     const sorted = [user1, user2].sort();
     return `call_${sorted[0]}_${sorted[1]}_${Date.now()}`;
   }, []);
 
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Create and subscribe to signaling channel
+  // ---- Inbound (listening) channel -------------------------------------
   const createChannel = useCallback((uid: string) => {
     const channel = supabase.channel(`calls:${uid}`, {
-      config: { broadcast: { self: false } }
+      config: { broadcast: { self: false, ack: true } },
     });
 
     channel
       .on('broadcast', { event: 'call_offer' }, ({ payload }) => {
-        console.log('[Signaling] Received call offer:', payload);
+        console.log('[Signaling] Received call offer');
         callbacksRef.current.onIncomingCall?.(payload as CallOffer);
       })
       .on('broadcast', { event: 'call_answer' }, ({ payload }) => {
-        console.log('[Signaling] Received call answer:', payload);
+        console.log('[Signaling] Received call answer');
         callbacksRef.current.onCallAnswer?.(payload as CallAnswer);
       })
       .on('broadcast', { event: 'ice_candidate' }, ({ payload }) => {
-        console.log('[Signaling] Received ICE candidate');
         callbacksRef.current.onIceCandidate?.(payload as IceCandidate);
       })
       .on('broadcast', { event: 'call_state' }, ({ payload }) => {
-        console.log('[Signaling] Received call state:', payload);
+        console.log('[Signaling] Received call state:', (payload as CallStateEvent)?.type);
         callbacksRef.current.onCallStateChange?.(payload as CallStateEvent);
       })
       .subscribe((status) => {
-        console.log('[Signaling] Channel status:', status);
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Auto-reconnect after a short delay
+        console.log('[Signaling] Inbound channel status:', status);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = setTimeout(() => {
-            console.log('[Signaling] Reconnecting...');
+            if (subscribedUserRef.current !== uid) return;
+            console.log('[Signaling] Reconnecting inbound channel...');
             if (channelRef.current) {
               supabase.removeChannel(channelRef.current);
               channelRef.current = null;
@@ -91,148 +95,151 @@ export const useCallSignaling = (userId: string | null) => {
     return channel;
   }, []);
 
-  // Subscribe to signaling channel
-  const subscribeToSignaling = useCallback((callbacks: SignalingCallbacks) => {
-    if (!userId) return;
+  // Keeps the inbound channel alive across re-renders/state changes.
+  const subscribeToSignaling = useCallback(
+    (callbacks: SignalingCallbacks) => {
+      callbacksRef.current = callbacks;
+      if (!userId) return;
+      if (channelRef.current && subscribedUserRef.current === userId) return;
 
-    callbacksRef.current = callbacks;
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      subscribedUserRef.current = userId;
+      channelRef.current = createChannel(userId);
+    },
+    [userId, createChannel],
+  );
 
-    // Clean up existing channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
+  // ---- Outbound channels ------------------------------------------------
+  const getPeerChannel = useCallback((peerId: string) => {
+    const existing = peerChannelsRef.current.get(peerId);
+    if (existing) return existing;
 
-    channelRef.current = createChannel(userId);
-  }, [userId, createChannel]);
-
-  // Send call offer to receiver
-  const sendOffer = useCallback(async (
-    receiverId: string,
-    offer: RTCSessionDescriptionInit,
-    callType: CallType,
-    callerName: string,
-    callerAvatar?: string,
-    roomId?: string
-  ): Promise<string> => {
-    if (!userId) throw new Error('User not authenticated');
-
-    const finalRoomId = roomId || generateRoomId(userId, receiverId);
-
-    // Send to receiver's channel
-    const receiverChannel = supabase.channel(`calls:${receiverId}`, {
-      config: { broadcast: { self: false } }
+    const channel = supabase.channel(`calls:${peerId}`, {
+      config: { broadcast: { self: false, ack: true } },
     });
 
-    await receiverChannel.subscribe();
+    const ready = new Promise<boolean>((resolve) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      }, SUBSCRIBE_TIMEOUT_MS);
 
-    await receiverChannel.send({
-      type: 'broadcast',
-      event: 'call_offer',
-      payload: {
+      channel.subscribe((status) => {
+        if (settled) return;
+        if (status === 'SUBSCRIBED') {
+          settled = true;
+          clearTimeout(timer);
+          resolve(true);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          settled = true;
+          clearTimeout(timer);
+          resolve(false);
+        }
+      });
+    });
+
+    const entry = { channel, ready };
+    peerChannelsRef.current.set(peerId, entry);
+    return entry;
+  }, []);
+
+  const dropPeerChannel = useCallback((peerId: string) => {
+    const entry = peerChannelsRef.current.get(peerId);
+    if (entry) {
+      supabase.removeChannel(entry.channel);
+      peerChannelsRef.current.delete(peerId);
+    }
+  }, []);
+
+  // Send with one retry on a fresh channel.
+  const sendToPeer = useCallback(
+    async (peerId: string, event: string, payload: unknown): Promise<boolean> => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const entry = getPeerChannel(peerId);
+        const ok = await entry.ready;
+        if (ok) {
+          try {
+            const res = await entry.channel.send({ type: 'broadcast', event, payload });
+            if (res === 'ok' || res === undefined) return true;
+          } catch (e) {
+            console.warn('[Signaling] send failed:', e);
+          }
+        }
+        dropPeerChannel(peerId);
+      }
+      console.error('[Signaling] Failed to deliver', event, 'to', peerId);
+      return false;
+    },
+    [getPeerChannel, dropPeerChannel],
+  );
+
+  const sendOffer = useCallback(
+    async (
+      receiverId: string,
+      offer: RTCSessionDescriptionInit,
+      callType: CallType,
+      callerName: string,
+      callerAvatar?: string,
+      roomId?: string,
+    ): Promise<string> => {
+      if (!userId) throw new Error('User not authenticated');
+      const finalRoomId = roomId || generateRoomId(userId, receiverId);
+
+      const delivered = await sendToPeer(receiverId, 'call_offer', {
         callerId: userId,
         callerName,
         callerAvatar,
         callType,
         offer,
         roomId: finalRoomId,
-      } as CallOffer,
-    });
+      } as CallOffer);
 
-    // Cleanup temporary channel after sending
-    setTimeout(() => {
-      supabase.removeChannel(receiverChannel);
-    }, 1000);
+      if (!delivered) throw new Error('Could not reach the other user. Check your connection.');
+      return finalRoomId;
+    },
+    [userId, generateRoomId, sendToPeer],
+  );
 
-    return finalRoomId;
-  }, [userId, generateRoomId]);
+  const sendAnswer = useCallback(
+    async (callerId: string, answer: RTCSessionDescriptionInit, roomId: string) => {
+      if (!userId) throw new Error('User not authenticated');
+      const ok = await sendToPeer(callerId, 'call_answer', { answer, roomId } as CallAnswer);
+      if (!ok) throw new Error('Could not answer the call. Check your connection.');
+    },
+    [userId, sendToPeer],
+  );
 
-  // Send call answer to caller
-  const sendAnswer = useCallback(async (
-    callerId: string,
-    answer: RTCSessionDescriptionInit,
-    roomId: string
-  ) => {
-    if (!userId) throw new Error('User not authenticated');
-
-    const callerChannel = supabase.channel(`calls:${callerId}`, {
-      config: { broadcast: { self: false } }
-    });
-
-    await callerChannel.subscribe();
-
-    await callerChannel.send({
-      type: 'broadcast',
-      event: 'call_answer',
-      payload: {
-        answer,
-        roomId,
-      } as CallAnswer,
-    });
-
-    setTimeout(() => {
-      supabase.removeChannel(callerChannel);
-    }, 1000);
-  }, [userId]);
-
-  // Send ICE candidate
-  const sendIceCandidate = useCallback(async (
-    targetId: string,
-    candidate: RTCIceCandidateInit,
-    roomId: string
-  ) => {
-    if (!userId) throw new Error('User not authenticated');
-
-    const targetChannel = supabase.channel(`calls:${targetId}`, {
-      config: { broadcast: { self: false } }
-    });
-
-    await targetChannel.subscribe();
-
-    await targetChannel.send({
-      type: 'broadcast',
-      event: 'ice_candidate',
-      payload: {
+  const sendIceCandidate = useCallback(
+    async (targetId: string, candidate: RTCIceCandidateInit, roomId: string) => {
+      if (!userId) return;
+      await sendToPeer(targetId, 'ice_candidate', {
         candidate,
         senderId: userId,
         roomId,
-      } as IceCandidate,
-    });
+      } as IceCandidate);
+    },
+    [userId, sendToPeer],
+  );
 
-    setTimeout(() => {
-      supabase.removeChannel(targetChannel);
-    }, 500);
-  }, [userId]);
+  const sendCallState = useCallback(
+    async (targetId: string, type: CallStateEvent['type'], roomId: string) => {
+      if (!userId) return;
+      await sendToPeer(targetId, 'call_state', { type, roomId, senderId: userId } as CallStateEvent);
+    },
+    [userId, sendToPeer],
+  );
 
-  // Send call state event (rejected, ended, etc.)
-  const sendCallState = useCallback(async (
-    targetId: string,
-    type: CallStateEvent['type'],
-    roomId: string
-  ) => {
-    if (!userId) throw new Error('User not authenticated');
+  // Close outbound channel for a peer once the call is over.
+  const releasePeer = useCallback(
+    (peerId?: string | null) => {
+      if (peerId) dropPeerChannel(peerId);
+    },
+    [dropPeerChannel],
+  );
 
-    const targetChannel = supabase.channel(`calls:${targetId}`, {
-      config: { broadcast: { self: false } }
-    });
-
-    await targetChannel.subscribe();
-
-    await targetChannel.send({
-      type: 'broadcast',
-      event: 'call_state',
-      payload: {
-        type,
-        roomId,
-        senderId: userId,
-      } as CallStateEvent,
-    });
-
-    setTimeout(() => {
-      supabase.removeChannel(targetChannel);
-    }, 1000);
-  }, [userId]);
-
-  // Cleanup
   const cleanup = useCallback(() => {
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
@@ -242,10 +249,12 @@ export const useCallSignaling = (userId: string | null) => {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
+    subscribedUserRef.current = null;
+    peerChannelsRef.current.forEach(({ channel }) => supabase.removeChannel(channel));
+    peerChannelsRef.current.clear();
     callbacksRef.current = {};
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       cleanup();
@@ -258,6 +267,7 @@ export const useCallSignaling = (userId: string | null) => {
     sendAnswer,
     sendIceCandidate,
     sendCallState,
+    releasePeer,
     cleanup,
   };
 };

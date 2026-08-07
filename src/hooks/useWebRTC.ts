@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { getEtokIceServers } from '@/lib/etokIceServers';
 
 export type CallType = 'voice' | 'video';
 
@@ -9,34 +10,17 @@ export interface WebRTCState {
   iceConnectionState: RTCIceConnectionState | null;
 }
 
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-  ],
-  iceCandidatePoolSize: 10,
-};
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
 
 export const useWebRTC = () => {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteStreamRef = useRef<MediaStream | null>(null);
-  
+
   const [state, setState] = useState<WebRTCState>({
     localStream: null,
     remoteStream: null,
@@ -50,165 +34,181 @@ export const useWebRTC = () => {
   const getUserMedia = useCallback(async (callType: CallType): Promise<MediaStream> => {
     try {
       const constraints: MediaStreamConstraints = {
-        audio: true,
-        video: callType === 'video',
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video:
+          callType === 'video'
+            ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+            : false,
       };
-      
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
-      setState(prev => ({ ...prev, localStream: stream }));
+      setState((prev) => ({ ...prev, localStream: stream }));
       return stream;
     } catch (err) {
+      const name = (err as DOMException)?.name || '';
       const errorMessage = err instanceof Error ? err.message : 'Failed to access media devices';
-      if (errorMessage.includes('Permission denied') || errorMessage.includes('NotAllowedError')) {
-        throw new Error(callType === 'video' 
-          ? 'Camera and microphone permission denied. Please allow access to make video calls.'
-          : 'Microphone permission denied. Please allow access to make voice calls.'
+      if (name === 'NotAllowedError' || errorMessage.includes('Permission denied')) {
+        throw new Error(
+          callType === 'video'
+            ? 'Camera and microphone permission denied. Please allow access to make video calls.'
+            : 'Microphone permission denied. Please allow access to make voice calls.',
         );
       }
-      throw new Error(`Failed to access ${callType === 'video' ? 'camera/microphone' : 'microphone'}: ${errorMessage}`);
+      if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        throw new Error(
+          callType === 'video'
+            ? 'No camera or microphone found on this device.'
+            : 'No microphone found on this device.',
+        );
+      }
+      if (name === 'NotReadableError') {
+        throw new Error('Your camera or microphone is already in use by another app.');
+      }
+      throw new Error(
+        `Failed to access ${callType === 'video' ? 'camera/microphone' : 'microphone'}: ${errorMessage}`,
+      );
     }
   }, []);
 
-  // Create peer connection
-  const createPeerConnection = useCallback((
-    onIceCandidate: (candidate: RTCIceCandidate) => void,
-    onConnectionStateChange?: (state: RTCPeerConnectionState) => void
-  ): RTCPeerConnection => {
-    // Close existing connection if any
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-    }
-
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    peerConnectionRef.current = pc;
-
-    // Handle ICE candidates
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        onIceCandidate(event.candidate);
+  // Create peer connection (async: fetches fresh TURN credentials)
+  const createPeerConnection = useCallback(
+    async (
+      onIceCandidate: (candidate: RTCIceCandidate) => void,
+      onConnectionStateChange?: (state: RTCPeerConnectionState) => void,
+    ): Promise<RTCPeerConnection> => {
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
       }
-    };
 
-    // Handle remote stream
-    pc.ontrack = (event) => {
-      const [remoteStream] = event.streams;
-      if (remoteStream) {
+      let iceServers: RTCIceServer[] = FALLBACK_ICE_SERVERS;
+      try {
+        const fetched = await getEtokIceServers();
+        if (fetched?.length) iceServers = fetched;
+      } catch {
+        // keep fallback
+      }
+
+      const pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 4 });
+      peerConnectionRef.current = pc;
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) onIceCandidate(event.candidate);
+      };
+
+      pc.ontrack = (event) => {
+        let remoteStream = event.streams?.[0];
+        if (!remoteStream) {
+          remoteStream = remoteStreamRef.current || new MediaStream();
+          remoteStream.addTrack(event.track);
+        }
         remoteStreamRef.current = remoteStream;
-        setState(prev => ({ ...prev, remoteStream }));
-      }
-    };
+        setState((prev) => ({ ...prev, remoteStream }));
+      };
 
-    // Monitor connection state
-    pc.onconnectionstatechange = () => {
-      setState(prev => ({ ...prev, connectionState: pc.connectionState }));
-      onConnectionStateChange?.(pc.connectionState);
-    };
+      pc.onconnectionstatechange = () => {
+        setState((prev) => ({ ...prev, connectionState: pc.connectionState }));
+        onConnectionStateChange?.(pc.connectionState);
+      };
 
-    pc.oniceconnectionstatechange = () => {
-      setState(prev => ({ ...prev, iceConnectionState: pc.iceConnectionState }));
-    };
+      pc.oniceconnectionstatechange = () => {
+        setState((prev) => ({ ...prev, iceConnectionState: pc.iceConnectionState }));
+      };
 
-    return pc;
-  }, []);
+      return pc;
+    },
+    [],
+  );
 
-  // Add local tracks to peer connection
   const addLocalTracks = useCallback((stream: MediaStream) => {
-    if (!peerConnectionRef.current) {
-      throw new Error('Peer connection not initialized');
-    }
-    
-    stream.getTracks().forEach(track => {
+    if (!peerConnectionRef.current) throw new Error('Peer connection not initialized');
+    stream.getTracks().forEach((track) => {
       peerConnectionRef.current!.addTrack(track, stream);
     });
   }, []);
 
-  // Create offer (caller side)
-  const createOffer = useCallback(async (): Promise<RTCSessionDescriptionInit> => {
-    if (!peerConnectionRef.current) {
-      throw new Error('Peer connection not initialized');
-    }
+  const createOffer = useCallback(
+    async (options?: { iceRestart?: boolean }): Promise<RTCSessionDescriptionInit> => {
+      if (!peerConnectionRef.current) throw new Error('Peer connection not initialized');
+      const offer = await peerConnectionRef.current.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true,
+        iceRestart: options?.iceRestart ?? false,
+      });
+      await peerConnectionRef.current.setLocalDescription(offer);
+      return offer;
+    },
+    [],
+  );
 
-    const offer = await peerConnectionRef.current.createOffer({
-      offerToReceiveAudio: true,
-      offerToReceiveVideo: true,
-    });
-    
-    await peerConnectionRef.current.setLocalDescription(offer);
-    return offer;
-  }, []);
+  const handleOffer = useCallback(
+    async (offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> => {
+      if (!peerConnectionRef.current) throw new Error('Peer connection not initialized');
+      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerConnectionRef.current.createAnswer();
+      await peerConnectionRef.current.setLocalDescription(answer);
+      return answer;
+    },
+    [],
+  );
 
-  // Handle incoming offer (receiver side)
-  const handleOffer = useCallback(async (offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit> => {
-    if (!peerConnectionRef.current) {
-      throw new Error('Peer connection not initialized');
-    }
-
-    await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-    
-    const answer = await peerConnectionRef.current.createAnswer();
-    await peerConnectionRef.current.setLocalDescription(answer);
-    
-    return answer;
-  }, []);
-
-  // Handle incoming answer (caller side)
   const handleAnswer = useCallback(async (answer: RTCSessionDescriptionInit) => {
-    if (!peerConnectionRef.current) {
-      throw new Error('Peer connection not initialized');
-    }
-
-    await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+    const pc = peerConnectionRef.current;
+    if (!pc) throw new Error('Peer connection not initialized');
+    if (pc.signalingState === 'stable') return; // answer already applied
+    await pc.setRemoteDescription(new RTCSessionDescription(answer));
   }, []);
 
-  // Add ICE candidate
   const addIceCandidate = useCallback(async (candidate: RTCIceCandidateInit) => {
-    if (!peerConnectionRef.current) {
-      console.warn('Peer connection not ready for ICE candidate');
-      return;
-    }
-
+    const pc = peerConnectionRef.current;
+    if (!pc || !pc.remoteDescription) return false;
     try {
-      await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      return true;
     } catch (err) {
-      console.error('Failed to add ICE candidate:', err);
+      console.warn('[WebRTC] Failed to add ICE candidate:', err);
+      return false;
     }
   }, []);
 
-  // Toggle mute
+  const hasRemoteDescription = useCallback(
+    () => !!peerConnectionRef.current?.remoteDescription,
+    [],
+  );
+
+  const getPeerConnection = useCallback(() => peerConnectionRef.current, []);
+
   const toggleMute = useCallback((muted: boolean) => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = !muted;
-      });
-    }
+    localStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = !muted;
+    });
   }, []);
 
-  // Toggle camera
   const toggleCamera = useCallback((disabled: boolean) => {
-    if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach(track => {
-        track.enabled = !disabled;
-      });
-    }
+    localStreamRef.current?.getVideoTracks().forEach((track) => {
+      track.enabled = !disabled;
+    });
   }, []);
 
-  // Cleanup all resources
   const cleanup = useCallback(() => {
-    // Stop all local tracks
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     }
-
-    // Stop all remote tracks
     if (remoteStreamRef.current) {
-      remoteStreamRef.current.getTracks().forEach(track => track.stop());
+      remoteStreamRef.current.getTracks().forEach((track) => track.stop());
       remoteStreamRef.current = null;
     }
-
-    // Close peer connection
     if (peerConnectionRef.current) {
+      peerConnectionRef.current.onicecandidate = null;
+      peerConnectionRef.current.ontrack = null;
+      peerConnectionRef.current.onconnectionstatechange = null;
+      peerConnectionRef.current.oniceconnectionstatechange = null;
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
@@ -219,7 +219,7 @@ export const useWebRTC = () => {
       connectionState: null,
       iceConnectionState: null,
     });
-    
+
     setError(null);
   }, []);
 
@@ -234,6 +234,8 @@ export const useWebRTC = () => {
     handleOffer,
     handleAnswer,
     addIceCandidate,
+    hasRemoteDescription,
+    getPeerConnection,
     toggleMute,
     toggleCamera,
     cleanup,
