@@ -79,6 +79,30 @@ class CallLogService {
     return true;
   }
 
+  // Update call log by room id (used by the answering side, which has no log id)
+  async updateCallLogByRoomId(
+    roomId: string,
+    status: 'completed' | 'missed' | 'rejected' | 'failed',
+    durationSeconds?: number
+  ): Promise<boolean> {
+    const { error } = await supabase
+      .from('call_logs')
+      .update({
+        status,
+        ended_at: new Date().toISOString(),
+        duration_seconds: durationSeconds,
+      })
+      .eq('room_id', roomId);
+
+    if (error) {
+      console.error('[CallLogService] Failed to update call log by room:', error);
+      return false;
+    }
+
+    return true;
+  }
+
+
   // Get call logs for the current user
   async getCallLogs(limit: number = 50): Promise<CallLogWithProfile[]> {
     const { data: { user } } = await supabase.auth.getUser();
