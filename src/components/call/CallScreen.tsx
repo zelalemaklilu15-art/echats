@@ -597,12 +597,26 @@ export const CallScreen = () => {
               }}
             >
               {isVideoCall ? (
-                // ── Video call controls (3 main) ──
-                <div className="flex items-center justify-center gap-8">
-                  <CtrlBtn icon={isMuted ? MicOff : Mic}         label={isMuted ? "Unmute" : "Mute"}     onPress={toggleMute}    active={isMuted} />
-                  <CtrlBtn icon={PhoneOff}                        label="End"                              onPress={endCall}       danger large />
-                  <CtrlBtn icon={isCameraOff ? VideoOff : Video} label={isCameraOff ? "Camera Off" : "Camera"} onPress={toggleCamera} active={isCameraOff} />
-                </div>
+                // ── Video call controls ──
+                <>
+                  <div className="flex items-center justify-around mb-5">
+                    <CtrlBtn icon={SwitchCamera} label="Flip" onPress={() => switchCamera()} disabled={isScreenSharing} />
+                    <CtrlBtn icon={Settings2} label="Devices" onPress={() => setDevicesOpen(true)} />
+                    <CtrlBtn icon={isScreenSharing ? MonitorOff : Monitor} label="Share" onPress={toggleScreenShare} active={isScreenSharing} />
+                    <CtrlBtn
+                      icon={MessageCircle}
+                      label={unreadChatCount > 0 ? `Chat (${unreadChatCount})` : 'Chat'}
+                      onPress={() => setChatOpen(true)}
+                      disabled={!isInCall}
+                    />
+                  </div>
+                  <div className="h-px bg-white/8 mb-5" />
+                  <div className="flex items-center justify-center gap-8">
+                    <CtrlBtn icon={isMuted ? MicOff : Mic}         label={isMuted ? "Unmute" : "Mute"}     onPress={toggleMute}    active={isMuted} />
+                    <CtrlBtn icon={PhoneOff}                        label="End"                              onPress={endCall}       danger large />
+                    <CtrlBtn icon={isCameraOff ? VideoOff : Video} label={isCameraOff ? "Camera Off" : "Camera"} onPress={toggleCamera} active={isCameraOff} />
+                  </div>
+                </>
               ) : (
                 // ── Voice call controls: 2 rows ──
                 <>
@@ -616,10 +630,9 @@ export const CallScreen = () => {
                       active={!isSpeakerOn}
                     />
                     <CtrlBtn
-                      icon={UserPlus}
-                      label="Add"
-                      onPress={() => {}}
-                      disabled
+                      icon={Settings2}
+                      label="Devices"
+                      onPress={() => setDevicesOpen(true)}
                     />
                     <CtrlBtn
                       icon={Hash}
@@ -629,11 +642,12 @@ export const CallScreen = () => {
                     />
                     <CtrlBtn
                       icon={MessageCircle}
-                      label="Message"
-                      onPress={() => {}}
-                      disabled
+                      label={unreadChatCount > 0 ? `Chat (${unreadChatCount})` : 'Message'}
+                      onPress={() => setChatOpen(true)}
+                      disabled={!isInCall}
                     />
                   </div>
+
 
                   {/* Divider */}
                   <div className="h-px bg-white/8 mb-5" />
