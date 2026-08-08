@@ -287,18 +287,23 @@ export const CallScreen = () => {
                     <p className="text-white/60 text-[13px] font-mono">{getStatusText()}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full px-3 py-1.5">
-                  <motion.div
-                    className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                  <span className="text-emerald-400 text-[12px] font-bold">LIVE</span>
+                <div className="flex items-center gap-2">
+                  <NetworkBadge />
+                  <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full px-3 py-1.5">
+                    <motion.div
+                      className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                      animate={{ opacity: [1, 0.4, 1] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                    <span className="text-emerald-400 text-[12px] font-bold">LIVE</span>
+                  </div>
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        <PoorConnectionWarning />
 
         {/* ── LOCAL PiP (draggable) ── */}
         <DraggablePiP videoRef={localVideoRef} isCameraOff={isCameraOff} containerRef={containerRef} />
@@ -317,11 +322,24 @@ export const CallScreen = () => {
             >
               {/* Blur canvas (hidden, provides blurred bg) */}
               {isBlurBg && <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none z-0" />}
-              <div className="flex items-center justify-center gap-5 px-8 py-7">
+
+              {/* Secondary pro controls */}
+              <div className="flex items-center justify-center gap-4 px-6 pt-4">
+                <CtrlBtn icon={SwitchCamera} label="Flip" onPress={() => switchCamera()} disabled={isScreenSharing} />
+                <CtrlBtn icon={Settings2} label="Devices" onPress={() => setDevicesOpen(true)} />
+                <CtrlBtn
+                  icon={MessageCircle}
+                  label={unreadChatCount > 0 ? `Chat (${unreadChatCount})` : 'Chat'}
+                  onPress={() => setChatOpen(true)}
+                />
+                <CtrlBtn icon={PictureInPicture2} label="PiP" onPress={togglePiP} active={isPiP} disabled={!pipSupported} />
+                <CtrlBtn icon={Aperture} label={isBlurBg ? 'Blur On' : 'Blur BG'} onPress={toggleBlurBg} active={isBlurBg} />
+              </div>
+
+              <div className="flex items-center justify-center gap-5 px-8 py-6">
                 <CtrlBtn icon={isMuted ? MicOff : Mic}   label={isMuted ? "Unmute" : "Mute"}       onPress={toggleMute}    active={isMuted} />
                 <CtrlBtn icon={isScreenSharing ? MonitorOff : Monitor} label={isScreenSharing ? "Stop Share" : "Share"} onPress={toggleScreenShare} active={isScreenSharing} />
                 <CtrlBtn icon={PhoneOff}                  label="End Call"                           onPress={endCall}       danger large />
-                <CtrlBtn icon={Aperture}                  label={isBlurBg ? "Blur On" : "Blur BG"}  onPress={toggleBlurBg}  active={isBlurBg} />
                 <CtrlBtn icon={isCameraOff ? VideoOff : Video} label={isCameraOff ? "Show" : "Camera"} onPress={toggleCamera} active={isCameraOff} />
               </div>
               {isScreenSharing && (
@@ -332,6 +350,10 @@ export const CallScreen = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <InCallChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
+        <DeviceSwitcherSheet open={devicesOpen} onClose={() => setDevicesOpen(false)} />
+
 
         {/* Tap hint when controls hidden */}
         <AnimatePresence>
