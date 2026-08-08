@@ -526,21 +526,76 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setTimeout(resetCall, 1500);
   }, [signaling, finalizeLog, resetCall, stopDurationTimer, setCallStateSafe]);
 
-  const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      webRTC.toggleMute(next);
-      return next;
-    });
+  const mutedRef = useRef(false);
+  const cameraOffRef = useRef(false);
+
+  // True mute: the microphone hardware is released, not just silenced.
+  const toggleMute = useCallback(async () => {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setIsMuted(next);
+    try {
+      await webRTC.setMicrophoneEnabled(!next);
+    } catch (e) {
+      console.warn('[CallManager] Mic toggle failed:', e);
+      mutedRef.current = !next;
+      setIsMuted(!next);
+      setErrorMessage('Could not access the microphone');
+    }
   }, [webRTC]);
 
-  const toggleCamera = useCallback(() => {
-    setIsCameraOff((prev) => {
-      const next = !prev;
-      webRTC.toggleCamera(next);
-      return next;
-    });
+  // True camera off: the capture device stops so the LED turns off.
+  const toggleCamera = useCallback(async () => {
+    const next = !cameraOffRef.current;
+    cameraOffRef.current = next;
+    setIsCameraOff(next);
+    try {
+      await webRTC.setCameraEnabled(!next);
+    } catch (e) {
+      console.warn('[CallManager] Camera toggle failed:', e);
+      cameraOffRef.current = !next;
+      setIsCameraOff(!next);
+      setErrorMessage('Could not access the camera');
+    }
   }, [webRTC]);
+
+  const toggleScreenShare = useCallback(async () => {
+    try {
+      await webRTC.toggleScreenShare();
+    } catch (e) {
+      const name = (e as DOMException)?.name;
+      if (name !== 'NotAllowedError' && name !== 'AbortError') {
+        console.warn('[CallManager] Screen share failed:', e);
+        setErrorMessage('Screen sharing is not available on this device');
+      }
+    }
+  }, [webRTC]);
+
+  const switchCamera = useCallback(
+    async (deviceId?: string) => {
+      try {
+        if (deviceId) await webRTC.switchVideoInput(deviceId);
+        else await webRTC.flipCamera();
+      } catch (e) {
+        console.warn('[CallManager] Camera switch failed:', e);
+        setErrorMessage('Could not switch camera');
+      }
+    },
+    [webRTC],
+  );
+
+  const switchMicrophone = useCallback(
+    async (deviceId: string) => {
+      try {
+        await webRTC.switchAudioInput(deviceId);
+      } catch (e) {
+        console.warn('[CallManager] Mic switch failed:', e);
+        setErrorMessage('Could not switch microphone');
+      }
+    },
+    [webRTC],
+  );
+
 
   // ---- Signaling handlers ----------------------------------------------
   const handleIncomingCall = useCallback(
