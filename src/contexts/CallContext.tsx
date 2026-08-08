@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useCallManager, CallState, ActiveCall } from '@/hooks/useCallManager';
-import { CallType } from '@/hooks/useWebRTC';
+import { useCallManager, CallState, ActiveCall, InCallMessage } from '@/hooks/useCallManager';
+import { CallType, NetworkQuality, NetworkStats, MediaDeviceOption } from '@/hooks/useWebRTC';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPublicProfile } from '@/lib/supabaseService';
 
@@ -16,6 +16,12 @@ interface CallContextType {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   connectionState: RTCPeerConnectionState | null;
+  networkStats: NetworkStats;
+  networkQuality: NetworkQuality;
+  isScreenSharing: boolean;
+  devices: MediaDeviceOption[];
+  chatMessages: InCallMessage[];
+  unreadChatCount: number;
   isReady: boolean;
 
   // Actions
@@ -25,6 +31,12 @@ interface CallContextType {
   endCall: () => void;
   toggleMute: () => void;
   toggleCamera: () => void;
+  toggleScreenShare: () => Promise<void>;
+  switchCamera: (deviceId?: string) => Promise<void>;
+  switchMicrophone: (deviceId: string) => Promise<void>;
+  refreshDevices: () => Promise<MediaDeviceOption[]>;
+  sendCallChatMessage: (text: string) => boolean;
+  markChatRead: () => void;
   resetCall: () => void;
 }
 
@@ -37,6 +49,7 @@ export const useCall = (): CallContextType => {
   }
   return context;
 };
+
 
 interface CallProviderProps {
   children: ReactNode;

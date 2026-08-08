@@ -1,9 +1,23 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useWebRTC, CallType } from './useWebRTC';
+import { useWebRTC, CallType, NetworkQuality } from './useWebRTC';
 import { useCallSignaling, CallOffer, CallAnswer, IceCandidate, CallStateEvent } from './useCallSignaling';
 import { callLogService } from '@/lib/callLogService';
 import { pushNotificationService } from '@/lib/pushNotificationService';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  joinCallPresence,
+  leaveCallPresence,
+  isPeerAvailable,
+  isPresenceReady,
+} from '@/lib/callPresenceService';
+
+export interface InCallMessage {
+  id: string;
+  text: string;
+  fromSelf: boolean;
+  at: number;
+}
+
 
 export type CallState =
   | 'idle'
@@ -43,6 +57,9 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<InCallMessage[]>([]);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
 
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,6 +71,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const durationRef = useRef(0);
   const callLogIdRef = useRef<string | null>(null);
   const logFinalizedRef = useRef(false);
+  const mutedRef = useRef(false);
+  const cameraOffRef = useRef(false);
 
   // ICE buffers
   const pendingRemoteIce = useRef<RTCIceCandidateInit[]>([]);
@@ -62,6 +81,49 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
 
   const webRTC = useWebRTC();
   const signaling = useCallSignaling(userId);
+
+  // ---- Supabase Realtime Presence --------------------------------------
+  useEffect(() => {
+    if (!userId) {
+      leaveCallPresence();
+      return;
+    }
+    joinCallPresence(userId);
+    return () => {
+      leaveCallPresence();
+    };
+  }, [userId]);
+
+  // ---- In-call chat over the RTCDataChannel -----------------------------
+  useEffect(() => {
+    webRTC.setDataMessageHandler((text) => {
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text, fromSelf: false, at: Date.now() },
+      ]);
+      setUnreadChatCount((n) => n + 1);
+    });
+    return () => webRTC.setDataMessageHandler(null);
+  }, [webRTC]);
+
+  const sendCallChatMessage = useCallback(
+    (text: string): boolean => {
+      const trimmed = text.trim();
+      if (!trimmed) return false;
+      const ok = webRTC.sendDataMessage(trimmed);
+      if (ok) {
+        setChatMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: trimmed, fromSelf: true, at: Date.now() },
+        ]);
+      }
+      return ok;
+    },
+    [webRTC],
+  );
+
+  const markChatRead = useCallback(() => setUnreadChatCount(0), []);
+
 
   const setCallStateSafe = useCallback((s: CallState) => {
     callStateRef.current = s;
@@ -151,7 +213,12 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setCallDuration(0);
     setIsMuted(false);
     setIsCameraOff(false);
+    mutedRef.current = false;
+    cameraOffRef.current = false;
     setErrorMessage(null);
+    setChatMessages([]);
+    setUnreadChatCount(0);
+
   }, [clearTimers, stopDurationTimer, webRTC, signaling]);
 
   // ---- ICE plumbing -----------------------------------------------------
@@ -269,6 +336,25 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         return;
       }
 
+      // Fail fast when the callee has no live session (Realtime Presence).
+      try {
+        await joinCallPresence(userId);
+      } catch {
+        /* presence best effort */
+      }
+      if (isPresenceReady() && !isPeerAvailable(peerId)) {
+        setCallStateSafe('call_failed');
+        setErrorMessage(`${peerName} is offline`);
+        // Still notify their device so they can call back.
+        supabase.functions
+          .invoke('send-call-notification', {
+            body: { receiverId: peerId, callerName: userName, callType, roomId: 'missed' },
+          })
+          .catch(() => {});
+        setTimeout(resetCall, 2500);
+        return;
+      }
+
       const sorted = [userId, peerId].sort();
       const roomId = `call_${sorted[0]}_${sorted[1]}_${Date.now()}`;
 
@@ -288,8 +374,11 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         });
 
         const localStream = await webRTC.getUserMedia(callType);
-        await webRTC.createPeerConnection(handleIceCandidate, handleConnectionStateChange);
+        await webRTC.createPeerConnection(handleIceCandidate, handleConnectionStateChange, {
+          createDataChannel: true,
+        });
         webRTC.addLocalTracks(localStream);
+
 
         const offer = await webRTC.createOffer();
 
@@ -441,21 +530,73 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setTimeout(resetCall, 1500);
   }, [signaling, finalizeLog, resetCall, stopDurationTimer, setCallStateSafe]);
 
-  const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      webRTC.toggleMute(next);
-      return next;
-    });
+  // True mute: the microphone hardware is released, not just silenced.
+  const toggleMute = useCallback(async () => {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setIsMuted(next);
+    try {
+      await webRTC.setMicrophoneEnabled(!next);
+    } catch (e) {
+      console.warn('[CallManager] Mic toggle failed:', e);
+      mutedRef.current = !next;
+      setIsMuted(!next);
+      setErrorMessage('Could not access the microphone');
+    }
   }, [webRTC]);
 
-  const toggleCamera = useCallback(() => {
-    setIsCameraOff((prev) => {
-      const next = !prev;
-      webRTC.toggleCamera(next);
-      return next;
-    });
+  // True camera off: the capture device stops so the LED turns off.
+  const toggleCamera = useCallback(async () => {
+    const next = !cameraOffRef.current;
+    cameraOffRef.current = next;
+    setIsCameraOff(next);
+    try {
+      await webRTC.setCameraEnabled(!next);
+    } catch (e) {
+      console.warn('[CallManager] Camera toggle failed:', e);
+      cameraOffRef.current = !next;
+      setIsCameraOff(!next);
+      setErrorMessage('Could not access the camera');
+    }
   }, [webRTC]);
+
+  const toggleScreenShare = useCallback(async () => {
+    try {
+      await webRTC.toggleScreenShare();
+    } catch (e) {
+      const name = (e as DOMException)?.name;
+      if (name !== 'NotAllowedError' && name !== 'AbortError') {
+        console.warn('[CallManager] Screen share failed:', e);
+        setErrorMessage('Screen sharing is not available on this device');
+      }
+    }
+  }, [webRTC]);
+
+  const switchCamera = useCallback(
+    async (deviceId?: string) => {
+      try {
+        if (deviceId) await webRTC.switchVideoInput(deviceId);
+        else await webRTC.flipCamera();
+      } catch (e) {
+        console.warn('[CallManager] Camera switch failed:', e);
+        setErrorMessage('Could not switch camera');
+      }
+    },
+    [webRTC],
+  );
+
+  const switchMicrophone = useCallback(
+    async (deviceId: string) => {
+      try {
+        await webRTC.switchAudioInput(deviceId);
+      } catch (e) {
+        console.warn('[CallManager] Mic switch failed:', e);
+        setErrorMessage('Could not switch microphone');
+      }
+    },
+    [webRTC],
+  );
+
 
   // ---- Signaling handlers ----------------------------------------------
   const handleIncomingCall = useCallback(
@@ -623,6 +764,12 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     localStream: webRTC.state.localStream,
     remoteStream: webRTC.state.remoteStream,
     connectionState: webRTC.state.connectionState,
+    networkStats: webRTC.networkStats,
+    networkQuality: webRTC.networkStats.quality as NetworkQuality,
+    isScreenSharing: webRTC.isScreenSharing,
+    devices: webRTC.devices,
+    chatMessages,
+    unreadChatCount,
 
     // Actions
     startCall,
@@ -631,6 +778,13 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     endCall,
     toggleMute,
     toggleCamera,
+    toggleScreenShare,
+    switchCamera,
+    switchMicrophone,
+    refreshDevices: webRTC.refreshDevices,
+    sendCallChatMessage,
+    markChatRead,
     resetCall,
+
   };
 };

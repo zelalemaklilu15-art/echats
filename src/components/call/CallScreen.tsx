@@ -3,11 +3,20 @@ import {
   PhoneOff, Mic, MicOff, Video, VideoOff,
   Volume2, VolumeX, Phone, Signal, Hash,
   UserPlus, MessageCircle, CameraIcon, Monitor, MonitorOff, Aperture,
+  SwitchCamera, PictureInPicture2, Settings2,
 } from 'lucide-react';
 import { ChatAvatar } from '@/components/ui/chat-avatar';
 import { useCall } from '@/contexts/CallContext';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import {
+  NetworkBadge,
+  PoorConnectionWarning,
+  InCallChatPanel,
+  DeviceSwitcherSheet,
+  useRemotePiP,
+} from './CallProControls';
+
 
 const formatDuration = (s: number): string => {
   const h = Math.floor(s / 3600);
@@ -141,7 +150,9 @@ export const CallScreen = () => {
     callState, activeCall, callDuration,
     isMuted, isCameraOff, errorMessage,
     localStream, remoteStream, connectionState,
+    isScreenSharing, unreadChatCount,
     endCall, toggleMute, toggleCamera, resetCall,
+    toggleScreenShare, switchCamera,
   } = useCall();
 
   const localVideoRef  = useRef<HTMLVideoElement>(null);
@@ -151,38 +162,23 @@ export const CallScreen = () => {
 
   const [isSpeakerOn,     setSpeaker]       = useState(true);
   const [controlsVisible, setControlsVis]   = useState(true);
-  const [isScreenSharing, setScreenSharing] = useState(false);
   const [isBlurBg,        setBlurBg]        = useState(false);
-  const screenTrackRef = useRef<MediaStreamTrack | null>(null);
+  const [chatOpen,        setChatOpen]      = useState(false);
+  const [devicesOpen,     setDevicesOpen]   = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const blurAnimRef = useRef<number>(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { toggle: togglePiP, supported: pipSupported, isPiP } = useRemotePiP(remoteVideoRef);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
   }, [localStream]);
 
-  const toggleScreenShare = useCallback(async () => {
-    if (isScreenSharing) {
-      screenTrackRef.current?.stop();
-      screenTrackRef.current = null;
-      setScreenSharing(false);
-      if (localStream && localVideoRef.current) localVideoRef.current.srcObject = localStream;
-    } else {
-      try {
-        const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const track = screen.getVideoTracks()[0];
-        screenTrackRef.current = track;
-        setScreenSharing(true);
-        if (localVideoRef.current) localVideoRef.current.srcObject = screen;
-        track.onended = () => { setScreenSharing(false); if (localStream && localVideoRef.current) localVideoRef.current.srcObject = localStream; };
-      } catch { /* user cancelled */ }
-    }
-  }, [isScreenSharing, localStream]);
-
   const toggleBlurBg = useCallback(() => {
     setBlurBg(prev => !prev);
   }, []);
+
 
   useEffect(() => {
     if (!isBlurBg || !localVideoRef.current || !canvasRef.current) {
@@ -291,18 +287,23 @@ export const CallScreen = () => {
                     <p className="text-white/60 text-[13px] font-mono">{getStatusText()}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full px-3 py-1.5">
-                  <motion.div
-                    className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                    animate={{ opacity: [1, 0.4, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                  <span className="text-emerald-400 text-[12px] font-bold">LIVE</span>
+                <div className="flex items-center gap-2">
+                  <NetworkBadge />
+                  <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full px-3 py-1.5">
+                    <motion.div
+                      className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                      animate={{ opacity: [1, 0.4, 1] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                    <span className="text-emerald-400 text-[12px] font-bold">LIVE</span>
+                  </div>
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        <PoorConnectionWarning />
 
         {/* ── LOCAL PiP (draggable) ── */}
         <DraggablePiP videoRef={localVideoRef} isCameraOff={isCameraOff} containerRef={containerRef} />
@@ -321,11 +322,24 @@ export const CallScreen = () => {
             >
               {/* Blur canvas (hidden, provides blurred bg) */}
               {isBlurBg && <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none z-0" />}
-              <div className="flex items-center justify-center gap-5 px-8 py-7">
+
+              {/* Secondary pro controls */}
+              <div className="flex items-center justify-center gap-4 px-6 pt-4">
+                <CtrlBtn icon={SwitchCamera} label="Flip" onPress={() => switchCamera()} disabled={isScreenSharing} />
+                <CtrlBtn icon={Settings2} label="Devices" onPress={() => setDevicesOpen(true)} />
+                <CtrlBtn
+                  icon={MessageCircle}
+                  label={unreadChatCount > 0 ? `Chat (${unreadChatCount})` : 'Chat'}
+                  onPress={() => setChatOpen(true)}
+                />
+                <CtrlBtn icon={PictureInPicture2} label="PiP" onPress={togglePiP} active={isPiP} disabled={!pipSupported} />
+                <CtrlBtn icon={Aperture} label={isBlurBg ? 'Blur On' : 'Blur BG'} onPress={toggleBlurBg} active={isBlurBg} />
+              </div>
+
+              <div className="flex items-center justify-center gap-5 px-8 py-6">
                 <CtrlBtn icon={isMuted ? MicOff : Mic}   label={isMuted ? "Unmute" : "Mute"}       onPress={toggleMute}    active={isMuted} />
                 <CtrlBtn icon={isScreenSharing ? MonitorOff : Monitor} label={isScreenSharing ? "Stop Share" : "Share"} onPress={toggleScreenShare} active={isScreenSharing} />
                 <CtrlBtn icon={PhoneOff}                  label="End Call"                           onPress={endCall}       danger large />
-                <CtrlBtn icon={Aperture}                  label={isBlurBg ? "Blur On" : "Blur BG"}  onPress={toggleBlurBg}  active={isBlurBg} />
                 <CtrlBtn icon={isCameraOff ? VideoOff : Video} label={isCameraOff ? "Show" : "Camera"} onPress={toggleCamera} active={isCameraOff} />
               </div>
               {isScreenSharing && (
@@ -336,6 +350,10 @@ export const CallScreen = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <InCallChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
+        <DeviceSwitcherSheet open={devicesOpen} onClose={() => setDevicesOpen(false)} />
+
 
         {/* Tap hint when controls hidden */}
         <AnimatePresence>
@@ -421,10 +439,14 @@ export const CallScreen = () => {
             )}
           </div>
           {isInCall && (
-            <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur rounded-full px-2.5 py-1">
-              <SignalBars state={connectionState} />
+            <div className="flex items-center gap-2">
+              <NetworkBadge />
+              <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur rounded-full px-2.5 py-1">
+                <SignalBars state={connectionState} />
+              </div>
             </div>
           )}
+
         </div>
 
         {/* ── Avatar + rings ── */}
@@ -575,12 +597,26 @@ export const CallScreen = () => {
               }}
             >
               {isVideoCall ? (
-                // ── Video call controls (3 main) ──
-                <div className="flex items-center justify-center gap-8">
-                  <CtrlBtn icon={isMuted ? MicOff : Mic}         label={isMuted ? "Unmute" : "Mute"}     onPress={toggleMute}    active={isMuted} />
-                  <CtrlBtn icon={PhoneOff}                        label="End"                              onPress={endCall}       danger large />
-                  <CtrlBtn icon={isCameraOff ? VideoOff : Video} label={isCameraOff ? "Camera Off" : "Camera"} onPress={toggleCamera} active={isCameraOff} />
-                </div>
+                // ── Video call controls ──
+                <>
+                  <div className="flex items-center justify-around mb-5">
+                    <CtrlBtn icon={SwitchCamera} label="Flip" onPress={() => switchCamera()} disabled={isScreenSharing} />
+                    <CtrlBtn icon={Settings2} label="Devices" onPress={() => setDevicesOpen(true)} />
+                    <CtrlBtn icon={isScreenSharing ? MonitorOff : Monitor} label="Share" onPress={toggleScreenShare} active={isScreenSharing} />
+                    <CtrlBtn
+                      icon={MessageCircle}
+                      label={unreadChatCount > 0 ? `Chat (${unreadChatCount})` : 'Chat'}
+                      onPress={() => setChatOpen(true)}
+                      disabled={!isInCall}
+                    />
+                  </div>
+                  <div className="h-px bg-white/8 mb-5" />
+                  <div className="flex items-center justify-center gap-8">
+                    <CtrlBtn icon={isMuted ? MicOff : Mic}         label={isMuted ? "Unmute" : "Mute"}     onPress={toggleMute}    active={isMuted} />
+                    <CtrlBtn icon={PhoneOff}                        label="End"                              onPress={endCall}       danger large />
+                    <CtrlBtn icon={isCameraOff ? VideoOff : Video} label={isCameraOff ? "Camera Off" : "Camera"} onPress={toggleCamera} active={isCameraOff} />
+                  </div>
+                </>
               ) : (
                 // ── Voice call controls: 2 rows ──
                 <>
@@ -594,10 +630,9 @@ export const CallScreen = () => {
                       active={!isSpeakerOn}
                     />
                     <CtrlBtn
-                      icon={UserPlus}
-                      label="Add"
-                      onPress={() => {}}
-                      disabled
+                      icon={Settings2}
+                      label="Devices"
+                      onPress={() => setDevicesOpen(true)}
                     />
                     <CtrlBtn
                       icon={Hash}
@@ -607,11 +642,12 @@ export const CallScreen = () => {
                     />
                     <CtrlBtn
                       icon={MessageCircle}
-                      label="Message"
-                      onPress={() => {}}
-                      disabled
+                      label={unreadChatCount > 0 ? `Chat (${unreadChatCount})` : 'Message'}
+                      onPress={() => setChatOpen(true)}
+                      disabled={!isInCall}
                     />
                   </div>
+
 
                   {/* Divider */}
                   <div className="h-px bg-white/8 mb-5" />
@@ -650,6 +686,10 @@ export const CallScreen = () => {
       {isVideoCall && localStream && (
         <DraggablePiP videoRef={localVideoRef} isCameraOff={isCameraOff} containerRef={containerRef as React.RefObject<HTMLDivElement>} />
       )}
+
+      <InCallChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
+      <DeviceSwitcherSheet open={devicesOpen} onClose={() => setDevicesOpen(false)} />
+
     </div>
   );
 };
