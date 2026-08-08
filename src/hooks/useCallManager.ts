@@ -71,6 +71,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const durationRef = useRef(0);
   const callLogIdRef = useRef<string | null>(null);
   const logFinalizedRef = useRef(false);
+  const mutedRef = useRef(false);
+  const cameraOffRef = useRef(false);
 
   // ICE buffers
   const pendingRemoteIce = useRef<RTCIceCandidateInit[]>([]);
@@ -211,6 +213,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setCallDuration(0);
     setIsMuted(false);
     setIsCameraOff(false);
+    mutedRef.current = false;
+    cameraOffRef.current = false;
     setErrorMessage(null);
     setChatMessages([]);
     setUnreadChatCount(0);
@@ -525,9 +529,6 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setCallStateSafe('call_ended');
     setTimeout(resetCall, 1500);
   }, [signaling, finalizeLog, resetCall, stopDurationTimer, setCallStateSafe]);
-
-  const mutedRef = useRef(false);
-  const cameraOffRef = useRef(false);
 
   // True mute: the microphone hardware is released, not just silenced.
   const toggleMute = useCallback(async () => {
