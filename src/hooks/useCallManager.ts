@@ -1,9 +1,23 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useWebRTC, CallType } from './useWebRTC';
+import { useWebRTC, CallType, NetworkQuality } from './useWebRTC';
 import { useCallSignaling, CallOffer, CallAnswer, IceCandidate, CallStateEvent } from './useCallSignaling';
 import { callLogService } from '@/lib/callLogService';
 import { pushNotificationService } from '@/lib/pushNotificationService';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  joinCallPresence,
+  leaveCallPresence,
+  isPeerAvailable,
+  isPresenceReady,
+} from '@/lib/callPresenceService';
+
+export interface InCallMessage {
+  id: string;
+  text: string;
+  fromSelf: boolean;
+  at: number;
+}
+
 
 export type CallState =
   | 'idle'
