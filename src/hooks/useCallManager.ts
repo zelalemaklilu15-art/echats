@@ -332,6 +332,25 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         return;
       }
 
+      // Fail fast when the callee has no live session (Realtime Presence).
+      try {
+        await joinCallPresence(userId);
+      } catch {
+        /* presence best effort */
+      }
+      if (isPresenceReady() && !isPeerAvailable(peerId)) {
+        setCallStateSafe('call_failed');
+        setErrorMessage(`${peerName} is offline`);
+        // Still notify their device so they can call back.
+        supabase.functions
+          .invoke('send-call-notification', {
+            body: { receiverId: peerId, callerName: userName, callType, roomId: 'missed' },
+          })
+          .catch(() => {});
+        setTimeout(resetCall, 2500);
+        return;
+      }
+
       const sorted = [userId, peerId].sort();
       const roomId = `call_${sorted[0]}_${sorted[1]}_${Date.now()}`;
 
@@ -351,8 +370,11 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         });
 
         const localStream = await webRTC.getUserMedia(callType);
-        await webRTC.createPeerConnection(handleIceCandidate, handleConnectionStateChange);
+        await webRTC.createPeerConnection(handleIceCandidate, handleConnectionStateChange, {
+          createDataChannel: true,
+        });
         webRTC.addLocalTracks(localStream);
+
 
         const offer = await webRTC.createOffer();
 
