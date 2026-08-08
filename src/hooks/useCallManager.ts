@@ -764,6 +764,12 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     localStream: webRTC.state.localStream,
     remoteStream: webRTC.state.remoteStream,
     connectionState: webRTC.state.connectionState,
+    networkStats: webRTC.networkStats,
+    networkQuality: webRTC.networkStats.quality as NetworkQuality,
+    isScreenSharing: webRTC.isScreenSharing,
+    devices: webRTC.devices,
+    chatMessages,
+    unreadChatCount,
 
     // Actions
     startCall,
@@ -772,6 +778,13 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     endCall,
     toggleMute,
     toggleCamera,
+    toggleScreenShare,
+    switchCamera,
+    switchMicrophone,
+    refreshDevices: webRTC.refreshDevices,
+    sendCallChatMessage,
+    markChatRead,
     resetCall,
+
   };
 };
