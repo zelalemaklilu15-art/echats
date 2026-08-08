@@ -57,6 +57,9 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<InCallMessage[]>([]);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
 
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
