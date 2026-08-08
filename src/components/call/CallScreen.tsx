@@ -3,11 +3,20 @@ import {
   PhoneOff, Mic, MicOff, Video, VideoOff,
   Volume2, VolumeX, Phone, Signal, Hash,
   UserPlus, MessageCircle, CameraIcon, Monitor, MonitorOff, Aperture,
+  SwitchCamera, PictureInPicture2, Settings2,
 } from 'lucide-react';
 import { ChatAvatar } from '@/components/ui/chat-avatar';
 import { useCall } from '@/contexts/CallContext';
 import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import {
+  NetworkBadge,
+  PoorConnectionWarning,
+  InCallChatPanel,
+  DeviceSwitcherSheet,
+  useRemotePiP,
+} from './CallProControls';
+
 
 const formatDuration = (s: number): string => {
   const h = Math.floor(s / 3600);
