@@ -439,10 +439,14 @@ export const CallScreen = () => {
             )}
           </div>
           {isInCall && (
-            <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur rounded-full px-2.5 py-1">
-              <SignalBars state={connectionState} />
+            <div className="flex items-center gap-2">
+              <NetworkBadge />
+              <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur rounded-full px-2.5 py-1">
+                <SignalBars state={connectionState} />
+              </div>
             </div>
           )}
+
         </div>
 
         {/* ── Avatar + rings ── */}
