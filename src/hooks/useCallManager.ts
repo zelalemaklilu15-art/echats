@@ -80,6 +80,49 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const webRTC = useWebRTC();
   const signaling = useCallSignaling(userId);
 
+  // ---- Supabase Realtime Presence --------------------------------------
+  useEffect(() => {
+    if (!userId) {
+      leaveCallPresence();
+      return;
+    }
+    joinCallPresence(userId);
+    return () => {
+      leaveCallPresence();
+    };
+  }, [userId]);
+
+  // ---- In-call chat over the RTCDataChannel -----------------------------
+  useEffect(() => {
+    webRTC.setDataMessageHandler((text) => {
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text, fromSelf: false, at: Date.now() },
+      ]);
+      setUnreadChatCount((n) => n + 1);
+    });
+    return () => webRTC.setDataMessageHandler(null);
+  }, [webRTC]);
+
+  const sendCallChatMessage = useCallback(
+    (text: string): boolean => {
+      const trimmed = text.trim();
+      if (!trimmed) return false;
+      const ok = webRTC.sendDataMessage(trimmed);
+      if (ok) {
+        setChatMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: trimmed, fromSelf: true, at: Date.now() },
+        ]);
+      }
+      return ok;
+    },
+    [webRTC],
+  );
+
+  const markChatRead = useCallback(() => setUnreadChatCount(0), []);
+
+
   const setCallStateSafe = useCallback((s: CallState) => {
     callStateRef.current = s;
     setCallState(s);
