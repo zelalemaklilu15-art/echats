@@ -150,7 +150,9 @@ export const CallScreen = () => {
     callState, activeCall, callDuration,
     isMuted, isCameraOff, errorMessage,
     localStream, remoteStream, connectionState,
+    isScreenSharing, unreadChatCount,
     endCall, toggleMute, toggleCamera, resetCall,
+    toggleScreenShare, switchCamera,
   } = useCall();
 
   const localVideoRef  = useRef<HTMLVideoElement>(null);
@@ -160,38 +162,23 @@ export const CallScreen = () => {
 
   const [isSpeakerOn,     setSpeaker]       = useState(true);
   const [controlsVisible, setControlsVis]   = useState(true);
-  const [isScreenSharing, setScreenSharing] = useState(false);
   const [isBlurBg,        setBlurBg]        = useState(false);
-  const screenTrackRef = useRef<MediaStreamTrack | null>(null);
+  const [chatOpen,        setChatOpen]      = useState(false);
+  const [devicesOpen,     setDevicesOpen]   = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const blurAnimRef = useRef<number>(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { toggle: togglePiP, supported: pipSupported, isPiP } = useRemotePiP(remoteVideoRef);
 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
   }, [localStream]);
 
-  const toggleScreenShare = useCallback(async () => {
-    if (isScreenSharing) {
-      screenTrackRef.current?.stop();
-      screenTrackRef.current = null;
-      setScreenSharing(false);
-      if (localStream && localVideoRef.current) localVideoRef.current.srcObject = localStream;
-    } else {
-      try {
-        const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const track = screen.getVideoTracks()[0];
-        screenTrackRef.current = track;
-        setScreenSharing(true);
-        if (localVideoRef.current) localVideoRef.current.srcObject = screen;
-        track.onended = () => { setScreenSharing(false); if (localStream && localVideoRef.current) localVideoRef.current.srcObject = localStream; };
-      } catch { /* user cancelled */ }
-    }
-  }, [isScreenSharing, localStream]);
-
   const toggleBlurBg = useCallback(() => {
     setBlurBg(prev => !prev);
   }, []);
+
 
   useEffect(() => {
     if (!isBlurBg || !localVideoRef.current || !canvasRef.current) {
