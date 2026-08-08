@@ -686,6 +686,10 @@ export const CallScreen = () => {
       {isVideoCall && localStream && (
         <DraggablePiP videoRef={localVideoRef} isCameraOff={isCameraOff} containerRef={containerRef as React.RefObject<HTMLDivElement>} />
       )}
+
+      <InCallChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
+      <DeviceSwitcherSheet open={devicesOpen} onClose={() => setDevicesOpen(false)} />
+
     </div>
   );
 };
