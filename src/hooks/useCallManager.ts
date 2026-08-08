@@ -212,6 +212,9 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setIsMuted(false);
     setIsCameraOff(false);
     setErrorMessage(null);
+    setChatMessages([]);
+    setUnreadChatCount(0);
+
   }, [clearTimers, stopDurationTimer, webRTC, signaling]);
 
   // ---- ICE plumbing -----------------------------------------------------
