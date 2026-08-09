@@ -248,6 +248,26 @@ Deno.serve(async (req) => {
       .eq('id', recipient_id)
       .single();
 
+    // Notify the recipient that money arrived (best effort)
+    try {
+      const { data: senderProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('name, username')
+        .eq('id', user.id)
+        .maybeSingle();
+      const senderName = senderProfile?.name || senderProfile?.username || 'Someone';
+      await sendPushToUser(recipient_id, {
+        title: '💰 Money received',
+        body: `${senderName} sent you ${transferAmount} ETB${note ? ` — ${note}` : ''}`,
+        tag: 'wallet',
+        url: '/wallet',
+        data: { type: 'wallet_transfer', amount: String(transferAmount) },
+      });
+    } catch (notifyError) {
+      console.error('[Wallet] Push notification failed:', notifyError);
+    }
+
+
     return new Response(
       JSON.stringify({ 
         success: true,
