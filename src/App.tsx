@@ -157,6 +157,7 @@ const AppRoutes = () => {
   }, [user?.id]);
 
   usePresence(user?.id);
+  useAppPushNotifications(user?.id ?? null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
