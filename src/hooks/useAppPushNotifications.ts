@@ -1,0 +1,43 @@
+// @ts-nocheck
+// App-wide push notifications: registers the device with Firebase Cloud Messaging
+// and surfaces foreground pushes (messages, calls, wallet activity) as toasts.
+import { useEffect } from 'react';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import {
+  registerDeviceForPush,
+  listenForegroundMessages,
+  fcmSupported,
+} from '@/lib/firebaseMessaging';
+
+export function useAppPushNotifications(userId: string | null) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    (async () => {
+      if (!(await fcmSupported())) return;
+      await registerDeviceForPush(userId);
+      if (cancelled) return;
+
+      unsubscribe = await listenForegroundMessages(({ title, body, data }) => {
+        // Incoming calls already have their own full-screen UI.
+        if (data?.type === 'incoming_call') return;
+        toast(title, {
+          description: body,
+          action: data?.url
+            ? { label: 'Open', onClick: () => navigate(data.url as string) }
+            : undefined,
+        });
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [userId, navigate]);
+}

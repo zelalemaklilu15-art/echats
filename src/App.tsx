@@ -8,6 +8,7 @@ import { lazy, Suspense, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import PageTransition from "./components/PageTransition";
 import { usePresence } from "@/hooks/usePresence";
+import { useAppPushNotifications } from "@/hooks/useAppPushNotifications";
 import logoImage from "@/assets/echat-logo.jpg";
 import { CallProvider } from "@/contexts/CallContext";
 import { CallOverlay } from "@/components/call/CallOverlay";
@@ -157,6 +158,7 @@ const AppRoutes = () => {
   }, [user?.id]);
 
   usePresence(user?.id);
+  useAppPushNotifications(user?.id ?? null);
 
   useEffect(() => {
     if (!isAuthenticated) return;

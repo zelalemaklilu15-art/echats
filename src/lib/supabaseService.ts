@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { notifyPush, previewForMessage } from '@/lib/notifyService';
 
 // =============================================
 // TYPES
@@ -327,6 +328,16 @@ export const sendMessage = async (
     last_message_time: new Date().toISOString(),
     last_sender_id: senderId,
   });
+
+  // Push notification for the receiver (best effort, never blocks sending)
+  if (receiverId) {
+    notifyPush({
+      kind: 'direct_message',
+      receiverId,
+      preview: previewForMessage(content, messageType),
+      url: `/chat/${chatId}`,
+    });
+  }
 
   // Cast types properly
   return {

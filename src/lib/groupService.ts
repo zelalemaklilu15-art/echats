@@ -6,6 +6,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { notifyPush, previewForMessage } from '@/lib/notifyService';
 
 export interface Group {
   id: string;
@@ -333,6 +334,14 @@ export async function sendGroupMessage(
     .from('groups')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', groupId);
+
+  // Notify the other group members (best effort)
+  notifyPush({
+    kind: 'group_message',
+    groupId,
+    preview: previewForMessage(content, messageType),
+    url: `/group/${groupId}`,
+  });
 
   return data;
 }

@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendPushToUser } from '../_shared/fcm.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -247,6 +248,26 @@ Deno.serve(async (req) => {
       .select('name, username')
       .eq('id', recipient_id)
       .single();
+
+    // Notify the recipient that money arrived (best effort)
+    try {
+      const { data: senderProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('name, username')
+        .eq('id', user.id)
+        .maybeSingle();
+      const senderName = senderProfile?.name || senderProfile?.username || 'Someone';
+      await sendPushToUser(recipient_id, {
+        title: '💰 Money received',
+        body: `${senderName} sent you ${transferAmount} ETB${note ? ` — ${note}` : ''}`,
+        tag: 'wallet',
+        url: '/wallet',
+        data: { type: 'wallet_transfer', amount: String(transferAmount) },
+      });
+    } catch (notifyError) {
+      console.error('[Wallet] Push notification failed:', notifyError);
+    }
+
 
     return new Response(
       JSON.stringify({ 
