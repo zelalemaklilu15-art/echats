@@ -335,6 +335,14 @@ export async function sendGroupMessage(
     .update({ updated_at: new Date().toISOString() })
     .eq('id', groupId);
 
+  // Notify the other group members (best effort)
+  notifyPush({
+    kind: 'group_message',
+    groupId,
+    preview: previewForMessage(content, messageType),
+    url: `/group/${groupId}`,
+  });
+
   return data;
 }
 
