@@ -328,6 +328,16 @@ export const sendMessage = async (
     last_sender_id: senderId,
   });
 
+  // Push notification for the receiver (best effort, never blocks sending)
+  if (receiverId) {
+    notifyPush({
+      kind: 'direct_message',
+      receiverId,
+      preview: previewForMessage(content, messageType),
+      url: `/chat/${chatId}`,
+    });
+  }
+
   // Cast types properly
   return {
     ...data,
