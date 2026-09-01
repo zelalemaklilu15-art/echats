@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { pushNotificationService } from '@/lib/pushNotificationService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { registerDeviceForPush, unregisterDeviceForPush } from '@/lib/firebaseMessaging';
 
 export const usePushNotifications = () => {
   const [isSupported, setIsSupported] = useState(false);
@@ -89,6 +90,7 @@ export const usePushNotifications = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await pushNotificationService.unsubscribe(user.id);
+        await unregisterDeviceForPush();
       }
       setIsSubscribed(false);
       toast.success('Notifications disabled');
