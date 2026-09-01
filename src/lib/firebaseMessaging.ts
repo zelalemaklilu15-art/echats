@@ -15,6 +15,15 @@ function app() {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
+/** True when the app runs inside an iframe (preview) where prompts are blocked. */
+export function inIframe(): boolean {
+  try {
+    return window.top !== window.self;
+  } catch {
+    return true;
+  }
+}
+
 export async function fcmSupported(): Promise<boolean> {
   if (!isFirebaseConfigured()) return false;
   if (!('serviceWorker' in navigator) || !('Notification' in window)) return false;
@@ -24,6 +33,7 @@ export async function fcmSupported(): Promise<boolean> {
     return false;
   }
 }
+
 
 async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (swRegistration) return swRegistration;
