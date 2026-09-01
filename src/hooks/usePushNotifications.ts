@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { pushNotificationService } from '@/lib/pushNotificationService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { registerDeviceForPush, unregisterDeviceForPush } from '@/lib/firebaseMessaging';
 
 export const usePushNotifications = () => {
   const [isSupported, setIsSupported] = useState(false);
@@ -37,9 +38,25 @@ export const usePushNotifications = () => {
           return false;
         }
 
-        // Register service worker and subscribe
+        // Register service worker and subscribe (legacy web-push)
         await pushNotificationService.registerServiceWorker();
         const success = await pushNotificationService.subscribeToPush(user.id);
+
+        // Register this device with Firebase Cloud Messaging (used by the backend)
+        const fcm = await registerDeviceForPush(user.id, { requestPermission: true });
+        if (fcm.status === 'registered') {
+          setIsSubscribed(true);
+          toast.success('Notifications enabled!');
+          return true;
+        }
+        if (fcm.status === 'open-in-new-tab') {
+          toast.error('Open the app in its own browser tab to enable notifications');
+          return false;
+        }
+        if (fcm.status === 'not-configured') {
+          toast.warning('Push service is not configured yet');
+          return success;
+        }
 
         if (success) {
           setIsSubscribed(true);
@@ -49,6 +66,7 @@ export const usePushNotifications = () => {
           toast.warning('Notifications enabled but cloud sync unavailable');
           return true;
         }
+
       } else if (newPermission === 'denied') {
         toast.error('Notification permission denied. Please enable in browser settings.');
         return false;
@@ -72,6 +90,7 @@ export const usePushNotifications = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await pushNotificationService.unsubscribe(user.id);
+        await unregisterDeviceForPush();
       }
       setIsSubscribed(false);
       toast.success('Notifications disabled');

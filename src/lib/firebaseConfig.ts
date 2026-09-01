@@ -1,11 +1,11 @@
 /**
  * Firebase Web config for push notifications.
  *
- * Fill these in from Firebase Console → Project settings → Your apps → Web app,
+ * Values come from Firebase Console → Project settings → Your apps → Web app,
  * and the Web Push certificate key pair (VAPID key) under Cloud Messaging.
  * They are publishable client values, safe to keep in the frontend.
  *
- * Values can also be provided as Vite env vars (VITE_FIREBASE_*).
+ * Any value can be overridden with a Vite env var (VITE_FIREBASE_*).
  */
 const env = import.meta.env as Record<string, string | undefined>;
 
@@ -19,7 +19,26 @@ export const firebaseConfig = {
 };
 
 /** Web Push certificate public key (VAPID) from Firebase Cloud Messaging settings. */
-export const firebaseVapidKey = env.VITE_FIREBASE_VAPID_KEY ?? '';
+export const firebaseVapidKey =
+  env.VITE_FIREBASE_VAPID_KEY ??
+  'BB46AEPQzRcJJ1MSEfXPA5o933HTY1qt0b-fVXdMRPtxzPZAYUzj7ghVyfx1BmTDqYwtU_E--1GloLQSXZLkOC0';
 
 export const isFirebaseConfigured = (): boolean =>
-  Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId && firebaseVapidKey);
+  Boolean(
+    firebaseConfig.apiKey &&
+      firebaseConfig.projectId &&
+      firebaseConfig.appId &&
+      firebaseConfig.messagingSenderId &&
+      firebaseVapidKey,
+  );
+
+/** Names of the config values that are still missing (for diagnostics/UI). */
+export const missingFirebaseConfigKeys = (): string[] => {
+  const missing: string[] = [];
+  if (!firebaseConfig.apiKey) missing.push('apiKey');
+  if (!firebaseConfig.projectId) missing.push('projectId');
+  if (!firebaseConfig.appId) missing.push('appId');
+  if (!firebaseConfig.messagingSenderId) missing.push('messagingSenderId');
+  if (!firebaseVapidKey) missing.push('vapidKey');
+  return missing;
+};

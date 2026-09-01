@@ -20,8 +20,14 @@ export function useAppPushNotifications(userId: string | null) {
 
     (async () => {
       if (!(await fcmSupported())) return;
-      await registerDeviceForPush(userId);
+      // Never prompt automatically — permission is requested from a button
+      // in Notification settings. Here we only refresh an already-granted token.
+      const result = await registerDeviceForPush(userId);
+      if (result.status !== 'registered' && result.status !== 'permission-default') {
+        console.info('[FCM] push not active:', result.status);
+      }
       if (cancelled) return;
+
 
       unsubscribe = await listenForegroundMessages(({ title, body, data }) => {
         // Incoming calls already have their own full-screen UI.

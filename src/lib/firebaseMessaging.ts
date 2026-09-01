@@ -15,6 +15,15 @@ function app() {
   return getApps().length ? getApp() : initializeApp(firebaseConfig);
 }
 
+/** True when the app runs inside an iframe (preview) where prompts are blocked. */
+export function inIframe(): boolean {
+  try {
+    return window.top !== window.self;
+  } catch {
+    return true;
+  }
+}
+
 export async function fcmSupported(): Promise<boolean> {
   if (!isFirebaseConfigured()) return false;
   if (!('serviceWorker' in navigator) || !('Notification' in window)) return false;
@@ -24,6 +33,7 @@ export async function fcmSupported(): Promise<boolean> {
     return false;
   }
 }
+
 
 async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (swRegistration) return swRegistration;
@@ -50,23 +60,50 @@ async function messaging() {
   return messagingInstance;
 }
 
-/** Ask for permission (if needed) and store the FCM token for the signed-in user. */
-export async function registerDeviceForPush(userId: string): Promise<string | null> {
-  if (!(await fcmSupported()) || !userId) return null;
+export type PushRegisterStatus =
+  | 'registered'
+  | 'not-configured'
+  | 'unsupported'
+  | 'open-in-new-tab'
+  | 'permission-default'
+  | 'denied'
+  | 'failed';
+
+export interface PushRegisterResult {
+  status: PushRegisterStatus;
+  token?: string;
+}
+
+/**
+ * Store the FCM token for the signed-in user.
+ * Pass `{ requestPermission: true }` only from a user gesture (button click).
+ */
+export async function registerDeviceForPush(
+  userId: string,
+  opts: { requestPermission?: boolean } = {},
+): Promise<PushRegisterResult> {
+  if (!userId) return { status: 'failed' };
+  if (!isFirebaseConfigured()) return { status: 'not-configured' };
+  if (!(await fcmSupported())) return { status: 'unsupported' };
 
   let permission = Notification.permission;
-  if (permission === 'default') permission = await Notification.requestPermission();
-  if (permission !== 'granted') return null;
+  if (permission === 'default') {
+    if (!opts.requestPermission) return { status: 'permission-default' };
+    // Browsers silently reject permission prompts in cross-origin iframes.
+    if (inIframe()) return { status: 'open-in-new-tab' };
+    permission = await Notification.requestPermission();
+  }
+  if (permission !== 'granted') return { status: 'denied' };
 
   const registration = await ensureServiceWorker();
-  if (!registration) return null;
+  if (!registration) return { status: 'failed' };
 
   try {
     const token = await getToken(await messaging(), {
       vapidKey: firebaseVapidKey,
       serviceWorkerRegistration: registration,
     });
-    if (!token) return null;
+    if (!token) return { status: 'failed' };
     currentToken = token;
 
     const { error } = await supabase.from('device_tokens').upsert(
@@ -79,13 +116,17 @@ export async function registerDeviceForPush(userId: string): Promise<string | nu
       },
       { onConflict: 'token' },
     );
-    if (error) console.warn('[FCM] Failed to save device token:', error.message);
-    return token;
+    if (error) {
+      console.warn('[FCM] Failed to save device token:', error.message);
+      return { status: 'failed', token };
+    }
+    return { status: 'registered', token };
   } catch (err) {
     console.warn('[FCM] getToken failed:', err);
-    return null;
+    return { status: 'failed' };
   }
 }
+
 
 /** Remove this device's token (used on logout / disabling notifications). */
 export async function unregisterDeviceForPush(): Promise<void> {
