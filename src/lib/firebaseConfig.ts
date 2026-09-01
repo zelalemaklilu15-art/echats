@@ -11,12 +11,13 @@ const env = import.meta.env as Record<string, string | undefined>;
 
 export const firebaseConfig = {
   apiKey: env.VITE_FIREBASE_API_KEY ?? '',
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN ?? '',
-  projectId: env.VITE_FIREBASE_PROJECT_ID ?? '',
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET ?? '',
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '',
-  appId: env.VITE_FIREBASE_APP_ID ?? '',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN ?? 'echat-b65bc.firebaseapp.com',
+  projectId: env.VITE_FIREBASE_PROJECT_ID ?? 'echat-b65bc',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET ?? 'echat-b65bc.firebasestorage.app',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '140550776307',
+  appId: env.VITE_FIREBASE_APP_ID ?? '1:140550776307:web:406e237519506cd7285e86',
 };
+
 
 /** Web Push certificate public key (VAPID) from Firebase Cloud Messaging settings. */
 export const firebaseVapidKey =
