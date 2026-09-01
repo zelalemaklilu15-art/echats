@@ -10,7 +10,7 @@
 const env = import.meta.env as Record<string, string | undefined>;
 
 export const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY ?? '',
+  apiKey: env.VITE_FIREBASE_API_KEY ?? 'AIzaSyCzVSHANYD2szk9ryK6ONKROnkOxMAWAhs',
   authDomain: env.VITE_FIREBASE_AUTH_DOMAIN ?? 'echat-b65bc.firebaseapp.com',
   projectId: env.VITE_FIREBASE_PROJECT_ID ?? 'echat-b65bc',
   storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET ?? 'echat-b65bc.firebasestorage.app',
