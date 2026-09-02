@@ -189,6 +189,24 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Instant push notification about the deposit request (never blocks the response).
+    try {
+      await sendPushToUser(user.id, {
+        title: '💰 Deposit request created',
+        body: `${depositAmount.toFixed(2)} ETB via ${methodName} — awaiting payment confirmation.`,
+        tag: 'wallet-deposit',
+        url: '/wallet',
+        data: {
+          type: 'wallet_deposit',
+          transactionId: transaction.id,
+          amount: String(depositAmount),
+          status: 'pending',
+        },
+      });
+    } catch (pushErr) {
+      console.error('[Deposit] push notification failed:', pushErr);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
