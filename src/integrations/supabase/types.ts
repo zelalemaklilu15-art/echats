@@ -1860,6 +1860,10 @@ export type Database = {
         Args: { _source?: string; _video_id: string }
         Returns: undefined
       }
+      register_device_token: {
+        Args: { p_platform?: string; p_token: string; p_user_agent?: string }
+        Returns: string
+      }
       search_users_public: {
         Args: { search_term: string }
         Returns: {
@@ -1902,6 +1906,7 @@ export type Database = {
         }[]
       }
       set_wallet_pin: { Args: { p_pin: string }; Returns: undefined }
+      unregister_device_token: { Args: { p_token: string }; Returns: undefined }
       verify_wallet_pin: {
         Args: { p_pin: string; p_user_id: string }
         Returns: boolean

@@ -31,8 +31,9 @@ export const usePushNotifications = () => {
       setPermission(newPermission);
 
       if (newPermission === 'granted') {
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
+        // Require a live session (RLS needs an authenticated user)
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) {
           toast.error('Please log in to enable notifications');
           return false;
@@ -66,6 +67,7 @@ export const usePushNotifications = () => {
           toast.warning('Notifications enabled but cloud sync unavailable');
           return true;
         }
+
 
       } else if (newPermission === 'denied') {
         toast.error('Notification permission denied. Please enable in browser settings.');
