@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendPushToUser } from '../_shared/fcm.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -187,6 +188,24 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Failed to create deposit request. Please try again.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Instant push notification about the deposit request (never blocks the response).
+    try {
+      await sendPushToUser(user.id, {
+        title: '💰 Deposit request created',
+        body: `${depositAmount.toFixed(2)} ETB via ${methodName} — awaiting payment confirmation.`,
+        tag: 'wallet-deposit',
+        url: '/wallet',
+        data: {
+          type: 'wallet_deposit',
+          transactionId: transaction.id,
+          amount: String(depositAmount),
+          status: 'pending',
+        },
+      });
+    } catch (pushErr) {
+      console.error('[Deposit] push notification failed:', pushErr);
     }
 
     return new Response(

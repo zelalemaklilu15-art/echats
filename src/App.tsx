@@ -33,6 +33,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Contacts = lazy(() => import("./pages/Contacts"));
 const Calls = lazy(() => import("./pages/Calls"));
+const CallHistory = lazy(() => import("./pages/CallHistory"));
 const SavedMessages = lazy(() => import("./pages/SavedMessages"));
 const NewGroup = lazy(() => import("./pages/NewGroup"));
 const GroupChat = lazy(() => import("./pages/GroupChat"));
@@ -230,6 +231,7 @@ const AppRoutes = () => {
           <Route path="/settings" element={guard(isAuthenticated, <Settings />)} />
           <Route path="/contacts" element={guard(isAuthenticated, <Contacts />)} />
           <Route path="/calls" element={guard(isAuthenticated, <Calls />)} />
+          <Route path="/call-history" element={guard(isAuthenticated, <CallHistory />)} />
           <Route path="/saved-messages" element={guard(isAuthenticated, <SavedMessages />)} />
           <Route path="/new-group" element={guard(isAuthenticated, <NewGroup />)} />
           <Route path="/group/:groupId" element={guard(isAuthenticated, <GroupChat />)} />

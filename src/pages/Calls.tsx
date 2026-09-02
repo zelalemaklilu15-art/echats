@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   ArrowLeft, Phone, Video, PhoneCall, PhoneIncoming,
-  PhoneMissed, Loader2, Plus,
+  PhoneMissed, Loader2, Plus, Clock,
 } from "lucide-react";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { useNavigate } from "react-router-dom";
@@ -126,16 +126,27 @@ const Calls = () => {
               )}
             </div>
           </div>
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            onClick={() => navigate("/new-contact")}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[12px] font-bold text-white transition-all"
-            style={{ background: "var(--gradient-success)", boxShadow: "0 4px 16px hsl(145 65% 45% / 0.4)" }}
-            data-testid="button-new-call"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            New Call
-          </motion.button>
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.93 }}
+              onClick={() => navigate("/call-history")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-[12px] font-bold bg-muted text-foreground"
+              data-testid="button-call-history"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              History
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.93 }}
+              onClick={() => navigate("/new-contact")}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-[12px] font-bold text-white transition-all"
+              style={{ background: "var(--gradient-success)", boxShadow: "0 4px 16px hsl(145 65% 45% / 0.4)" }}
+              data-testid="button-new-call"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Call
+            </motion.button>
+          </div>
         </div>
 
         {/* Tabs */}
