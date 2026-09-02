@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   ArrowLeft, Phone, Video, PhoneCall, PhoneIncoming,
-  PhoneMissed, Loader2, Plus,
+  PhoneMissed, Loader2, Plus, Clock,
 } from "lucide-react";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { useNavigate } from "react-router-dom";
