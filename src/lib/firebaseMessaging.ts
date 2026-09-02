@@ -106,16 +106,19 @@ export async function registerDeviceForPush(
     if (!token) return { status: 'failed' };
     currentToken = token;
 
-    const { error } = await supabase.from('device_tokens').upsert(
-      {
-        user_id: userId,
-        token,
-        platform: 'web',
-        user_agent: navigator.userAgent,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'token' },
-    );
+    // Make sure we have a live session before writing (RLS needs auth.uid()).
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      console.warn('[FCM] No active session; cannot save device token');
+      return { status: 'failed', token };
+    }
+
+    // Secure upsert: reassigns the token if this device was used by another account.
+    const { error } = await supabase.rpc('register_device_token', {
+      p_token: token,
+      p_platform: 'web',
+      p_user_agent: navigator.userAgent,
+    });
     if (error) {
       console.warn('[FCM] Failed to save device token:', error.message);
       return { status: 'failed', token };
@@ -133,7 +136,7 @@ export async function unregisterDeviceForPush(): Promise<void> {
   try {
     const token = currentToken;
     if (token) {
-      await supabase.from('device_tokens').delete().eq('token', token);
+      await supabase.rpc('unregister_device_token', { p_token: token });
     }
     if (messagingInstance) await deleteToken(messagingInstance).catch(() => {});
     currentToken = null;
