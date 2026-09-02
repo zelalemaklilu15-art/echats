@@ -33,6 +33,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Contacts = lazy(() => import("./pages/Contacts"));
 const Calls = lazy(() => import("./pages/Calls"));
+const CallHistory = lazy(() => import("./pages/CallHistory"));
 const SavedMessages = lazy(() => import("./pages/SavedMessages"));
 const NewGroup = lazy(() => import("./pages/NewGroup"));
 const GroupChat = lazy(() => import("./pages/GroupChat"));
