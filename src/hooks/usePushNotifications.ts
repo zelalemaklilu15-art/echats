@@ -55,20 +55,18 @@ export const usePushNotifications = () => {
           return false;
         }
         if (fcm.status === 'not-configured') {
-          toast.warning('Push service is not configured yet');
-          return success;
+          const message = fcm.error ?? 'Push service is not configured yet';
+          console.error('[Push][FCM configuration]', message);
+          toast.error(message);
+          return false;
         }
-
-        if (success) {
-          setIsSubscribed(true);
-          toast.success('Notifications enabled!');
-          return true;
-        } else {
-          toast.warning('Notifications enabled but cloud sync unavailable');
-          return true;
+        if (fcm.status !== 'registered') {
+          const stage = fcm.stage ?? 'unknown';
+          const message = fcm.error ?? `FCM registration returned ${fcm.status}`;
+          console.error(`[Push][FCM ${stage}] Registration failed:`, message, fcm);
+          toast.error(`Notification setup failed (${stage}): ${message}`, { duration: 10000 });
+          return false;
         }
-
-
       } else if (newPermission === 'denied') {
         toast.error('Notification permission denied. Please enable in browser settings.');
         return false;
@@ -77,7 +75,8 @@ export const usePushNotifications = () => {
       return false;
     } catch (error) {
       console.error('[Push] Error requesting permission:', error);
-      toast.error('Failed to enable notifications');
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to enable notifications: ${message}`, { duration: 10000 });
       return false;
     } finally {
       setIsLoading(false);
