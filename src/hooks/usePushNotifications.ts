@@ -39,10 +39,6 @@ export const usePushNotifications = () => {
           return false;
         }
 
-        // Register service worker and subscribe (legacy web-push)
-        await pushNotificationService.registerServiceWorker();
-        const success = await pushNotificationService.subscribeToPush(user.id);
-
         // Register this device with Firebase Cloud Messaging (used by the backend)
         const fcm = await registerDeviceForPush(user.id, { requestPermission: true });
         if (fcm.status === 'registered') {
@@ -55,20 +51,18 @@ export const usePushNotifications = () => {
           return false;
         }
         if (fcm.status === 'not-configured') {
-          toast.warning('Push service is not configured yet');
-          return success;
+          const message = fcm.error ?? 'Push service is not configured yet';
+          console.error('[Push][FCM configuration]', message);
+          toast.error(message);
+          return false;
         }
-
-        if (success) {
-          setIsSubscribed(true);
-          toast.success('Notifications enabled!');
-          return true;
-        } else {
-          toast.warning('Notifications enabled but cloud sync unavailable');
-          return true;
+        if (fcm.status !== 'registered') {
+          const stage = fcm.stage ?? 'unknown';
+          const message = fcm.error ?? `FCM registration returned ${fcm.status}`;
+          console.error(`[Push][FCM ${stage}] Registration failed:`, message, fcm);
+          toast.error(`Notification setup failed (${stage}): ${message}`, { duration: 10000 });
+          return false;
         }
-
-
       } else if (newPermission === 'denied') {
         toast.error('Notification permission denied. Please enable in browser settings.');
         return false;
@@ -77,7 +71,8 @@ export const usePushNotifications = () => {
       return false;
     } catch (error) {
       console.error('[Push] Error requesting permission:', error);
-      toast.error('Failed to enable notifications');
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to enable notifications: ${message}`, { duration: 10000 });
       return false;
     } finally {
       setIsLoading(false);
@@ -119,9 +114,10 @@ export const usePushNotifications = () => {
 
       // Check if we have a subscription in the database
       const { data } = await supabase
-        .from('push_subscriptions')
+        .from('device_tokens')
         .select('id')
         .eq('user_id', user.id)
+        .eq('platform', 'web')
         .limit(1);
 
       setIsSubscribed(data && data.length > 0);

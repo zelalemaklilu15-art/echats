@@ -72,6 +72,18 @@ export type PushRegisterStatus =
 export interface PushRegisterResult {
   status: PushRegisterStatus;
   token?: string;
+  stage?: 'configuration' | 'support' | 'permission' | 'service-worker' | 'get-token' | 'authentication' | 'database';
+  error?: string;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Unknown error';
+  }
 }
 
 /**
@@ -82,52 +94,72 @@ export async function registerDeviceForPush(
   userId: string,
   opts: { requestPermission?: boolean } = {},
 ): Promise<PushRegisterResult> {
-  if (!userId) return { status: 'failed' };
-  if (!isFirebaseConfigured()) return { status: 'not-configured' };
-  if (!(await fcmSupported())) return { status: 'unsupported' };
+  if (!userId) return { status: 'failed', stage: 'authentication', error: 'Missing user ID' };
+  if (!isFirebaseConfigured()) {
+    return { status: 'not-configured', stage: 'configuration', error: 'Firebase web configuration is incomplete' };
+  }
+  if (!(await fcmSupported())) {
+    return { status: 'unsupported', stage: 'support', error: 'Firebase messaging is not supported by this browser' };
+  }
 
   let permission = Notification.permission;
   if (permission === 'default') {
-    if (!opts.requestPermission) return { status: 'permission-default' };
+    if (!opts.requestPermission) return { status: 'permission-default', stage: 'permission' };
     // Browsers silently reject permission prompts in cross-origin iframes.
-    if (inIframe()) return { status: 'open-in-new-tab' };
-    permission = await Notification.requestPermission();
+    if (inIframe()) return { status: 'open-in-new-tab', stage: 'permission', error: 'Notification prompts are blocked inside the preview frame' };
+    try {
+      permission = await Notification.requestPermission();
+    } catch (error) {
+      const message = errorMessage(error);
+      console.error('[FCM][permission] Notification.requestPermission failed:', error);
+      return { status: 'failed', stage: 'permission', error: message };
+    }
   }
-  if (permission !== 'granted') return { status: 'denied' };
+  if (permission !== 'granted') return { status: 'denied', stage: 'permission', error: `Permission state is ${permission}` };
 
   const registration = await ensureServiceWorker();
-  if (!registration) return { status: 'failed' };
+  if (!registration) {
+    return { status: 'failed', stage: 'service-worker', error: 'Firebase messaging service worker registration failed' };
+  }
 
+  let token: string;
   try {
-    const token = await getToken(await messaging(), {
+    token = await getToken(await messaging(), {
       vapidKey: firebaseVapidKey,
       serviceWorkerRegistration: registration,
     });
-    if (!token) return { status: 'failed' };
-    currentToken = token;
-
-    // Make sure we have a live session before writing (RLS needs auth.uid()).
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-      console.warn('[FCM] No active session; cannot save device token');
-      return { status: 'failed', token };
+    if (!token) {
+      console.error('[FCM][get-token] Firebase returned an empty token');
+      return { status: 'failed', stage: 'get-token', error: 'Firebase returned an empty token' };
     }
-
-    // Secure upsert: reassigns the token if this device was used by another account.
-    const { error } = await supabase.rpc('register_device_token', {
-      p_token: token,
-      p_platform: 'web',
-      p_user_agent: navigator.userAgent,
-    });
-    if (error) {
-      console.warn('[FCM] Failed to save device token:', error.message);
-      return { status: 'failed', token };
-    }
-    return { status: 'registered', token };
-  } catch (err) {
-    console.warn('[FCM] getToken failed:', err);
-    return { status: 'failed' };
+  } catch (error) {
+    const message = errorMessage(error);
+    console.error('[FCM][get-token] Firebase getToken() failed:', error);
+    return { status: 'failed', stage: 'get-token', error: message };
   }
+  currentToken = token;
+
+  // Verify a fresh authenticated session immediately before the protected RPC.
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user || user.id !== userId) {
+    const message = userError?.message ?? 'No matching authenticated session';
+    console.error('[FCM][authentication] Cannot save device token:', message);
+    return { status: 'failed', stage: 'authentication', error: message, token };
+  }
+
+  // Secure upsert: reassigns the token if this device was used by another account.
+  const { error } = await supabase.rpc('register_device_token', {
+    p_token: token,
+    p_platform: 'web',
+    p_user_agent: navigator.userAgent,
+  });
+  if (error) {
+    const message = [error.message, error.details, error.hint, error.code].filter(Boolean).join(' | ');
+    console.error('[FCM][database] register_device_token RPC failed:', error);
+    return { status: 'failed', stage: 'database', error: message, token };
+  }
+  console.info('[FCM][database] Device token saved successfully');
+  return { status: 'registered', token };
 }
 
 
