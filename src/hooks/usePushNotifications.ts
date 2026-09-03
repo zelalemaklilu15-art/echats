@@ -11,6 +11,16 @@ export const usePushNotifications = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const showRegistrationError = useCallback((stage?: string, error?: string, status?: string) => {
+    const visibleStage = stage || 'unknown';
+    const visibleError = error || `Registration returned ${status || 'an unknown status'}`;
+    console.error(`[Push][FCM ${visibleStage}] Registration failed: ${visibleError}`);
+    toast.error('Notification registration failed', {
+      description: `Stage: ${visibleStage} — ${visibleError}`,
+      duration: 15000,
+    });
+  }, []);
+
   // Check support and current permission on mount
   useEffect(() => {
     setIsSupported(pushNotificationService.isSupported());
@@ -47,20 +57,15 @@ export const usePushNotifications = () => {
           return true;
         }
         if (fcm.status === 'open-in-new-tab') {
-          toast.error('Open the app in its own browser tab to enable notifications');
+          showRegistrationError(fcm.stage, fcm.error, fcm.status);
           return false;
         }
         if (fcm.status === 'not-configured') {
-          const message = fcm.error ?? 'Push service is not configured yet';
-          console.error('[Push][FCM configuration]', message);
-          toast.error(message);
+          showRegistrationError(fcm.stage, fcm.error, fcm.status);
           return false;
         }
         if (fcm.status !== 'registered') {
-          const stage = fcm.stage ?? 'unknown';
-          const message = fcm.error ?? `FCM registration returned ${fcm.status}`;
-          console.error(`[Push][FCM ${stage}] Registration failed:`, message, fcm);
-          toast.error(`Notification setup failed (${stage}): ${message}`, { duration: 10000 });
+          showRegistrationError(fcm.stage, fcm.error, fcm.status);
           return false;
         }
       } else if (newPermission === 'denied') {
@@ -77,7 +82,7 @@ export const usePushNotifications = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isSupported]);
+  }, [isSupported, showRegistrationError]);
 
   // Unsubscribe from push
   const unsubscribe = useCallback(async () => {
