@@ -35,23 +35,38 @@ export async function fcmSupported(): Promise<boolean> {
 }
 
 
-async function ensureServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
   if (swRegistration) return swRegistration;
-  try {
-    // Config is passed via query string so the worker can boot standalone.
-    const params = new URLSearchParams(
-      Object.entries(firebaseConfig).filter(([, v]) => Boolean(v)) as [string, string][],
-    );
-    swRegistration = await navigator.serviceWorker.register(
-      `/firebase-messaging-sw.js?${params.toString()}`,
-      { scope: '/firebase-cloud-messaging-push-scope' },
-    );
-    await navigator.serviceWorker.ready;
-    return swRegistration;
-  } catch (err) {
-    console.warn('[FCM] Service worker registration failed:', err);
-    return null;
+  // Config is passed via query string so the public worker can boot standalone.
+  const params = new URLSearchParams(
+    Object.entries(firebaseConfig).filter(([, v]) => Boolean(v)) as [string, string][],
+  );
+  const registration = await navigator.serviceWorker.register(
+    `/firebase-messaging-sw.js?${params.toString()}`,
+    { scope: '/firebase-cloud-messaging-push-scope' },
+  );
+
+  const worker = registration.active ?? registration.waiting ?? registration.installing;
+  if (!worker) throw new Error('Firebase messaging service worker was registered but no worker was created');
+  if (worker.state !== 'activated') {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(
+        () => reject(new Error(`Firebase messaging service worker activation timed out (state: ${worker.state})`)),
+        15000,
+      );
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated') {
+          window.clearTimeout(timeout);
+          resolve();
+        } else if (worker.state === 'redundant') {
+          window.clearTimeout(timeout);
+          reject(new Error('Firebase messaging service worker became redundant during activation'));
+        }
+      });
+    });
   }
+  swRegistration = registration;
+  return registration;
 }
 
 async function messaging() {
@@ -92,7 +107,10 @@ function errorMessage(error: unknown): string {
  */
 export async function registerDeviceForPush(
   userId: string,
-  opts: { requestPermission?: boolean } = {},
+  opts: {
+    requestPermission?: boolean;
+    onStage?: (stage: 'get-token' | 'database') => void;
+  } = {},
 ): Promise<PushRegisterResult> {
   if (!userId) return { status: 'failed', stage: 'authentication', error: 'Missing user ID' };
   if (!isFirebaseConfigured()) {
@@ -117,13 +135,18 @@ export async function registerDeviceForPush(
   }
   if (permission !== 'granted') return { status: 'denied', stage: 'permission', error: `Permission state is ${permission}` };
 
-  const registration = await ensureServiceWorker();
-  if (!registration) {
-    return { status: 'failed', stage: 'service-worker', error: 'Firebase messaging service worker registration failed' };
+  let registration: ServiceWorkerRegistration;
+  try {
+    registration = await ensureServiceWorker();
+  } catch (error) {
+    const message = errorMessage(error);
+    console.error('[FCM][service-worker] Registration failed:', error);
+    return { status: 'failed', stage: 'service-worker', error: message };
   }
 
   let token: string;
   try {
+    opts.onStage?.('get-token');
     token = await getToken(await messaging(), {
       vapidKey: firebaseVapidKey,
       serviceWorkerRegistration: registration,
@@ -148,6 +171,7 @@ export async function registerDeviceForPush(
   }
 
   // Secure upsert: reassigns the token if this device was used by another account.
+  opts.onStage?.('database');
   const { error } = await supabase.rpc('register_device_token', {
     p_token: token,
     p_platform: 'web',

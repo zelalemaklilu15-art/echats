@@ -11,16 +11,6 @@ export const usePushNotifications = () => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const showRegistrationError = useCallback((stage?: string, error?: string, status?: string) => {
-    const visibleStage = stage || 'unknown';
-    const visibleError = error || `Registration returned ${status || 'an unknown status'}`;
-    console.error(`[Push][FCM ${visibleStage}] Registration failed: ${visibleError}`);
-    toast.error('Notification registration failed', {
-      description: `Stage: ${visibleStage} — ${visibleError}`,
-      duration: 15000,
-    });
-  }, []);
-
   // Check support and current permission on mount
   useEffect(() => {
     setIsSupported(pushNotificationService.isSupported());
@@ -29,60 +19,45 @@ export const usePushNotifications = () => {
 
   // Request permission and subscribe
   const requestPermission = useCallback(async () => {
-    if (!isSupported) {
-      toast.error('Push notifications are not supported in this browser');
-      return false;
-    }
-
     setIsLoading(true);
-
     try {
+      if (!isSupported) throw new Error('This browser does not support push notifications');
+
+      alert('Step 1: Getting permission');
       const newPermission = await pushNotificationService.requestPermission();
       setPermission(newPermission);
+      if (newPermission !== 'granted') throw new Error(`Notification permission is ${newPermission}`);
 
-      if (newPermission === 'granted') {
-        // Require a live session (RLS needs an authenticated user)
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
-        if (!user) {
-          toast.error('Please log in to enable notifications');
-          return false;
-        }
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw new Error(`authentication: ${sessionError.message}`);
+      const user = session?.user;
+      if (!user) throw new Error('authentication: No signed-in session');
 
-        // Register this device with Firebase Cloud Messaging (used by the backend)
-        const fcm = await registerDeviceForPush(user.id, { requestPermission: true });
-        if (fcm.status === 'registered') {
-          setIsSubscribed(true);
-          toast.success('Notifications enabled!');
-          return true;
-        }
-        if (fcm.status === 'open-in-new-tab') {
-          showRegistrationError(fcm.stage, fcm.error, fcm.status);
-          return false;
-        }
-        if (fcm.status === 'not-configured') {
-          showRegistrationError(fcm.stage, fcm.error, fcm.status);
-          return false;
-        }
-        if (fcm.status !== 'registered') {
-          showRegistrationError(fcm.stage, fcm.error, fcm.status);
-          return false;
-        }
-      } else if (newPermission === 'denied') {
-        toast.error('Notification permission denied. Please enable in browser settings.');
-        return false;
+      const fcm = await registerDeviceForPush(user.id, {
+        requestPermission: false,
+        onStage: (stage) => {
+          if (stage === 'get-token') alert('Step 2: Fetching FCM token from Firebase');
+          if (stage === 'database') alert('Step 3: Upserting to Supabase');
+        },
+      });
+      if (fcm.status !== 'registered') {
+        throw new Error(`${fcm.stage ?? fcm.status}: ${fcm.error ?? 'Registration failed without an error message'}`);
       }
 
-      return false;
+      setIsSubscribed(true);
+      alert('SUCCESS: Notifications enabled');
+      toast.success('Notifications enabled!');
+      return true;
     } catch (error) {
       console.error('[Push] Error requesting permission:', error);
       const message = error instanceof Error ? error.message : String(error);
-      toast.error(`Failed to enable notifications: ${message}`, { duration: 10000 });
+      alert(`FAIL: ${message}`);
+      toast.error('FAIL', { description: message, duration: 20000 });
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [isSupported, showRegistrationError]);
+  }, [isSupported]);
 
   // Unsubscribe from push
   const unsubscribe = useCallback(async () => {
