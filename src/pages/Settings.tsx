@@ -82,7 +82,15 @@ const Settings = () => {
   const [showUsernameDialog, setShowUsernameDialog]   = useState(false);
   const [showImportDialog, setShowImportDialog]       = useState(false);
 
-  const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, requestPermission: enablePush, unsubscribe: disablePush } = usePushNotifications();
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    isLoading: pushLoading,
+    registrationStage: pushStage,
+    registrationError: pushError,
+    requestPermission: enablePush,
+    unsubscribe: disablePush,
+  } = usePushNotifications();
 
   useEffect(() => {
     let mounted = true;
@@ -246,7 +254,7 @@ const Settings = () => {
             icon={pushSubscribed ? Bell : BellOff}
             iconBg="bg-blue-500"
             label="Call Notifications"
-            sub="Get notified for incoming calls"
+            sub={pushError ? `Stage: ${pushStage ?? "initialization"} — Error: ${pushError}` : pushLoading ? `Connecting: ${pushStage ?? "initialization"}` : "Get notified for incoming calls"}
             right={<Switch checked={pushSubscribed} disabled={pushLoading} onCheckedChange={c => c ? enablePush() : disablePush()} />}
           />
         )}

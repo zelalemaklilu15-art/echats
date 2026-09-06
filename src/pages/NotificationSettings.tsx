@@ -105,7 +105,15 @@ const NotificationSettings = () => {
   const [keywords, setKw]                       = useState<string[]>(getKeywords);
   const [newKw, setNewKw]                       = useState("");
 
-  const { isSupported: pushSupported, isSubscribed: pushSubscribed, isLoading: pushLoading, requestPermission: enablePush, unsubscribe: disablePush } = usePushNotifications();
+  const {
+    isSupported: pushSupported,
+    isSubscribed: pushSubscribed,
+    isLoading: pushLoading,
+    registrationStage: pushStage,
+    registrationError: pushError,
+    requestPermission: enablePush,
+    unsubscribe: disablePush,
+  } = usePushNotifications();
 
   const update = (partial: Partial<NotificationSettingsData>) => {
     setSettings(prev => { const next = { ...prev, ...partial }; saveSettings(next); return next; });
@@ -168,7 +176,7 @@ const NotificationSettings = () => {
           {pushSupported && (
             <>
               <SettingRow icon={pushSubscribed ? Bell : BellOff} iconBg="bg-red-500" label="Call Notifications"
-                sub="Get notified for incoming calls" testId="switch-call-notifications"
+                sub={pushError ? `Stage: ${pushStage ?? "initialization"} — Error: ${pushError}` : pushLoading ? `Connecting: ${pushStage ?? "initialization"}` : "Get notified for incoming calls"} testId="switch-call-notifications"
                 right={<Switch checked={pushSubscribed} disabled={pushLoading} onCheckedChange={c => c ? enablePush() : disablePush()} />} />
               <Divider />
             </>
