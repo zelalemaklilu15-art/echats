@@ -41,8 +41,21 @@ async function ensureServiceWorker(): Promise<ServiceWorkerRegistration> {
   const params = new URLSearchParams(
     Object.entries(firebaseConfig).filter(([, v]) => Boolean(v)) as [string, string][],
   );
+  const workerUrl = `/firebase-messaging-sw.js?${params.toString()}`;
+
+  // Fail with a useful message when a published frontend is missing the worker.
+  // Without this check, mobile browsers often surface only an opaque Firebase error.
+  const workerResponse = await fetch(workerUrl, { cache: 'no-store' });
+  if (!workerResponse.ok) {
+    throw new Error(`Firebase messaging worker is unavailable (HTTP ${workerResponse.status})`);
+  }
+  const contentType = workerResponse.headers.get('content-type') ?? '';
+  if (!contentType.includes('javascript')) {
+    throw new Error(`Firebase messaging worker returned an invalid content type (${contentType || 'unknown'})`);
+  }
+
   const registration = await navigator.serviceWorker.register(
-    `/firebase-messaging-sw.js?${params.toString()}`,
+    workerUrl,
     { scope: '/firebase-cloud-messaging-push-scope' },
   );
 
@@ -109,7 +122,7 @@ export async function registerDeviceForPush(
   userId: string,
   opts: {
     requestPermission?: boolean;
-    onStage?: (stage: 'get-token' | 'database') => void;
+    onStage?: (stage: NonNullable<PushRegisterResult['stage']>) => void;
   } = {},
 ): Promise<PushRegisterResult> {
   if (!userId) return { status: 'failed', stage: 'authentication', error: 'Missing user ID' };
@@ -137,6 +150,7 @@ export async function registerDeviceForPush(
 
   let registration: ServiceWorkerRegistration;
   try {
+    opts.onStage?.('service-worker');
     registration = await ensureServiceWorker();
   } catch (error) {
     const message = errorMessage(error);
@@ -163,6 +177,7 @@ export async function registerDeviceForPush(
   currentToken = token;
 
   // Verify a fresh authenticated session immediately before the protected RPC.
+  opts.onStage?.('authentication');
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user || user.id !== userId) {
     const message = userError?.message ?? 'No matching authenticated session';
