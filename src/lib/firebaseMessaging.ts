@@ -208,6 +208,13 @@ export async function unregisterDeviceForPush(): Promise<void> {
     const token = currentToken;
     if (token) {
       await supabase.rpc('unregister_device_token', { p_token: token });
+    } else {
+      // After a page reload the in-memory token is gone — delete this user's
+      // web tokens directly (RLS scopes this to the signed-in user).
+      await supabase
+        .from('device_tokens')
+        .delete()
+        .eq('platform', 'web');
     }
     if (messagingInstance) await deleteToken(messagingInstance).catch(() => {});
     currentToken = null;
