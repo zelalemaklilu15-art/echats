@@ -37,6 +37,7 @@ export const usePushNotifications = () => {
 
   // Request permission and subscribe
   const requestPermission = useCallback(async () => {
+    let activeStage: RegistrationStage = 'permission';
     setIsLoading(true);
     setRegistrationError(null);
     try {
@@ -56,13 +57,16 @@ export const usePushNotifications = () => {
       const fcm = await registerDeviceForPush(user.id, {
         requestPermission: false,
         onStage: (stage) => {
+          activeStage = stage;
           setRegistrationStage(stage);
           if (stage === 'get-token') alert('Step 2: Fetching FCM token from Firebase');
           if (stage === 'database') alert('Step 3: Upserting to Supabase');
         },
       });
       if (fcm.status !== 'registered') {
-        throw new Error(`${fcm.stage ?? fcm.status}: ${fcm.error ?? 'Registration failed without an error message'}`);
+        activeStage = fcm.stage ?? activeStage;
+        setRegistrationStage(activeStage);
+        throw new Error(fcm.error ?? 'Registration failed without an error message');
       }
 
       setIsSubscribed(true);
@@ -78,14 +82,14 @@ export const usePushNotifications = () => {
       setIsSubscribed(false);
       alert(`FAIL: ${message}`);
       toast.error('Notification registration failed', {
-        description: `Stage: ${registrationStage ?? 'initialization'} — Error: ${message}`,
+        description: `Stage: ${activeStage} — Error: ${message}`,
         duration: 20000,
       });
       return false;
     } finally {
       setIsLoading(false);
     }
-  }, [isSupported, registrationStage]);
+  }, [isSupported]);
 
   // Unsubscribe from push
   const unsubscribe = useCallback(async () => {
