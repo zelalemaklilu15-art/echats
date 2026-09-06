@@ -43,7 +43,6 @@ export const usePushNotifications = () => {
     try {
       if (!isSupported) throw new Error('This browser does not support push notifications');
 
-      alert('Step 1: Getting permission');
       setRegistrationStage('permission');
       const newPermission = await Notification.requestPermission();
       setPermission(newPermission);
@@ -59,8 +58,6 @@ export const usePushNotifications = () => {
         onStage: (stage) => {
           activeStage = stage;
           setRegistrationStage(stage);
-          if (stage === 'get-token') alert('Step 2: Fetching FCM token from Firebase');
-          if (stage === 'database') alert('Step 3: Upserting to Supabase');
         },
       });
       if (fcm.status !== 'registered') {
@@ -72,7 +69,6 @@ export const usePushNotifications = () => {
       setIsSubscribed(true);
       setRegistrationStage(null);
       window.dispatchEvent(new CustomEvent(SUBSCRIPTION_CHANGED_EVENT, { detail: true }));
-      alert('SUCCESS: Notifications enabled');
       toast.success('Notifications enabled!');
       return true;
     } catch (error) {
@@ -80,7 +76,6 @@ export const usePushNotifications = () => {
       const message = getRawError(error);
       setRegistrationError(message);
       setIsSubscribed(false);
-      alert(`FAIL: ${message}`);
       toast.error('Notification registration failed', {
         description: `Stage: ${activeStage} — Error: ${message}`,
         duration: 20000,
@@ -91,27 +86,28 @@ export const usePushNotifications = () => {
     }
   }, [isSupported]);
 
-  // Unsubscribe from push
+  // Unsubscribe from push — always ends with the toggle OFF, even if cleanup fails.
   const unsubscribe = useCallback(async () => {
     setIsLoading(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Removes the FCM token locally and from device_tokens (falls back to a
+        // direct delete when the in-memory token is missing after a reload).
         await unregisterDeviceForPush();
       }
-      setIsSubscribed(false);
-      setRegistrationError(null);
-      window.dispatchEvent(new CustomEvent(SUBSCRIPTION_CHANGED_EVENT, { detail: false }));
-      toast.success('Notifications disabled');
-      return true;
     } catch (error) {
       console.error('[Push] Error unsubscribing:', error);
-      toast.error('Failed to disable notifications');
-      return false;
     } finally {
+      setIsSubscribed(false);
+      setRegistrationError(null);
+      setRegistrationStage(null);
+      window.dispatchEvent(new CustomEvent(SUBSCRIPTION_CHANGED_EVENT, { detail: false }));
       setIsLoading(false);
     }
+    toast.success('Notifications disabled');
+    return true;
   }, []);
 
   // Check subscription status on mount
