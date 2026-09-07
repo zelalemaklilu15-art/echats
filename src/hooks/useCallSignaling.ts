@@ -305,6 +305,7 @@ export const useCallSignaling = (userId: string | null) => {
   return {
     subscribeToSignaling,
     sendOffer,
+    sendOfferAck,
     sendAnswer,
     sendIceCandidate,
     sendCallState,
