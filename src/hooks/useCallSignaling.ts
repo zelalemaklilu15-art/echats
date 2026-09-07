@@ -186,19 +186,21 @@ export const useCallSignaling = (userId: string | null) => {
     }
   }, []);
 
-  // Send with one retry on a fresh channel.
+  // Send with one retry on a fresh channel. Every await is time-boxed so a
+  // stalled socket can never leave the UI hanging on "Calling...".
   const sendToPeer = useCallback(
     async (peerId: string, event: string, payload: unknown): Promise<boolean> => {
       for (let attempt = 0; attempt < 2; attempt++) {
         const entry = getPeerChannel(peerId);
         const ok = await entry.ready;
         if (ok) {
-          try {
-            const res = await entry.channel.send({ type: 'broadcast', event, payload });
-            if (res === 'ok' || res === undefined) return true;
-          } catch (e) {
-            console.warn('[Signaling] send failed:', e);
-          }
+          const res = await withTimeout(
+            Promise.resolve(entry.channel.send({ type: 'broadcast', event, payload })) as Promise<unknown>,
+            SEND_TIMEOUT_MS,
+            'timed_out',
+          );
+          if (res === 'ok' || res === undefined) return true;
+          console.warn('[Signaling] send result:', res);
         }
         dropPeerChannel(peerId);
       }
@@ -206,6 +208,13 @@ export const useCallSignaling = (userId: string | null) => {
       return false;
     },
     [getPeerChannel, dropPeerChannel],
+  );
+
+  const sendOfferAck = useCallback(
+    async (callerId: string, roomId: string) => {
+      await sendToPeer(callerId, 'call_offer_ack', { roomId });
+    },
+    [sendToPeer],
   );
 
   const sendOffer = useCallback(
