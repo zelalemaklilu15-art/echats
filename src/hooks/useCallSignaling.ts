@@ -100,6 +100,10 @@ export const useCallSignaling = (userId: string | null) => {
       .on('broadcast', { event: 'ice_candidate' }, ({ payload }) => {
         callbacksRef.current.onIceCandidate?.(payload as IceCandidate);
       })
+      .on('broadcast', { event: 'call_offer_ack' }, ({ payload }) => {
+        console.log('[Signaling] Offer acknowledged');
+        callbacksRef.current.onOfferAck?.((payload as { roomId: string })?.roomId);
+      })
       .on('broadcast', { event: 'call_state' }, ({ payload }) => {
         console.log('[Signaling] Received call state:', (payload as CallStateEvent)?.type);
         callbacksRef.current.onCallStateChange?.(payload as CallStateEvent);
