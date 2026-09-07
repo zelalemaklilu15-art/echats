@@ -35,9 +35,37 @@ interface SignalingCallbacks {
   onCallAnswer?: (answer: CallAnswer) => void;
   onIceCandidate?: (candidate: IceCandidate) => void;
   onCallStateChange?: (event: CallStateEvent) => void;
+  onOfferAck?: (roomId: string) => void;
 }
 
-const SUBSCRIBE_TIMEOUT_MS = 8000;
+const SUBSCRIBE_TIMEOUT_MS = 6000;
+const SEND_TIMEOUT_MS = 4000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let done = false;
+    const t = setTimeout(() => {
+      if (!done) {
+        done = true;
+        resolve(fallback);
+      }
+    }, ms);
+    p.then((v) => {
+      if (!done) {
+        done = true;
+        clearTimeout(t);
+        resolve(v);
+      }
+    }).catch(() => {
+      if (!done) {
+        done = true;
+        clearTimeout(t);
+        resolve(fallback);
+      }
+    });
+  });
+}
+
 
 export const useCallSignaling = (userId: string | null) => {
   const channelRef = useRef<RealtimeChannel | null>(null);
