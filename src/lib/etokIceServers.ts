@@ -24,12 +24,24 @@ export async function getEtokIceServers(): Promise<RTCIceServer[]> {
 
   inflight = (async () => {
     try {
-      const { data, error } = await supabase.functions.invoke<{
+      const request = supabase.functions.invoke<{
         iceServers: RTCIceServer[];
         ttl: number;
         source: string;
       }>("etok-turn-credentials", { body: {} });
 
+      // Never let a slow edge function stall call setup.
+      const result = await Promise.race([
+        request,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
+
+      if (!result) {
+        console.warn("[ICE] credentials timed out, using fallback");
+        return FALLBACK;
+      }
+
+      const { data, error } = result;
       if (error || !data?.iceServers?.length) {
         console.warn("[ICE] using fallback:", error);
         return FALLBACK;

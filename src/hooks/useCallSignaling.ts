@@ -35,9 +35,37 @@ interface SignalingCallbacks {
   onCallAnswer?: (answer: CallAnswer) => void;
   onIceCandidate?: (candidate: IceCandidate) => void;
   onCallStateChange?: (event: CallStateEvent) => void;
+  onOfferAck?: (roomId: string) => void;
 }
 
-const SUBSCRIBE_TIMEOUT_MS = 8000;
+const SUBSCRIBE_TIMEOUT_MS = 6000;
+const SEND_TIMEOUT_MS = 4000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let done = false;
+    const t = setTimeout(() => {
+      if (!done) {
+        done = true;
+        resolve(fallback);
+      }
+    }, ms);
+    p.then((v) => {
+      if (!done) {
+        done = true;
+        clearTimeout(t);
+        resolve(v);
+      }
+    }).catch(() => {
+      if (!done) {
+        done = true;
+        clearTimeout(t);
+        resolve(fallback);
+      }
+    });
+  });
+}
+
 
 export const useCallSignaling = (userId: string | null) => {
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -71,6 +99,10 @@ export const useCallSignaling = (userId: string | null) => {
       })
       .on('broadcast', { event: 'ice_candidate' }, ({ payload }) => {
         callbacksRef.current.onIceCandidate?.(payload as IceCandidate);
+      })
+      .on('broadcast', { event: 'call_offer_ack' }, ({ payload }) => {
+        console.log('[Signaling] Offer acknowledged');
+        callbacksRef.current.onOfferAck?.((payload as { roomId: string })?.roomId);
       })
       .on('broadcast', { event: 'call_state' }, ({ payload }) => {
         console.log('[Signaling] Received call state:', (payload as CallStateEvent)?.type);
@@ -154,19 +186,21 @@ export const useCallSignaling = (userId: string | null) => {
     }
   }, []);
 
-  // Send with one retry on a fresh channel.
+  // Send with one retry on a fresh channel. Every await is time-boxed so a
+  // stalled socket can never leave the UI hanging on "Calling...".
   const sendToPeer = useCallback(
     async (peerId: string, event: string, payload: unknown): Promise<boolean> => {
       for (let attempt = 0; attempt < 2; attempt++) {
         const entry = getPeerChannel(peerId);
         const ok = await entry.ready;
         if (ok) {
-          try {
-            const res = await entry.channel.send({ type: 'broadcast', event, payload });
-            if (res === 'ok' || res === undefined) return true;
-          } catch (e) {
-            console.warn('[Signaling] send failed:', e);
-          }
+          const res = await withTimeout(
+            Promise.resolve(entry.channel.send({ type: 'broadcast', event, payload })) as Promise<unknown>,
+            SEND_TIMEOUT_MS,
+            'timed_out',
+          );
+          if (res === 'ok' || res === undefined) return true;
+          console.warn('[Signaling] send result:', res);
         }
         dropPeerChannel(peerId);
       }
@@ -174,6 +208,13 @@ export const useCallSignaling = (userId: string | null) => {
       return false;
     },
     [getPeerChannel, dropPeerChannel],
+  );
+
+  const sendOfferAck = useCallback(
+    async (callerId: string, roomId: string) => {
+      await sendToPeer(callerId, 'call_offer_ack', { roomId });
+    },
+    [sendToPeer],
   );
 
   const sendOffer = useCallback(
@@ -264,6 +305,7 @@ export const useCallSignaling = (userId: string | null) => {
   return {
     subscribeToSignaling,
     sendOffer,
+    sendOfferAck,
     sendAnswer,
     sendIceCandidate,
     sendCallState,
