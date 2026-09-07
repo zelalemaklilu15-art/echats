@@ -144,6 +144,13 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     [],
   );
 
+  const stopOfferRetries = useCallback(() => {
+    if (offerRetryTimerRef.current) {
+      clearInterval(offerRetryTimerRef.current);
+      offerRetryTimerRef.current = null;
+    }
+  }, []);
+
   const clearTimers = useCallback(() => {
     if (callTimeoutRef.current) {
       clearTimeout(callTimeoutRef.current);
@@ -153,7 +160,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       clearTimeout(recoveryTimeoutRef.current);
       recoveryTimeoutRef.current = null;
     }
-  }, []);
+    stopOfferRetries();
+  }, [stopOfferRetries]);
 
   const startDurationTimer = useCallback(() => {
     if (durationIntervalRef.current) return;
