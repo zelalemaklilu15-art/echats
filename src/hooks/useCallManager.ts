@@ -343,35 +343,28 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         setErrorMessage('Not authenticated');
         return;
       }
+      if (peerId === userId) {
+        setCallStateSafe('call_failed');
+        setErrorMessage('You cannot call yourself');
+        setTimeout(resetCall, 2000);
+        return;
+      }
       if (callStateRef.current !== 'idle') {
         setErrorMessage('Already in a call');
         return;
       }
 
-      // Fail fast when the callee has no live session (Realtime Presence).
-      try {
-        await joinCallPresence(userId);
-      } catch {
-        /* presence best effort */
-      }
-      if (isPresenceReady() && !isPeerAvailable(peerId)) {
-        setCallStateSafe('call_failed');
-        setErrorMessage(`${peerName} is offline`);
-        // Still notify their device so they can call back.
-        supabase.functions
-          .invoke('send-call-notification', {
-            body: { receiverId: peerId, callerName: userName, callType, roomId: 'missed' },
-          })
-          .catch(() => {});
-        setTimeout(resetCall, 2500);
-        return;
-      }
+      // Presence is informational only — the call still rings and the callee
+      // still gets a push even when presence has not synced yet.
+      joinCallPresence(userId).catch(() => {});
+      const presenceSaysOffline = isPresenceReady() && !isPeerAvailable(peerId);
 
       const sorted = [userId, peerId].sort();
       const roomId = `call_${sorted[0]}_${sorted[1]}_${Date.now()}`;
 
       try {
         logFinalizedRef.current = false;
+        offerAckedRef.current = false;
         setCallStateSafe('outgoing_calling');
         setErrorMessage(null);
 
@@ -385,34 +378,63 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           isOutgoing: true,
         });
 
+        // History + device ring happen immediately, independent of signalling.
+        callLogService
+          .createCallLog({ callerId: userId, receiverId: peerId, callType, roomId })
+          .then((callLogId) => {
+            callLogIdRef.current = callLogId;
+            setActiveCallSafe((prev) => (prev ? { ...prev, callLogId: callLogId || undefined } : prev));
+          })
+          .catch((e) => console.warn('[CallManager] Call log failed:', e));
+
+        supabase.functions
+          .invoke('send-call-notification', {
+            body: { receiverId: peerId, callerName: userName, callType, roomId },
+          })
+          .catch(() => {});
+
         const localStream = await webRTC.getUserMedia(callType);
         await webRTC.createPeerConnection(handleIceCandidate, handleConnectionStateChange, {
           createDataChannel: true,
         });
         webRTC.addLocalTracks(localStream);
 
-
         const offer = await webRTC.createOffer();
 
-        await signaling.sendOffer(peerId, offer, callType, userName, userAvatar, roomId);
+        const deliver = () =>
+          signaling
+            .sendOffer(peerId, offer, callType, userName, userAvatar, roomId)
+            .catch((e) => console.warn('[CallManager] Offer send failed:', e));
+
+        await deliver();
         flushLocalIce();
 
-        // Persist the call log (starts as "missed" until answered)
-        const callLogId = await callLogService.createCallLog({
-          callerId: userId,
-          receiverId: peerId,
-          callType,
-          roomId,
-        });
-        callLogIdRef.current = callLogId;
-        setActiveCallSafe((prev) => (prev ? { ...prev, callLogId: callLogId || undefined } : prev));
-
-        // Ring the callee even if their app is backgrounded (best effort)
-        supabase.functions
-          .invoke('send-call-notification', {
-            body: { receiverId: peerId, callerName: userName, callType, roomId },
-          })
-          .catch(() => {});
+        // Keep re-ringing until the callee's device confirms it received the
+        // offer, so a dropped realtime message can never silence the call.
+        stopOfferRetries();
+        let attempts = 0;
+        offerRetryTimerRef.current = setInterval(() => {
+          attempts += 1;
+          if (
+            offerAckedRef.current ||
+            attempts > OFFER_RETRY_MAX ||
+            (callStateRef.current !== 'outgoing_calling' && callStateRef.current !== 'connecting')
+          ) {
+            stopOfferRetries();
+            if (!offerAckedRef.current && callStateRef.current === 'outgoing_calling') {
+              setCallStateSafe('call_failed');
+              setErrorMessage(
+                presenceSaysOffline
+                  ? `${peerName} is not online right now`
+                  : `Could not reach ${peerName}`,
+              );
+              finalizeLog('missed');
+              setTimeout(resetCall, 3000);
+            }
+            return;
+          }
+          deliver();
+        }, OFFER_RETRY_INTERVAL_MS);
 
         callTimeoutRef.current = setTimeout(() => {
           if (callStateRef.current === 'outgoing_calling' || callStateRef.current === 'connecting') {
@@ -445,8 +467,10 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       resetCall,
       setActiveCallSafe,
       setCallStateSafe,
+      stopOfferRetries,
     ],
   );
+
 
   // ---- Incoming call ----------------------------------------------------
   const acceptCall = useCallback(async () => {
