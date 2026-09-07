@@ -64,6 +64,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const offerRetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const offerAckedRef = useRef(false);
 
   // Live mirrors so async handlers never read stale state
   const callStateRef = useRef<CallState>('idle');
@@ -78,6 +80,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const pendingRemoteIce = useRef<RTCIceCandidateInit[]>([]);
   const pendingLocalIce = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferRef = useRef<CallOffer | null>(null);
+
 
   const webRTC = useWebRTC();
   const signaling = useCallSignaling(userId);
