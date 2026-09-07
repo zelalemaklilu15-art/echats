@@ -218,6 +218,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     pendingRemoteIce.current = [];
     pendingLocalIce.current = [];
     pendingOfferRef.current = null;
+    offerAckedRef.current = false;
 
     setCallState('idle');
     setActiveCall(null);
