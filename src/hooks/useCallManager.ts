@@ -48,6 +48,8 @@ interface UseCallManagerProps {
 }
 
 const CALL_TIMEOUT_MS = 60000; // 60 seconds ring timeout
+const OFFER_RETRY_INTERVAL_MS = 2000;
+const OFFER_RETRY_MAX = 10; // ~20s of re-ringing before giving up
 const ICE_RECOVERY_MS = 6000; // grace period before declaring the call failed
 
 export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerProps) => {
