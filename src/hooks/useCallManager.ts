@@ -639,7 +639,19 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     (offer: CallOffer) => {
       console.log('[CallManager] Incoming call from', offer.callerName);
 
+      // Confirm receipt immediately so the caller stops re-ringing.
+      signaling.sendOfferAck(offer.callerId, offer.roomId).catch(() => {});
+
       const current = activeCallRef.current;
+
+      // Repeated offer for the call that is already ringing here
+      if (
+        current &&
+        current.roomId === offer.roomId &&
+        callStateRef.current === 'incoming_ringing'
+      ) {
+        return;
+      }
 
       // ICE-restart offer for the call we are already in
       if (current && current.roomId === offer.roomId && callStateRef.current !== 'incoming_ringing') {
@@ -655,6 +667,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         signaling.sendCallState(offer.callerId, 'busy', offer.roomId);
         return;
       }
+
 
       logFinalizedRef.current = false;
       pendingOfferRef.current = offer;
