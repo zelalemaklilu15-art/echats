@@ -109,6 +109,57 @@ export type Database = {
           },
         ]
       }
+      ai_premium_subscriptions: {
+        Row: {
+          amount: number
+          created_at: string
+          expires_at: string
+          id: string
+          paid_with: string
+          plan: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expires_at: string
+          id?: string
+          paid_with: string
+          plan: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          paid_with?: string
+          plan?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_usage_daily: {
+        Row: {
+          count: number
+          day: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          day?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       call_logs: {
         Row: {
           call_type: string
@@ -1763,6 +1814,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_ai_quota: {
+        Args: { p_user_id: string }
+        Returns: {
+          allowed: boolean
+          daily_limit: number
+          is_premium: boolean
+          used: number
+        }[]
+      }
       convert_chat_gift_to_stars: {
         Args: { p_gift_instance_id: string }
         Returns: {
@@ -1774,6 +1834,15 @@ export type Database = {
       find_or_create_chat: {
         Args: { user1_id: string; user2_id: string }
         Returns: string
+      }
+      get_ai_quota_status: {
+        Args: { p_user_id?: string }
+        Returns: {
+          daily_limit: number
+          is_premium: boolean
+          premium_expires_at: string
+          used: number
+        }[]
       }
       get_my_private_profile: {
         Args: never
@@ -1837,6 +1906,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      purchase_ai_premium: {
+        Args: { p_method: string; p_plan: string }
+        Returns: {
+          expires_at: string
+          success: boolean
+        }[]
       }
       purchase_stars_with_wallet: {
         Args: {
