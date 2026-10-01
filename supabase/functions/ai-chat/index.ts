@@ -33,7 +33,6 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const requestedModel = body.model;
     const systemAppend = body.systemAppend;
 
     // -------- Validate & sanitize client-provided messages --------
@@ -46,7 +45,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const MAX_MESSAGES = 40;
+    const MAX_MESSAGES = 20;
     const MAX_CONTENT = 10_000;
     const messages = (rawMessages as any[])
       .filter((m) =>
@@ -69,29 +68,41 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const ALLOWED_MODELS = new Set([
-      "google/gemini-2.5-pro",
-      "google/gemini-2.5-flash",
-      "google/gemini-2.5-flash-lite",
-      "google/gemini-3-flash-preview",
-      "openai/gpt-5",
-      "openai/gpt-5-mini",
-      "openai/gpt-5-nano",
-    ]);
-    const model = ALLOWED_MODELS.has(requestedModel) ? requestedModel : "google/gemini-2.5-pro";
+    // -------- Daily fair-usage quota (server-enforced) --------
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: quotaRows, error: quotaErr } = await admin.rpc("consume_ai_quota", {
+      p_user_id: claimsData.claims.sub,
+    });
+    if (quotaErr) {
+      console.error("quota error", quotaErr);
+      return new Response(JSON.stringify({ error: "Could not check your AI usage. Please try again." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const quota = Array.isArray(quotaRows) ? quotaRows[0] : quotaRows;
+    if (!quota?.allowed) {
+      return new Response(JSON.stringify({
+        error: "You've used your 15 free Echat AI questions for today. Get Echat AI Premium for unlimited access.",
+        code: "quota_exceeded",
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const remaining = quota.is_premium ? -1 : Math.max(0, quota.daily_limit - quota.used);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: `You are **Echat AI** — the official, built-in AI assistant of the **Echat** mobile super-app. You were created by the Echat team and you live INSIDE the Echat app. You are NOT ChatGPT, Gemini, or Claude — but you are just as capable as those leading assistants.
+    // -------- Complexity routing (no extra AI call) --------
+    const last = messages[messages.length - 1]?.content || "";
+    const complexRe = /```|\b(code|function|debug|error|bug|sql|python|javascript|typescript|react|algorithm|prove|proof|calculate|equation|analy[sz]e|analysis|business plan|contract|legal|law|tax|invest|transfer|payment|finance|essay|report|strategy|compare|explain why)\b|ኮድ|ህግ|ሕግ|ገንዘብ|ክፍያ|ትንተና|ዝውውር/i;
+    const complexity: "simple" | "complex" = last.length > 400 || complexRe.test(last) ? "complex" : "simple";
+    const effort = complexity === "simple" ? "low" : (last.length > 1500 ? "high" : "medium");
+    const MODEL = "openai/gpt-6-astra";
+
+    const systemPrompt = `You are **Echat AI** — the official, built-in AI assistant of the **Echat** mobile super-app. You were created by the Echat team and you live INSIDE the Echat app. You are NOT ChatGPT, Gemini, or Claude — but you are just as capable as those leading assistants.
 
 # About Echat (the app you live inside — know it deeply)
 Echat is a modern all-in-one messaging + social + fintech super-app, combining:
@@ -133,28 +144,46 @@ You are powerful and modern, on par with GPT-5, Gemini 2.5 Pro, and Claude. You 
 - Be **safe & respectful**: refuse harmful, illegal, or hateful requests politely and suggest a safer path.
 - Knowledge cutoff: early 2025. For very recent events, note your limit.
 
-You are Echat AI. Be brilliant, warm, and delightful — make every user feel they have a world-class AI in their pocket. 💜${
+You are Echat AI. Be brilliant, warm, and delightful — make every user feel they have a world-class AI in their pocket. 💜
+${complexity === "simple" ? "\n# Response length\nThis is a simple request: answer briefly and directly (a few sentences)." : ""}${
               typeof systemAppend === "string" && systemAppend.trim()
                 ? `\n\n# User custom instructions\n${systemAppend.trim().slice(0, 2000)}`
                 : ""
-            }`
-          },
-          ...messages,
-        ],
+            }`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Lovable-API-Key": LOVABLE_API_KEY,
+        "X-Lovable-AIG-SDK": "fetch",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        instructions: systemPrompt,
+        input: messages.map((m) => ({ role: m.role, content: m.content })),
+        reasoning: { effort },
+        store: false,
         stream: true,
       }),
+      signal: req.signal,
     });
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
+        return new Response(JSON.stringify({ error: "Echat AI is busy right now. Please try again in a moment." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds." }), {
-          status: 402,
+      if (response.status === 402 || response.status === 403) {
+        const t = await response.text();
+        console.error("AI gateway blocked:", response.status, t);
+        let msg = "Echat AI is temporarily unavailable.";
+        try { msg = JSON.parse(t)?.error?.message || JSON.parse(t)?.message || msg; } catch {}
+        return new Response(JSON.stringify({ error: msg }), {
+          status: response.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -166,9 +195,53 @@ You are Echat AI. Be brilliant, warm, and delightful — make every user feel th
       });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    // Convert Responses SSE -> chat-completions style deltas the client already understands
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const upstream = response.body!.getReader();
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buf = "";
+        const emit = (text: string) =>
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: text } }] })}\n\n`));
+        try {
+          while (true) {
+            const { done, value } = await upstream.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let i: number;
+            while ((i = buf.indexOf("\n")) !== -1) {
+              const line = buf.slice(0, i).trim();
+              buf = buf.slice(i + 1);
+              if (!line.startsWith("data:")) continue;
+              const json = line.slice(5).trim();
+              if (!json || json === "[DONE]") continue;
+              try {
+                const ev = JSON.parse(json);
+                if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") emit(ev.delta);
+                else if (ev.type === "response.failed" || ev.type === "error") {
+                  emit("\n\n⚠️ " + (ev.response?.error?.message || ev.message || "AI response failed"));
+                }
+              } catch { /* partial */ }
+            }
+          }
+        } catch (e) {
+          console.error("stream relay error", e);
+        }
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+      cancel() { upstream.cancel().catch(() => {}); },
     });
+
+    const headers: Record<string, string> = {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream",
+      "X-Echat-AI-Remaining": String(remaining),
+    };
+    const runId = response.headers.get("X-Lovable-AIG-Run-ID");
+    if (runId) headers["X-Lovable-AIG-Run-ID"] = runId;
+    return new Response(stream, { headers });
   } catch (e) {
     console.error("ai-chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
