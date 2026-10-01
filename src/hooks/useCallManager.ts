@@ -48,6 +48,8 @@ interface UseCallManagerProps {
 }
 
 const CALL_TIMEOUT_MS = 60000; // 60 seconds ring timeout
+const OFFER_RETRY_INTERVAL_MS = 2000;
+const OFFER_RETRY_MAX = 10; // ~20s of re-ringing before giving up
 const ICE_RECOVERY_MS = 6000; // grace period before declaring the call failed
 
 export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerProps) => {
@@ -639,7 +641,19 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     (offer: CallOffer) => {
       console.log('[CallManager] Incoming call from', offer.callerName);
 
+      // Confirm receipt immediately so the caller stops re-ringing.
+      signaling.sendOfferAck(offer.callerId, offer.roomId).catch(() => {});
+
       const current = activeCallRef.current;
+
+      // Repeated offer for the call that is already ringing here
+      if (
+        current &&
+        current.roomId === offer.roomId &&
+        callStateRef.current === 'incoming_ringing'
+      ) {
+        return;
+      }
 
       // ICE-restart offer for the call we are already in
       if (current && current.roomId === offer.roomId && callStateRef.current !== 'incoming_ringing') {
@@ -655,6 +669,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         signaling.sendCallState(offer.callerId, 'busy', offer.roomId);
         return;
       }
+
 
       logFinalizedRef.current = false;
       pendingOfferRef.current = offer;
@@ -775,6 +790,15 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       onCallAnswer: (a) => handlersRef.current.handleCallAnswer(a),
       onIceCandidate: (c) => handlersRef.current.handleReceivedIceCandidate(c),
       onCallStateChange: (e) => handlersRef.current.handleCallStateEvent(e),
+      onOfferAck: (roomId) => {
+        if (activeCallRef.current?.roomId === roomId) {
+          offerAckedRef.current = true;
+          if (offerRetryTimerRef.current) {
+            clearInterval(offerRetryTimerRef.current);
+            offerRetryTimerRef.current = null;
+          }
+        }
+      },
     });
     // Intentionally only re-run when the signed-in user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
