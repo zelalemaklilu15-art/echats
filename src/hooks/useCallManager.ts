@@ -788,6 +788,15 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       onCallAnswer: (a) => handlersRef.current.handleCallAnswer(a),
       onIceCandidate: (c) => handlersRef.current.handleReceivedIceCandidate(c),
       onCallStateChange: (e) => handlersRef.current.handleCallStateEvent(e),
+      onOfferAck: (roomId) => {
+        if (activeCallRef.current?.roomId === roomId) {
+          offerAckedRef.current = true;
+          if (offerRetryTimerRef.current) {
+            clearInterval(offerRetryTimerRef.current);
+            offerRetryTimerRef.current = null;
+          }
+        }
+      },
     });
     // Intentionally only re-run when the signed-in user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
