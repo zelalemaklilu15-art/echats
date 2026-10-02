@@ -399,6 +399,12 @@ const Chat = () => {
     if (!newMessage.trim()) return;
 
     const messageText = newMessage.trim();
+    const aiMatch = messageText.match(/^\/echatai\b\s*([\s\S]*)$/i);
+    if (aiMatch) {
+      setNewMessage("");
+      navigate(`/ai-assistant?q=${encodeURIComponent(aiMatch[1] || "")}`);
+      return;
+    }
     setNewMessage("");
     setTyping(false);
     setReplyToMessage(null);

@@ -26,7 +26,6 @@ import {
   loadFeedback,
   loadSettings,
   saveSettings,
-  AI_MODELS,
   type AIMessage,
   type AIConversation,
   type AISettings,
@@ -34,6 +33,7 @@ import {
 } from "@/lib/aiAssistantService";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import AIQuotaPanel, { AIQuotaBadge, AI_QUOTA_EVENT } from "@/components/ai/AIQuotaPanel";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import ShareImageDialog from "@/components/chat/ShareImageDialog";
 
@@ -76,7 +76,9 @@ function renderMarkdown(text: string): React.ReactNode {
 const AIAssistant = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<AIMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("q") || ""; } catch { return ""; }
+  });
   const [isStreaming, setIsStreaming] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [conversations, setConversations] = useState<AIConversation[]>([]);
@@ -202,6 +204,7 @@ const AIAssistant = () => {
       },
       onDone: () => {
         setIsStreaming(false);
+        window.dispatchEvent(new Event(AI_QUOTA_EVENT));
         if (convId && assistantContent) {
           saveMessage(convId, { id: assistantId, role: "assistant", content: assistantContent, timestamp: Date.now() });
           updateConversationTitle(convId, messages[0]?.content?.slice(0, 50) || "Chat");
@@ -209,6 +212,7 @@ const AIAssistant = () => {
       },
       onError: (error) => {
         setIsStreaming(false);
+        if (/free Echat AI questions/i.test(error)) setShowSettings(true);
         toast.error(error);
         const errMsg: AIMessage = { id: assistantId, role: "assistant", content: `❌ ${error}`, timestamp: Date.now() };
         setMessages(prev => [...prev, errMsg]);
@@ -304,6 +308,7 @@ const AIAssistant = () => {
             <p className="text-xs text-emerald-500 font-medium">
               {isStreaming ? "Thinking…" : isGeneratingImage ? "Generating image…" : isListening ? "Listening…" : "Powered by AI"}
             </p>
+            <AIQuotaBadge />
           </div>
         </div>
         <button onClick={() => setShowSettings(true)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors" aria-label="AI settings"><Settings className="h-4.5 w-4.5 text-muted-foreground" /></button>
@@ -446,26 +451,11 @@ const AIAssistant = () => {
         <SheetContent side="right" className="w-[90vw] sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Echat AI Settings</SheetTitle>
-            <SheetDescription>የAI ሞዴል፣ ትዕዛዝ እና ማስታወሻ ቅንብር</SheetDescription>
+            <SheetDescription>አጠቃቀም፣ Premium፣ ትዕዛዝ እና ማስታወሻ ቅንብር</SheetDescription>
           </SheetHeader>
           <div className="space-y-6 mt-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">AI ሞዴል</Label>
-              <div className="grid gap-2">
-                {AI_MODELS.map(m => (
-                  <button
-                    key={m.id}
-                    onClick={() => updateSettings({ model: m.id })}
-                    className={cn(
-                      "text-left px-3 py-2.5 rounded-xl border text-sm transition-colors",
-                      settings.model === m.id ? "border-primary bg-primary/10 text-primary font-medium" : "border-border bg-card hover:bg-muted/50"
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <AIQuotaPanel />
+
 
             <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-card">
               <div className="flex-1">
