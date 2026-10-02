@@ -106,7 +106,7 @@ export async function streamAIResponse({
     }
 
     const memoryEnabled = settings?.memoryEnabled !== false;
-    const slice = memoryEnabled ? messages.slice(-40) : messages.slice(-1);
+    const slice = memoryEnabled ? messages.slice(-20) : messages.slice(-1);
     const apiMessages = slice.map((m) => ({
       role: m.role,
       content: m.content,
@@ -120,7 +120,6 @@ export async function streamAIResponse({
       },
       body: JSON.stringify({
         messages: apiMessages,
-        model: settings?.model,
         systemAppend: settings?.systemAppend,
       }),
       signal,
