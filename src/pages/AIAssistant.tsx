@@ -76,7 +76,9 @@ function renderMarkdown(text: string): React.ReactNode {
 const AIAssistant = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<AIMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("q") || ""; } catch { return ""; }
+  });
   const [isStreaming, setIsStreaming] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [conversations, setConversations] = useState<AIConversation[]>([]);
@@ -306,6 +308,7 @@ const AIAssistant = () => {
             <p className="text-xs text-emerald-500 font-medium">
               {isStreaming ? "Thinking…" : isGeneratingImage ? "Generating image…" : isListening ? "Listening…" : "Powered by AI"}
             </p>
+            <AIQuotaBadge />
           </div>
         </div>
         <button onClick={() => setShowSettings(true)} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted/60 transition-colors" aria-label="AI settings"><Settings className="h-4.5 w-4.5 text-muted-foreground" /></button>
