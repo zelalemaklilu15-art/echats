@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import ErrorBoundary from "./components/ErrorBoundary.tsx";
+import { initNative } from "./lib/native";
 
 const root = document.getElementById("root");
 
@@ -13,3 +14,6 @@ createRoot(root).render(
     <App />
   </ErrorBoundary>,
 );
+
+// No-op in the browser; sets up back button, status bar and push on Android.
+initNative().catch((e) => console.warn("native init failed", e));
