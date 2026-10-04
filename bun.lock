@@ -11,6 +11,7 @@
         "@capacitor/core": "^8.5.2",
         "@capacitor/keyboard": "^8.0.6",
         "@capacitor/push-notifications": "^8.1.3",
+        "@capacitor/share": "^8.0.3",
         "@capacitor/splash-screen": "^8.0.2",
         "@capacitor/status-bar": "^8.0.4",
         "@hookform/resolvers": "^3.10.0",
@@ -125,6 +126,8 @@
     "@capacitor/keyboard": ["@capacitor/keyboard@8.0.6", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/keyboard/-/keyboard-8.0.6.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-Bbe+9V0qaT6dzEFJEK7BUWR01l2+vZE8FM5ITF/WgKtx+G6eGZ6d5+YiSMRJBAK0VGjdO59v8yiQ10Doa5KyvQ=="],
 
     "@capacitor/push-notifications": ["@capacitor/push-notifications@8.1.3", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/push-notifications/-/push-notifications-8.1.3.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-UlOCTS3uiw8ZUJ1rkFKJgoqPADipHDNn0lq5mNRwtXALVxQXIeIoRd3iqpzC+962R2LpCRJRkCTjPX2OHK3tBA=="],
+
+    "@capacitor/share": ["@capacitor/share@8.0.3", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/share/-/share-8.0.3.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-gnvZBV1NPu2B8vd1UKncR56G15ueHd0aZLqgDov++t3SmTBG9Q0VrAZ1VnHn5stxlmglVaTb4RwopMgbpLzroA=="],
 
     "@capacitor/splash-screen": ["@capacitor/splash-screen@8.0.2", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@capacitor/splash-screen/-/splash-screen-8.0.2.tgz", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-0C6rYScr13WfAE9nPl4ScOQynmjFv9NT3Th+RZkD4ezYHmER6mcl1/lDYsv7jg3Rj3FOvLrlTlmNkUrr83kZzQ=="],
 
