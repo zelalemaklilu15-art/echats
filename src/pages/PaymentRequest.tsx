@@ -1,3 +1,4 @@
+import { publicOrigin } from "@/lib/native";
 // @ts-nocheck
 import { useState, useEffect } from "react";
 import { ArrowLeft, Link2, Copy, Share2, Check, QrCode } from "lucide-react";
@@ -27,7 +28,7 @@ const PaymentRequest = () => {
   const generateLink = () => {
     if (!amount || parseFloat(amount) <= 0) { toast.error("Enter a valid amount"); return; }
     if (!username) { toast.error("Username not loaded yet"); return; }
-    const base = window.location.origin;
+    const base = publicOrigin();
     const params = note ? `?note=${encodeURIComponent(note)}` : "";
     const url = `${base}/pay/${username}/${amount}${params}`;
     setLink(url);

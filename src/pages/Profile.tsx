@@ -1,3 +1,4 @@
+import { publicOrigin } from "@/lib/native";
 // @ts-nocheck
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Phone, MessageSquare, MoreVertical, Images, Edit2, Camera, Loader2, QrCode, Share2, Music, Play, Pause, Cake, BadgeCheck, Gift, Star, Plus, Trash2 } from "lucide-react";
@@ -384,13 +385,13 @@ const Profile = () => {
               </DialogHeader>
               <div className="flex flex-col items-center space-y-4 py-4">
                 <div className="p-4 bg-white rounded-2xl">
-                  <QRCodeSVG value={`${window.location.origin}?add=@${displayUsername}`} size={200} fgColor="#000000" bgColor="#ffffff" level="M" includeMargin={false} />
+                  <QRCodeSVG value={`${publicOrigin()}?add=@${displayUsername}`} size={200} fgColor="#000000" bgColor="#ffffff" level="M" includeMargin={false} />
                 </div>
                 <p className="text-sm text-muted-foreground text-center">
                   Scan to add <span className="text-primary font-semibold">@{displayUsername}</span>
                 </p>
                 <Button variant="outline" className="w-full" onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}?add=@${displayUsername}`).then(() => toast.success("Link copied!"));
+                  navigator.clipboard.writeText(`${publicOrigin()}?add=@${displayUsername}`).then(() => toast.success("Link copied!"));
                 }}>
                   <Share2 className="h-4 w-4 mr-2" />
                   Copy Link
@@ -442,7 +443,7 @@ const Profile = () => {
               <span className="text-[11px] text-foreground font-medium max-w-[64px] text-center truncate">{h.name}</span>
               <button
                 onClick={() => handleDeleteHighlight(h.id)}
-                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                 data-testid={`button-delete-highlight-${h.id}`}
               >
                 <Trash2 className="h-2.5 w-2.5" />

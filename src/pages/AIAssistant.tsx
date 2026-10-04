@@ -350,7 +350,7 @@ const AIAssistant = () => {
                           <img src={msg.image_url} alt="Generated" className="rounded-xl max-w-full max-h-80 object-contain border border-border/30" />
                           <button
                             onClick={() => setShareImageUrl(msg.image_url!)}
-                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity"
                           >
                             <Share2 className="h-4 w-4" />
                           </button>

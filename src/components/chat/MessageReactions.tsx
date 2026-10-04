@@ -159,7 +159,7 @@ export function MessageReactions({ messageId, isOwn }: MessageReactionsProps) {
         <motion.button
           whileTap={{ scale: 0.8 }}
           onClick={() => setShowPicker(!showPicker)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-muted-foreground hover:text-foreground mt-0.5"
+          className="opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity text-xs text-muted-foreground hover:text-foreground mt-0.5"
         >
           😀
         </motion.button>
