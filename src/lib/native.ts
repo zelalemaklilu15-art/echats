@@ -43,10 +43,57 @@ export async function initNative() {
     });
   } catch (e) { console.warn("app plugin", e); }
 
+  // External links: open http(s) links that leave this origin (and any
+  // target="_blank" anchor) in the in-app browser instead of the WebView,
+  // so the user never "gets stuck" outside the app.
+  document.addEventListener(
+    "click",
+    (e) => {
+      const anchor = (e.target as HTMLElement | null)?.closest?.("a[href]");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href") || "";
+      if (!/^https?:\/\//i.test(href)) return;
+      try {
+        const url = new URL(href);
+        if (url.origin === window.location.origin) return;
+      } catch { return; }
+      e.preventDefault();
+      e.stopPropagation();
+      openExternal(href);
+    },
+    true,
+  );
+
   // Register for push once a user is signed in.
   const { data } = await supabase.auth.getSession();
   if (data.session) registerNativePush();
   supabase.auth.onAuthStateChange((evt) => { if (evt === "SIGNED_IN") registerNativePush(); });
+}
+
+/** Open an external URL in the system/in-app browser (native only). */
+export async function openExternal(url: string) {
+  if (!isNative()) { window.open(url, "_blank", "noopener,noreferrer"); return; }
+  try {
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({ url });
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+/** Share via the native share sheet when available, else web share/clipboard. */
+export async function shareContent(data: { title?: string; text?: string; url?: string }): Promise<boolean> {
+  if (isNative()) {
+    try {
+      const { Share } = await import("@capacitor/share");
+      await Share.share({ title: data.title, text: data.text, url: data.url, dialogTitle: data.title });
+      return true;
+    } catch { return false; }
+  }
+  if (navigator.share) {
+    try { await navigator.share(data); return true; } catch { return false; }
+  }
+  return false;
 }
 
 let pushStarted = false;

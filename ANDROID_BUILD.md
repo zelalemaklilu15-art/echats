@@ -78,7 +78,13 @@ cd android
 ./gradlew bundleRelease     # AAB ለGoogle Play
 ```
 
-## 8. ከGit pull በኋላ ሁልጊዜ
+## 8. በኮዱ ውስጥ የተካቱ native ባህሪያት
+- የውጭ ሊንኮች በin-app browser ይከፈታሉ (WebView ውስጥ መጥፋት የለም)።
+- Share በnative share sheet ይሠራል።
+- ማሳወቂያዎች በnative push plugin (`@capacitor/push-notifications`) ይመዘገባሉ፤ የweb service-worker መንገድ በAndroid ላይ ራሱ ይዘጋል።
+- የመመለሻ ቁልፍ፣ status bar እና splash screen ተዋቅረዋል።
+
+## 9. ከGit pull በኋላ ሁልጊዜ
 ```bash
 npm install && npm run build && npx cap sync android
 ```

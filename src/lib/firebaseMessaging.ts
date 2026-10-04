@@ -6,6 +6,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported, deleteToken } from 'firebase/messaging';
 import { supabase } from '@/integrations/supabase/client';
 import { firebaseConfig, firebaseVapidKey, isFirebaseConfigured } from '@/lib/firebaseConfig';
+import { isNative } from '@/lib/native';
 
 let messagingInstance: ReturnType<typeof getMessaging> | null = null;
 let swRegistration: ServiceWorkerRegistration | null = null;
@@ -126,6 +127,9 @@ export async function registerDeviceForPush(
   } = {},
 ): Promise<PushRegisterResult> {
   if (!userId) return { status: 'failed', stage: 'authentication', error: 'Missing user ID' };
+  // On Android the native push plugin (src/lib/native.ts) owns registration;
+  // the web service-worker path must not run inside the WebView.
+  if (isNative()) return { status: 'registered' };
   if (!isFirebaseConfigured()) {
     return { status: 'not-configured', stage: 'configuration', error: 'Firebase web configuration is incomplete' };
   }
@@ -204,6 +208,14 @@ export async function registerDeviceForPush(
 
 /** Remove this device's token (used on logout / disabling notifications). */
 export async function unregisterDeviceForPush(): Promise<void> {
+  if (isNative()) {
+    try {
+      await supabase.from('device_tokens').delete().eq('platform', 'android');
+    } catch (err) {
+      console.warn('[FCM] Failed to unregister native device:', err);
+    }
+    return;
+  }
   try {
     const token = currentToken;
     if (token) {
@@ -227,6 +239,7 @@ export async function unregisterDeviceForPush(): Promise<void> {
 export async function listenForegroundMessages(
   handler: (payload: { title: string; body: string; data: Record<string, string> }) => void,
 ): Promise<() => void> {
+  if (isNative()) return () => {};
   if (!(await fcmSupported())) return () => {};
   try {
     const unsub = onMessage(await messaging(), (payload) => {

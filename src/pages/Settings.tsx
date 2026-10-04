@@ -20,6 +20,7 @@ import { ChatImportDialog } from "@/components/chat/ChatImportDialog";
 import { getActiveDeviceCount } from "@/lib/deviceService";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { shareContent } from "@/lib/native";
 
 const SectionHeader = ({ label }: { label: string }) => (
   <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-5 pt-6 pb-2">{label}</p>
@@ -316,7 +317,7 @@ const Settings = () => {
         <SettingsRow icon={Phone}     iconBg="bg-purple-500"   label="Calls"            onClick={() => go("/calls")} />
         <SettingsRow icon={Bookmark}  iconBg="bg-yellow-600"   label="Saved Messages"   onClick={() => go("/saved-messages")} />
         <SettingsRow icon={Share}     iconBg="bg-cyan-600"     label="Invite Friends"   onClick={() => {
-          navigator.share?.({ title: "Join me on Echat", text: "Fast, simple, and secure messaging", url: window.location.origin }) || alert("Share: " + window.location.origin);
+          shareContent({ title: "Join me on Echat", text: "Fast, simple, and secure messaging", url: window.location.origin }).then((ok) => { if (!ok) toast.success(window.location.origin); });
         }} />
         <SettingsRow icon={Star}      iconBg="bg-primary/80"   label="Echat Features" onClick={() => go("/features")} />
       </div>

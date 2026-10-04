@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { type EtokVideo, formatCount } from "@/lib/etokService";
+import { shareContent } from "@/lib/native";
 
 interface EtokShareSheetProps {
   video: EtokVideo;
@@ -37,8 +38,9 @@ export function EtokShareSheet({ video, currentUserId, onClose }: EtokShareSheet
   };
 
   const handleShare = (app: string) => {
-    if (navigator.share) navigator.share({ title: "Watch this on Etok!", url: link }).catch(() => {});
-    else toast.success(`Opening ${app}...`);
+    shareContent({ title: "Watch this on Etok!", url: link }).then((ok) => {
+      if (!ok) toast.success(`Opening ${app}...`);
+    });
   };
 
   const handleSave = () => {
