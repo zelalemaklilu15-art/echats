@@ -37,8 +37,9 @@ export function EtokShareSheet({ video, currentUserId, onClose }: EtokShareSheet
   };
 
   const handleShare = (app: string) => {
-    if (navigator.share) navigator.share({ title: "Watch this on Etok!", url: link }).catch(() => {});
-    else toast.success(`Opening ${app}...`);
+    shareContent({ title: "Watch this on Etok!", url: link }).then((ok) => {
+      if (!ok) toast.success(`Opening ${app}...`);
+    });
   };
 
   const handleSave = () => {
