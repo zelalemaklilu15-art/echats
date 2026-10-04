@@ -427,7 +427,7 @@ export function StoryCreator({ onClose, onCreated }: { onClose: () => void; onCr
                   <div className="relative group">
                     <StickerPreview sticker={stk} />
                     <button onClick={() => setStickers(p => p.filter(s => s.id !== stk.id))}
-                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 group-active:opacity-100">×</button>
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 group-active:opacity-100">×</button>
                   </div>
                 </div>
               ))}

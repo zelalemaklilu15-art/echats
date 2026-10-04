@@ -1,3 +1,4 @@
+import { publicOrigin } from "@/lib/native";
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
@@ -88,7 +89,7 @@ export const subscribeToAuthState = (
 // Send password reset email
 export const resetPassword = async (email: string): Promise<void> => {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
+    redirectTo: `${publicOrigin()}/reset-password`,
   });
   if (error) throw error;
 };

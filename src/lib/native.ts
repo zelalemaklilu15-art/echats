@@ -123,3 +123,7 @@ export async function registerNativePush() {
     console.warn("native push unavailable", e);
   }
 }
+
+/** Public web address for links shared outside the app (WebView origin is https://localhost on Android). */
+export const PUBLIC_WEB_ORIGIN = "https://echats.lovable.app";
+export const publicOrigin = () => (isNative() ? PUBLIC_WEB_ORIGIN : window.location.origin);
