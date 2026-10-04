@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { type EtokVideo, formatCount } from "@/lib/etokService";
+import { shareContent } from "@/lib/native";
 
 interface EtokShareSheetProps {
   video: EtokVideo;

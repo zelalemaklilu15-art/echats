@@ -13,6 +13,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCall } from "@/contexts/CallContext";
 import { formatLastSeen, isUserOnline } from "@/lib/formatLastSeen";
+import { shareContent } from "@/lib/native";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isUserBlocked, blockUser, unblockUser as unblockUserService } from "@/lib/blockService";
