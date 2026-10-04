@@ -20,6 +20,7 @@ import { ChatImportDialog } from "@/components/chat/ChatImportDialog";
 import { getActiveDeviceCount } from "@/lib/deviceService";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { shareContent } from "@/lib/native";
 
 const SectionHeader = ({ label }: { label: string }) => (
   <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-5 pt-6 pb-2">{label}</p>
