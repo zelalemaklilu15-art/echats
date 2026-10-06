@@ -10,6 +10,10 @@ export default {
 	],
 	prefix: "",
 	theme: {
+		fontFamily: {
+			sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+			display: ['Cinzel', 'ui-serif', 'Georgia', 'serif'],
+		},
 		container: {
 			center: true,
 			padding: '2rem',
@@ -68,11 +72,28 @@ export default {
 				call: {
 					accept: 'hsl(var(--call-accept))',
 					'accept-foreground': 'hsl(var(--call-accept-foreground))'
+				},
+				surface: {
+					lowest: 'hsl(var(--surface-lowest))',
+					low: 'hsl(var(--surface-low))',
+					DEFAULT: 'hsl(var(--surface))',
+					high: 'hsl(var(--surface-high))',
+					highest: 'hsl(var(--surface-highest))'
+				},
+				tertiary: {
+					DEFAULT: 'hsl(var(--tertiary))',
+					foreground: 'hsl(var(--tertiary-foreground))'
+				},
+				cosmic: {
+					cyan: 'hsl(var(--cosmic-cyan))',
+					mint: 'hsl(var(--cosmic-mint))',
+					magenta: 'hsl(var(--cosmic-magenta))'
 				}
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
-				'gradient-hero': 'var(--gradient-hero)'
+				'gradient-hero': 'var(--gradient-hero)',
+				'gradient-gold': 'var(--gradient-gold)'
 			},
 			boxShadow: {
 				'primary': 'var(--shadow-primary)',
