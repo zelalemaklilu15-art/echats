@@ -382,6 +382,11 @@ export function subscribeToGroupMessages(
         onMessage(payload.new as GroupMessage);
       }
     )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'group_messages', filter: `group_id=eq.${groupId}` },
+      (payload) => { onMessage(payload.new as GroupMessage); }
+    )
     .subscribe();
 
   return channel;

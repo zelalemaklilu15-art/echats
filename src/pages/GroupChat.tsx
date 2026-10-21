@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -465,7 +466,9 @@ const GroupChat = () => {
   useEffect(() => {
     if (!groupId) return;
     const ch = subscribeToGroupMessages(groupId, (newMsg) => {
-      setMessages(prev => prev.find(m => m.id === newMsg.id) ? prev : [...prev, newMsg]);
+      setMessages(prev => prev.find(m => m.id === newMsg.id)
+        ? prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m)
+        : [...prev, newMsg]);
     });
     return () => unsubscribeFromGroupMessages(ch);
   }, [groupId]);
@@ -490,10 +493,18 @@ const GroupChat = () => {
   const handleSend = async () => {
     if (editingMessage) {
       if (!newMessage.trim() || !groupId) return;
-      editGroupMessage(groupId, editingMessage.id, newMessage.trim());
-      loadExtData();
+      const text = newMessage.trim();
+      const target = editingMessage;
       setEditingMessage(null);
       setNewMessage("");
+      if (target.sender_id !== userId) { toast.error("You can only edit your own messages"); return; }
+      if (text === (target.content || "")) return;
+      const { error } = await supabase.from("group_messages").update({ content: text }).eq("id", target.id);
+      if (error) { toast.error("Failed to edit message"); return; }
+      editGroupMessage(groupId, target.id, text);
+      setMessages(prev => prev.map(m => m.id === target.id ? { ...m, content: text } : m));
+      loadExtData();
+      toast.success("Message edited");
       return;
     }
     if (!newMessage.trim() || !groupId) return;
