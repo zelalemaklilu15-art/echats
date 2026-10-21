@@ -16,10 +16,10 @@ import { walletService } from "@/lib/walletService";
 import { toast } from "sonner";
 
 /* ─── design tokens ─── */
-const BG   = "#0D0A1A";
-const CARD = "#16102A";
-const P    = "#7C3AED";
-const PA   = "rgba(124,58,237,0.18)";
+const BG   = "hsl(var(--surface-lowest))";
+const CARD = "hsl(var(--surface-low))";
+const P    = "hsl(var(--tertiary))";
+const PA   = "hsl(var(--tertiary) / 0.18)";
 
 function formatETB(n: number) {
   return n.toLocaleString("en-ET", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -82,10 +82,10 @@ export default function BuyStars() {
         <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate("/gifts")}
           style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
           data-testid="button-back-buy-stars">
-          <ArrowLeft style={{ color: "rgba(255,255,255,0.85)", width: 22, height: 22 }} />
+          <ArrowLeft style={{ color: "hsl(var(--foreground) / 0.85)", width: 22, height: 22 }} />
         </motion.button>
 
-        <h1 style={{ flex: 1, textAlign: "center", fontWeight: 700, fontSize: 18, color: "#fff", margin: 0 }}>
+        <h1 style={{ flex: 1, textAlign: "center", fontWeight: 700, fontSize: 18, color: "hsl(var(--foreground))", margin: 0 }}>
           Buy Stars
         </h1>
 
@@ -93,24 +93,24 @@ export default function BuyStars() {
         <div style={{
           display: "flex", alignItems: "center", gap: 5,
           background: PA,
-          border: "1px solid rgba(124,58,237,0.35)",
+          border: "1px solid hsl(var(--tertiary) / 0.35)",
           borderRadius: 999, padding: "5px 12px",
         }} data-testid="stars-balance-pill">
           <div style={{
             width: 16, height: 16, borderRadius: "50%",
-            border: "1.5px solid #a78bfa",
+            border: "1.5px solid hsl(var(--primary))",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <Star style={{ color: "#a78bfa", width: 9, height: 9 }} fill="#a78bfa" />
+            <Star style={{ color: "hsl(var(--primary))", width: 9, height: 9 }} fill="#a78bfa" />
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#a78bfa" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "hsl(var(--primary))" }}>
             {starsBalance.toLocaleString()} Stars
           </span>
         </div>
       </div>
 
       {/* ── TABS ── */}
-      <div style={{ display: "flex", padding: "0 16px", gap: 20, borderBottom: "1px solid rgba(255,255,255,0.07)", marginBottom: 0 }}>
+      <div style={{ display: "flex", padding: "0 16px", gap: 20, borderBottom: "1px solid hsl(var(--foreground) / 0.07)", marginBottom: 0 }}>
         {(["packages", "gifts"] as Tab[]).map(t => (
           <button key={t}
             onClick={() => t === "gifts" ? navigate("/gifts") : setTab(t)}
@@ -118,7 +118,7 @@ export default function BuyStars() {
               background: "none", border: "none", cursor: "pointer",
               padding: "12px 0",
               fontSize: 15, fontWeight: 700,
-              color: tab === t ? P : "rgba(255,255,255,0.4)",
+              color: tab === t ? P : "hsl(var(--foreground) / 0.4)",
               borderBottom: tab === t ? `2.5px solid ${P}` : "2.5px solid transparent",
               marginBottom: -1,
             }}
@@ -136,28 +136,28 @@ export default function BuyStars() {
           {/* Purple ring + filled inner circle with star */}
           <div style={{
             width: 80, height: 80, borderRadius: "50%",
-            border: "2px solid rgba(124,58,237,0.3)",
+            border: "2px solid hsl(var(--tertiary) / 0.3)",
             display: "flex", alignItems: "center", justifyContent: "center",
             marginBottom: 20,
-            background: "rgba(124,58,237,0.06)",
+            background: "hsl(var(--tertiary) / 0.06)",
           }}>
             <div style={{
               width: 56, height: 56, borderRadius: "50%",
-              background: `linear-gradient(135deg, rgba(124,58,237,0.6), rgba(124,58,237,0.4))`,
+              background: `linear-gradient(135deg, hsl(var(--tertiary) / 0.6), hsl(var(--tertiary) / 0.4))`,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
-              <Star style={{ color: "#fff", width: 24, height: 24 }} fill="#fff" />
+              <Star style={{ color: "hsl(var(--foreground))", width: 24, height: 24 }} fill="#fff" />
             </div>
           </div>
 
           <h2 style={{
-            fontWeight: 800, fontSize: 22, color: "#fff",
+            fontWeight: 800, fontSize: 22, color: "hsl(var(--foreground))",
             textAlign: "center", margin: "0 0 10px", lineHeight: 1.3,
           }}>
             Get Stars for virtual gifts
           </h2>
           <p style={{
-            fontSize: 13, color: "rgba(255,255,255,0.45)",
+            fontSize: 13, color: "hsl(var(--foreground) / 0.45)",
             textAlign: "center", lineHeight: 1.6, margin: 0,
             maxWidth: 260,
           }}>
@@ -181,7 +181,7 @@ export default function BuyStars() {
                 style={{
                   background: CARD,
                   borderRadius: 16,
-                  border: "1px solid rgba(255,255,255,0.07)",
+                  border: "1px solid hsl(var(--foreground) / 0.07)",
                   padding: "16px",
                   display: "flex", alignItems: "center", gap: 14,
                   position: "relative",
@@ -194,7 +194,7 @@ export default function BuyStars() {
                   <div style={{
                     position: "absolute", top: 8, right: -14,
                     background: P,
-                    color: "#fff",
+                    color: "hsl(var(--foreground))",
                     fontSize: 9, fontWeight: 800,
                     letterSpacing: "0.1em",
                     padding: "3px 22px",
@@ -208,19 +208,19 @@ export default function BuyStars() {
                 {/* Left: purple icon square */}
                 <div style={{
                   width: 46, height: 46, borderRadius: 12, flexShrink: 0,
-                  background: `linear-gradient(135deg, ${P}, rgba(124,58,237,0.7))`,
+                  background: `linear-gradient(135deg, ${P}, hsl(var(--tertiary) / 0.7))`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: "0 4px 16px rgba(124,58,237,0.3)",
+                  boxShadow: "0 4px 16px hsl(var(--tertiary) / 0.3)",
                 }}>
-                  <Icon style={{ color: "#fff", width: 22, height: 22 }} />
+                  <Icon style={{ color: "hsl(var(--foreground))", width: 22, height: 22 }} />
                 </div>
 
                 {/* Middle: name + stars */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 700, fontSize: 16, color: "#fff", margin: "0 0 3px" }}>
+                  <p style={{ fontWeight: 700, fontSize: 16, color: "hsl(var(--foreground))", margin: "0 0 3px" }}>
                     {pkg.name}
                   </p>
-                  <p style={{ fontSize: 13, color: "#a78bfa", margin: 0, fontWeight: 500 }}>
+                  <p style={{ fontSize: 13, color: "hsl(var(--primary))", margin: 0, fontWeight: 500 }}>
                     {meta.starsLabel}
                   </p>
                 </div>
@@ -234,9 +234,9 @@ export default function BuyStars() {
                     background: P,
                     borderRadius: 999, border: "none", cursor: "pointer",
                     padding: "8px 16px",
-                    fontWeight: 700, fontSize: 14, color: "#fff",
+                    fontWeight: 700, fontSize: 14, color: "hsl(var(--foreground))",
                     flexShrink: 0,
-                    boxShadow: "0 4px 14px rgba(124,58,237,0.4)",
+                    boxShadow: "0 4px 14px hsl(var(--tertiary) / 0.4)",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -255,13 +255,13 @@ export default function BuyStars() {
           style={{
             background: CARD,
             borderRadius: 16,
-            border: "1px dashed rgba(124,58,237,0.3)",
+            border: "1px dashed hsl(var(--tertiary) / 0.3)",
             padding: "20px 16px",
             display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
           }}
         >
-          <Gift style={{ color: "#a78bfa", width: 28, height: 28 }} />
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", margin: 0, textAlign: "center" }}>
+          <Gift style={{ color: "hsl(var(--primary))", width: 28, height: 28 }} />
+          <p style={{ fontSize: 13, color: "hsl(var(--foreground) / 0.45)", margin: 0, textAlign: "center" }}>
             Have a promo code for stars?
           </p>
           <button
@@ -277,8 +277,8 @@ export default function BuyStars() {
       {/* ── BOTTOM NAV ── */}
       <div style={{
         position: "fixed", bottom: 0, left: 0, right: 0,
-        background: "#0f0c1f",
-        borderTop: "1px solid rgba(255,255,255,0.07)",
+        background: "hsl(var(--surface-lowest))",
+        borderTop: "1px solid hsl(var(--foreground) / 0.07)",
         display: "flex", alignItems: "center", justifyContent: "space-around",
         padding: "10px 0 20px",
         zIndex: 50,
@@ -299,17 +299,17 @@ export default function BuyStars() {
           >
             {label === "Activity" ? (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke={active ? P : "rgba(255,255,255,0.4)"} strokeWidth="1.8" strokeLinecap="round" />
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke={active ? P : "hsl(var(--foreground) / 0.4)"} strokeWidth="1.8" strokeLinecap="round" />
               </svg>
             ) : label === "Profile" ? (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" stroke={active ? P : "rgba(255,255,255,0.4)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" stroke={active ? P : "hsl(var(--foreground) / 0.4)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             ) : Icon ? (
-              <Icon style={{ width: 22, height: 22, color: active ? P : "rgba(255,255,255,0.4)" }}
+              <Icon style={{ width: 22, height: 22, color: active ? P : "hsl(var(--foreground) / 0.4)" }}
                 fill={active && label === "Stars" ? P : "none"} />
             ) : null}
-            <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? P : "rgba(255,255,255,0.4)" }}>
+            <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? P : "hsl(var(--foreground) / 0.4)" }}>
               {label.toUpperCase()}
             </span>
           </button>
@@ -322,7 +322,7 @@ export default function BuyStars() {
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", zIndex: 40 }}
+              style={{ position: "fixed", inset: 0, background: "hsl(var(--surface-lowest) / 0.65)", backdropFilter: "blur(4px)", zIndex: 40 }}
               onClick={() => !purchasing && setSelected(null)}
             />
             <motion.div
@@ -332,29 +332,29 @@ export default function BuyStars() {
                 position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50,
                 background: CARD,
                 borderRadius: "28px 28px 0 0",
-                border: "1px solid rgba(255,255,255,0.08)",
+                border: "1px solid hsl(var(--foreground) / 0.08)",
                 padding: "20px 20px 40px",
               }}
             >
-              <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", margin: "0 auto 20px" }} />
-              <h2 style={{ fontWeight: 700, fontSize: 18, color: "#fff", textAlign: "center", margin: "0 0 20px" }}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: "hsl(var(--foreground) / 0.15)", margin: "0 auto 20px" }} />
+              <h2 style={{ fontWeight: 700, fontSize: 18, color: "hsl(var(--foreground))", textAlign: "center", margin: "0 0 20px" }}>
                 Confirm Purchase
               </h2>
 
-              <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 16, marginBottom: 20, overflow: "hidden" }}>
+              <div style={{ background: "hsl(var(--foreground) / 0.04)", borderRadius: 16, marginBottom: 20, overflow: "hidden" }}>
                 {[
                   { label: "Package",      value: selected.name },
                   { label: "Stars",        value: `${(selected.stars + selected.bonus).toLocaleString()} ⭐` },
-                  { label: "Amount",       value: `${formatETB(selected.price)} ETB`, color: "#ef4444" },
+                  { label: "Amount",       value: `${formatETB(selected.price)} ETB`, color: "hsl(var(--destructive))" },
                   { label: "Wallet after", value: `${formatETB(Math.max(0, walletBalance - selected.price))} ETB` },
                 ].map((row, i) => (
                   <div key={row.label} style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                     padding: "14px 16px",
-                    borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                    borderTop: i > 0 ? "1px solid hsl(var(--foreground) / 0.06)" : "none",
                   }}>
-                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>{row.label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: row.color ?? "#fff" }}>{row.value}</span>
+                    <span style={{ fontSize: 13, color: "hsl(var(--foreground) / 0.45)" }}>{row.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: row.color ?? "hsl(var(--foreground))" }}>{row.value}</span>
                   </div>
                 ))}
               </div>
@@ -367,10 +367,10 @@ export default function BuyStars() {
                 style={{
                   width: "100%", padding: "16px 0",
                   borderRadius: 999, border: "none", cursor: "pointer",
-                  background: P, color: "#fff",
+                  background: P, color: "hsl(var(--foreground))",
                   fontWeight: 700, fontSize: 16,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  boxShadow: "0 6px 24px rgba(124,58,237,0.45)",
+                  boxShadow: "0 6px 24px hsl(var(--tertiary) / 0.45)",
                   opacity: purchasing ? 0.7 : 1,
                 }}
               >
@@ -383,7 +383,7 @@ export default function BuyStars() {
 
               <button
                 onClick={() => setSelected(null)}
-                style={{ width: "100%", padding: "14px 0", background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.45)", fontSize: 14, marginTop: 4 }}
+                style={{ width: "100%", padding: "14px 0", background: "none", border: "none", cursor: "pointer", color: "hsl(var(--foreground) / 0.45)", fontSize: 14, marginTop: 4 }}
               >
                 Cancel
               </button>

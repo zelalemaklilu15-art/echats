@@ -279,9 +279,9 @@ const RequestMoney = () => {
             {/* Success header */}
             <motion.div
               initial={{ scale: 0 }} animate={{ scale: [0, 1.2, 1] }} transition={{ duration: 0.5 }}
-              className="w-16 h-16 rounded-full bg-emerald-500/15 border-2 border-emerald-500/30 flex items-center justify-center mx-auto mb-4"
+              className="w-16 h-16 rounded-full bg-cosmic-mint/15 border-2 border-cosmic-mint/30 flex items-center justify-center mx-auto mb-4"
             >
-              <Check className="h-7 w-7 text-emerald-400" strokeWidth={2.5} />
+              <Check className="h-7 w-7 text-cosmic-mint" strokeWidth={2.5} />
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="text-center mb-6">
               <p className="font-bold text-[20px]">Request Sent!</p>
@@ -317,7 +317,7 @@ const RequestMoney = () => {
               ].filter(Boolean).map((row: any, i) => (
                 <div key={i} className="flex items-center justify-between px-4 py-3">
                   <span className="text-[13px] text-muted-foreground">{row.label}</span>
-                  <span className={cn("text-[13px] font-semibold", row.label === "Status" && "text-yellow-400")}>{row.value}</span>
+                  <span className={cn("text-[13px] font-semibold", row.label === "Status" && "text-tertiary")}>{row.value}</span>
                 </div>
               ))}
             </motion.div>
@@ -332,7 +332,7 @@ const RequestMoney = () => {
                 <span className="text-[14px] font-semibold">Copy Request Link</span>
                 <AnimatePresence mode="wait">
                   {copiedLink
-                    ? <motion.div key="c" initial={{ scale: 0 }} animate={{ scale: 1 }}><Check className="h-4 w-4 text-emerald-400" /></motion.div>
+                    ? <motion.div key="c" initial={{ scale: 0 }} animate={{ scale: 1 }}><Check className="h-4 w-4 text-cosmic-mint" /></motion.div>
                     : <motion.div key="u" initial={{ scale: 0 }} animate={{ scale: 1 }}><Copy className="h-4 w-4 text-muted-foreground" /></motion.div>
                   }
                 </AnimatePresence>

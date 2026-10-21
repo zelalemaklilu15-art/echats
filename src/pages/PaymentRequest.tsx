@@ -104,7 +104,7 @@ const PaymentRequest = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <button onClick={handleCopy} className="py-3.5 rounded-2xl bg-card border border-border/50 font-semibold text-[14px] flex items-center justify-center gap-2">
-                {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-4 w-4 text-cosmic-mint" /> : <Copy className="h-4 w-4" />}
                 {copied ? "Copied!" : "Copy Link"}
               </button>
               <button onClick={handleShare} className="py-3.5 rounded-2xl bg-primary text-primary-foreground font-semibold text-[14px] flex items-center justify-center gap-2 shadow-lg shadow-primary/25">
