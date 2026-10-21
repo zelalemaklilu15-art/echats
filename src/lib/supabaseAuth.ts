@@ -4,6 +4,21 @@ import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
 // Sign up with email and password
+// Stable per-device ID used server-side to allow one signup bonus per device.
+const getSignupDeviceId = (): string => {
+  try {
+    const key = 'echat_device_id';
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = (crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      localStorage.setItem(key, id);
+    }
+    return id;
+  } catch {
+    return '';
+  }
+};
+
 export const signUpWithEmail = async (
   email: string,
   password: string,
@@ -18,6 +33,7 @@ export const signUpWithEmail = async (
         data: {
           username: username.toLowerCase().trim(),
           name: name || email.split('@')[0],
+          device_id: getSignupDeviceId(),
         },
       },
     });

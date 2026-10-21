@@ -160,6 +160,27 @@ export type Database = {
         }
         Relationships: []
       }
+      bonus_budget: {
+        Row: {
+          bonus_amount: number
+          cap: number
+          id: number
+          spent: number
+        }
+        Insert: {
+          bonus_amount?: number
+          cap?: number
+          id?: number
+          spent?: number
+        }
+        Update: {
+          bonus_amount?: number
+          cap?: number
+          id?: number
+          spent?: number
+        }
+        Relationships: []
+      }
       call_logs: {
         Row: {
           call_type: string
@@ -1248,6 +1269,48 @@ export type Database = {
         }
         Relationships: []
       }
+      local_ads: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          owner_id: string
+          price_etb: number
+          target_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          owner_id: string
+          price_etb?: number
+          target_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          owner_id?: string
+          price_etb?: number
+          target_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       message_reactions: {
         Row: {
           created_at: string
@@ -1443,6 +1506,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      signup_bonus_claims: {
+        Row: {
+          amount: number
+          claimed_at: string
+          device_id: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          claimed_at?: string
+          device_id: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          claimed_at?: string
+          device_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       stars_balances: {
         Row: {
@@ -1770,6 +1854,7 @@ export type Database = {
           created_at: string
           currency: string
           daily_limit: number
+          device_id: string | null
           id: string
           monthly_limit: number
           pin_hash: string | null
@@ -1784,6 +1869,7 @@ export type Database = {
           created_at?: string
           currency?: string
           daily_limit?: number
+          device_id?: string | null
           id?: string
           monthly_limit?: number
           pin_hash?: string | null
@@ -1798,6 +1884,7 @@ export type Database = {
           created_at?: string
           currency?: string
           daily_limit?: number
+          device_id?: string | null
           id?: string
           monthly_limit?: number
           pin_hash?: string | null
