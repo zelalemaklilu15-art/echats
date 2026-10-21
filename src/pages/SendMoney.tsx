@@ -70,20 +70,12 @@ const SendMoney = () => {
   }, []);
 
   useEffect(() => {
-    const loadAll = async () => {
-      try {
-        const { data } = await supabase.rpc("search_users_public", { search_term: "" });
-        setAll((data || []).slice(0, 50).map((u: any) => ({
-          id: u.id, name: u.name || u.username, username: u.username,
-          avatar_url: u.avatar_url, is_online: u.is_online, last_seen: u.last_seen,
-        })));
-      } catch {}
-    };
-    loadAll();
+    // Strangers are never listed; people are found by username search only.
+    setAll([]);
   }, []);
 
   useEffect(() => {
-    if (query.length < 2) { setResults([]); return; }
+    if (query.replace("@","").trim().length < 3) { setResults([]); return; }
     const t = setTimeout(async () => {
       setSearching(true);
       try {

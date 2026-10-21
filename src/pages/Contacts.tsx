@@ -125,6 +125,8 @@ const Contacts = () => {
   const [birthdayContacts, setBirthdayContacts] = useState<{ id: string; name: string | null; username: string }[]>([]);
 
   useEffect(() => {
+    // Suggestions disabled: registered accounts are not listed to strangers.
+    return;
     if (!currentUserId) return;
     supabase
       .from("profiles")
