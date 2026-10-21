@@ -121,8 +121,9 @@ var search_users_default = defineTool4({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const pattern = `%${query.replace(/[%_]/g, "")}%`;
-    const { data, error } = await sb4(ctx).from("profiles").select("id, username, name, avatar_url, bio, is_online").or(`username.ilike.${pattern},name.ilike.${pattern}`).limit(limit ?? 10);
+    const res = await sb4(ctx).rpc("search_users_public", { search_term: query });
+    const error = res.error;
+    const data = (res.data ?? []).slice(0, limit ?? 10);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
       content: [{ type: "text", text: JSON.stringify(data ?? []) }],
