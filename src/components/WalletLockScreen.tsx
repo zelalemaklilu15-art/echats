@@ -60,7 +60,7 @@ export default function WalletLockGate({ children }: Props) {
   ];
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-between"
+    <div className={`fixed inset-0 ${resetOpen ? "z-40" : "z-[60]"} flex flex-col items-center justify-between`}
       style={{ background: BG, paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
 
       {/* ── TOP SECTION ── */}
