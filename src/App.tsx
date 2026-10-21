@@ -45,6 +45,8 @@ const WalletQR = lazy(() => import("./pages/WalletQR"));
 const Features = lazy(() => import("./pages/Features"));
 const AddMoney = lazy(() => import("./pages/AddMoney"));
 const SendMoney = lazy(() => import("./pages/SendMoney"));
+const Airtime = lazy(() => import("./pages/Airtime"));
+import WalletSecurityGate from "./components/wallet/WalletSecurityGate";
 const RequestMoney = lazy(() => import("./pages/RequestMoney"));
 const TransactionHistory = lazy(() => import("./pages/TransactionHistory"));
 const TransactionReceipt = lazy(() => import("./pages/TransactionReceipt"));
@@ -242,12 +244,13 @@ const AppRoutes = () => {
           <Route path="/data-storage" element={guard(isAuthenticated, <DataStorageSettings />)} />
           <Route path="/new-message" element={guard(isAuthenticated, <NewMessage />)} />
           <Route path="/new-contact" element={guard(isAuthenticated, <NewContact />)} />
-          <Route path="/wallet" element={guard(isAuthenticated, <WalletLockGate><Wallet /></WalletLockGate>)} />
+          <Route path="/wallet" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><Wallet /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/scheduled-payments" element={guard(isAuthenticated, <ScheduledPayments />)} />
           <Route path="/wallet/qr" element={guard(isAuthenticated, <WalletQR />)} />
           <Route path="/features" element={guard(isAuthenticated, <Features />)} />
           <Route path="/add-money" element={guard(isAuthenticated, <AddMoney />)} />
-          <Route path="/send-money" element={guard(isAuthenticated, <SendMoney />)} />
+          <Route path="/send-money" element={guard(isAuthenticated, <WalletSecurityGate><SendMoney /></WalletSecurityGate>)} />
+          <Route path="/airtime" element={guard(isAuthenticated, <WalletSecurityGate><Airtime /></WalletSecurityGate>)} />
           <Route path="/request-money" element={guard(isAuthenticated, <RequestMoney />)} />
           <Route path="/transaction-history" element={guard(isAuthenticated, <TransactionHistory />)} />
           <Route path="/transaction-receipt" element={guard(isAuthenticated, <TransactionReceipt />)} />

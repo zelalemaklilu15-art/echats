@@ -207,7 +207,8 @@ class WalletService {
     recipientId: string,
     amount: number,
     note?: string,
-    idempotencyKey?: string
+    idempotencyKey?: string,
+    pin?: string
   ): Promise<TransferResult> {
     const token = await this.getAuthToken();
     
@@ -219,12 +220,15 @@ class WalletService {
         recipient_id: recipientId,
         amount,
         note,
+        pin,
         idempotency_key: idempotencyKey || this.generateIdempotencyKey(),
       },
     });
 
     if (response.error) {
-      return { success: false, error: response.error.message };
+      let msg = response.error.message;
+      try { const body = await (response.error as any).context?.json?.(); if (body?.error) msg = body.error; } catch {}
+      return { success: false, error: msg };
     }
 
     this.invalidateCache();
