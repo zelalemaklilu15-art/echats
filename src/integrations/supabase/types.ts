@@ -253,6 +253,118 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_posts: {
+        Row: {
+          channel_id: string
+          content: string
+          created_at: string
+          edited: boolean
+          id: string
+          reactions: Json
+          sender_id: string
+          sender_name: string
+          type: string
+          views: number
+        }
+        Insert: {
+          channel_id: string
+          content?: string
+          created_at?: string
+          edited?: boolean
+          id: string
+          reactions?: Json
+          sender_id: string
+          sender_name?: string
+          type?: string
+          views?: number
+        }
+        Update: {
+          channel_id?: string
+          content?: string
+          created_at?: string
+          edited?: boolean
+          id?: string
+          reactions?: Json
+          sender_id?: string
+          sender_name?: string
+          type?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_posts_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_subscribers: {
+        Row: {
+          channel_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_subscribers_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channels: {
+        Row: {
+          avatar_color: string
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          is_public: boolean
+          link: string | null
+          name: string
+          pinned_message_id: string | null
+          subscriber_count: number
+        }
+        Insert: {
+          avatar_color?: string
+          created_at?: string
+          created_by: string
+          description?: string
+          id: string
+          is_public?: boolean
+          link?: string | null
+          name: string
+          pinned_message_id?: string | null
+          subscriber_count?: number
+        }
+        Update: {
+          avatar_color?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          is_public?: boolean
+          link?: string | null
+          name?: string
+          pinned_message_id?: string | null
+          subscriber_count?: number
+        }
+        Relationships: []
+      }
       chats: {
         Row: {
           created_at: string
@@ -1426,6 +1538,42 @@ export type Database = {
           },
         ]
       }
+      payment_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          note: string
+          paid_transaction_id: string | null
+          payer_id: string
+          requester_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          note?: string
+          paid_transaction_id?: string | null
+          payer_id: string
+          requester_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string
+          paid_transaction_id?: string | null
+          payer_id?: string
+          requester_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2006,6 +2154,10 @@ export type Database = {
           topup_id: string
         }[]
       }
+      can_view_channel: {
+        Args: { _channel_id: string; _uid: string }
+        Returns: boolean
+      }
       check_wallet_device: { Args: { p_device_id: string }; Returns: string }
       consume_ai_quota: {
         Args: { p_user_id: string }
@@ -2080,6 +2232,10 @@ export type Database = {
       }
       has_recent_otp: { Args: { p_seconds?: number }; Returns: boolean }
       has_wallet_pin: { Args: never; Returns: boolean }
+      is_channel_owner: {
+        Args: { _channel_id: string; _uid: string }
+        Returns: boolean
+      }
       is_group_admin: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
@@ -2122,6 +2278,10 @@ export type Database = {
           wallet_balance: number
         }[]
       }
+      record_channel_views: {
+        Args: { p_channel_id: string }
+        Returns: undefined
+      }
       record_etok_video_interaction: {
         Args: { _kind: string; _video_id: string }
         Returns: undefined
@@ -2132,6 +2292,10 @@ export type Database = {
       }
       register_device_token: {
         Args: { p_platform?: string; p_token: string; p_user_agent?: string }
+        Returns: string
+      }
+      respond_payment_request: {
+        Args: { p_action: string; p_id: string }
         Returns: string
       }
       search_users_public: {
@@ -2176,6 +2340,10 @@ export type Database = {
         }[]
       }
       set_wallet_pin: { Args: { p_pin: string }; Returns: undefined }
+      toggle_channel_reaction: {
+        Args: { p_add: boolean; p_emoji: string; p_post_id: string }
+        Returns: Json
+      }
       unregister_device_token: { Args: { p_token: string }; Returns: undefined }
       verify_wallet_pin: {
         Args: { p_pin: string; p_user_id: string }

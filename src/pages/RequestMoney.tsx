@@ -10,6 +10,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { createPaymentRequest, getIncomingRequests, getOutgoingRequests, respondToRequest, migrateLocalRequests } from "@/lib/paymentRequestService";
 
 interface Contact { id: string; name: string; username: string; avatar_url?: string; is_online?: boolean; last_seen?: string; }
 
@@ -70,12 +71,43 @@ const RequestMoney = () => {
     return () => clearTimeout(t);
   }, [query]);
 
+  const [incoming, setIncoming] = useState<any[]>([]);
+  const [outgoing, setOutgoing] = useState<any[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadRequests = async () => {
+    if (!currentUserId) return;
+    try {
+      await migrateLocalRequests(currentUserId);
+      const [inc, out] = await Promise.all([getIncomingRequests(currentUserId), getOutgoingRequests(currentUserId)]);
+      setIncoming(inc); setOutgoing(out.filter(r => r.status === "pending"));
+    } catch (e) { console.error("[requests] load failed", e); }
+  };
+  useEffect(() => { loadRequests(); }, [currentUserId]);
+
+  const respond = async (id: string, action: "decline" | "cancel") => {
+    setBusyId(id);
+    try { await respondToRequest(id, action); toast.success(action === "decline" ? "Request declined" : "Request cancelled"); await loadRequests(); }
+    catch (e: any) { toast.error(e.message || "Could not update request"); }
+    finally { setBusyId(null); }
+  };
+
+  const payRequest = (r: any) => {
+    navigate("/send-money", { state: { prefill: { contact: r.other ?? { id: r.requester_id, name: "User", username: "" }, amount: r.amount, note: r.note, requestId: r.id } } });
+  };
+
   const numeric = parseFloat(amount) || 0;
 
-  const handleRequest = () => {
-    if (!selected || numeric <= 0) return;
+  const handleRequest = async () => {
+    if (!selected || numeric <= 0 || submitting) return;
+    setSubmitting(true);
+    let saved;
+    try { saved = await createPaymentRequest(selected.id, numeric, reason.trim()); }
+    catch (e: any) { toast.error(e.message || "Could not send request"); setSubmitting(false); return; }
+    setSubmitting(false);
     const req: PaymentRequest = {
-      id: `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: saved.id,
       fromUserId: currentUserId,
       toUserId: selected.id,
       toUsername: selected.username,
@@ -85,9 +117,8 @@ const RequestMoney = () => {
       status: "pending",
       createdAt: new Date().toISOString(),
     };
-    const existing = getPaymentRequests(currentUserId);
-    savePaymentRequests(currentUserId, [...existing, req]);
     setLastRequest(req);
+    loadRequests();
     setStep("done");
     toast.success(`Request for ${numeric.toLocaleString()} ETB sent to @${selected.username}`);
   };
@@ -180,6 +211,41 @@ const RequestMoney = () => {
               <div className="text-center py-8">
                 <User className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
                 <p className="text-muted-foreground text-[13px]">No users found for "{query}"</p>
+              </div>
+            )}
+            {query.length === 0 && incoming.length > 0 && (
+              <div className="mb-5">
+                <p className="text-[12px] font-semibold text-muted-foreground mb-2">Requests to you</p>
+                <div className="rounded-2xl bg-card border border-border/50 divide-y divide-border/50">
+                  {incoming.map(r => (
+                    <div key={r.id} className="px-4 py-3 flex items-center gap-3">
+                      <ChatAvatar name={r.other?.name || "User"} src={r.other?.avatar_url} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[14px] truncate">{r.other?.name || "Someone"} · {r.amount.toLocaleString()} ETB</p>
+                        {r.note && <p className="text-muted-foreground text-[12px] truncate">{r.note}</p>}
+                      </div>
+                      <button disabled={busyId === r.id} onClick={() => respond(r.id, "decline")} className="px-3 py-1.5 rounded-full text-[12px] bg-muted text-muted-foreground">Decline</button>
+                      <button disabled={busyId === r.id} onClick={() => payRequest(r)} className="px-3 py-1.5 rounded-full text-[12px] bg-primary text-primary-foreground font-semibold">Pay</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {query.length === 0 && outgoing.length > 0 && (
+              <div className="mb-5">
+                <p className="text-[12px] font-semibold text-muted-foreground mb-2">Waiting for payment</p>
+                <div className="rounded-2xl bg-card border border-border/50 divide-y divide-border/50">
+                  {outgoing.map(r => (
+                    <div key={r.id} className="px-4 py-3 flex items-center gap-3">
+                      <ChatAvatar name={r.other?.name || "User"} src={r.other?.avatar_url} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-[14px] truncate">{r.other?.name || "Someone"} · {r.amount.toLocaleString()} ETB</p>
+                        <p className="text-muted-foreground text-[12px]">Pending</p>
+                      </div>
+                      <button disabled={busyId === r.id} onClick={() => respond(r.id, "cancel")} className="px-3 py-1.5 rounded-full text-[12px] bg-muted text-muted-foreground">Cancel</button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {query.length === 0 && (

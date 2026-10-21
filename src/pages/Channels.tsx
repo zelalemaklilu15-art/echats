@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useChannelSync } from "@/hooks/useChannelSync";
 import { useNavigate } from "react-router-dom";
 import { Plus, Megaphone, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ const Channels = () => {
   const [channelName, setChannelName] = useState("");
   const [channelDescription, setChannelDescription] = useState("");
   const [version, setVersion] = useState(0);
+  useChannelSync();
 
   const myChannels = userId ? getMyChannels(userId) : [];
   const subscribedChannels = userId ? getSubscribedChannels(userId) : [];

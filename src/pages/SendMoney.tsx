@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { isUserOnline } from "@/lib/formatLastSeen";
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Search, Loader2, X, Check, AlertCircle, QrCode, Home, CreditCard, History, User, Clock, Shield, Send as SendIcon, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { walletService } from "@/lib/walletService";
@@ -109,6 +109,16 @@ const SendMoney = () => {
   const [setupOpen, setSetupOpen] = useState(false);
   const [pendingPin, setPendingPin] = useState("");
   const [txKey, setTxKey] = useState(() => newIdempotencyKey("transfer"));
+  const location = useLocation();
+  const prefill = (location.state as any)?.prefill;
+  const requestId: string | undefined = prefill?.requestId;
+  useEffect(() => {
+    if (!prefill?.contact) return;
+    setSelected(prefill.contact);
+    if (prefill.amount) setAmount(String(prefill.amount));
+    if (prefill.note) setNote(prefill.note);
+    setStep("amount");
+  }, []);
 
   const handleSend = () => {
     if (!selected || !canSend) return;
@@ -120,7 +130,7 @@ const SendMoney = () => {
     if (!selected) return;
     setSending(true); setPinError("");
     try {
-      const result = await walletService.transfer(selected.id, numeric, note || undefined, txKey, pin);
+      const result = await walletService.transfer(selected.id, numeric, note || undefined, txKey, pin, requestId);
       if (result.success && result.transaction) {
         setPinOpen(false);
         navigate("/transaction-receipt", {

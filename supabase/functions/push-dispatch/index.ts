@@ -109,6 +109,34 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
         tag: `story-${r.user_id}`, url: '/stories', data: { type: 'story' },
       });
     }
+    case 'channel_posts': {
+      const [{ data: ch }, { data: subs }] = await Promise.all([
+        db.from('channels').select('name').eq('id', r.channel_id).maybeSingle(),
+        db.from('channel_subscribers').select('user_id').eq('channel_id', r.channel_id).limit(2000),
+      ]);
+      return send((subs ?? []).map((x: Rec) => x.user_id), r.sender_id, {
+        title: ch?.name || 'Channel', body: clip(r.content) || 'New post',
+        tag: `channel-${r.channel_id}`, url: `/channel/${r.channel_id}`, data: { type: 'channel_post', channelId: r.channel_id },
+      });
+    }
+    case 'payment_requests': {
+      const amt = `${Number(r.amount).toLocaleString()} ETB`;
+      if (op === 'INSERT') {
+        return send([r.payer_id], r.requester_id, {
+          title: `💸 Payment request from ${await nameOf(r.requester_id)}`, body: `${amt}${r.note ? ` — ${clip(r.note, 80)}` : ''}`,
+          tag: `payreq-${r.id}`, url: '/request-money', data: { type: 'payment_request', requestId: r.id },
+        });
+      }
+      if (r.status === 'paid' || r.status === 'declined') {
+        const n = await nameOf(r.payer_id);
+        return send([r.requester_id], r.payer_id, {
+          title: r.status === 'paid' ? '✅ Request paid' : 'Request declined',
+          body: r.status === 'paid' ? `${n} paid your request of ${amt}` : `${n} declined your request of ${amt}`,
+          tag: `payreq-${r.id}`, url: r.status === 'paid' ? '/wallet' : '/request-money', data: { type: 'payment_request_' + r.status },
+        });
+      }
+      return 0;
+    }
     case 'call_logs':
       if (op !== 'UPDATE' || r.status !== 'missed' || !r.ended_at) return 0;
       return send([r.receiver_id], r.caller_id, {

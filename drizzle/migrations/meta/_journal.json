@@ -22,6 +22,13 @@
       "when": 1792602503126,
       "tag": "0002_server_push_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792602953327,
+      "tag": "0003_channels_and_payment_requests",
+      "breakpoints": true
     }
   ]
 }

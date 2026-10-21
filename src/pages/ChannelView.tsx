@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useChannelSync } from "@/hooks/useChannelSync";
+import { syncChannels, recordChannelViews } from "@/lib/channelService";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, MoreVertical, Send, Eye, Megaphone, Users, Trash2,
@@ -193,7 +195,12 @@ const ChannelView = () => {
   const reload = () => {
     if (!id) return;
     const ch = getChannel(id);
-    if (!ch) { toast.error("Channel not found"); navigate("/channels"); return; }
+    if (!ch) {
+      syncChannels().then(() => {
+        if (!getChannel(id)) { toast.error("Channel not found"); navigate("/channels"); }
+      });
+      return;
+    }
     setChannel(ch);
     setMessages(getChannelMessages(id));
     if (userId) setSubscribed(isSubscribed(id, userId));
@@ -201,7 +208,9 @@ const ChannelView = () => {
     setScheduledPosts(getScheduledPosts(id));
   };
 
-  useEffect(() => { reload(); }, [id, userId]);
+  const syncVersion = useChannelSync(id);
+  useEffect(() => { reload(); }, [id, userId, syncVersion]);
+  useEffect(() => { if (id) recordChannelViews(id); }, [id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
   const handleSend = (scheduleAt?: string) => {
