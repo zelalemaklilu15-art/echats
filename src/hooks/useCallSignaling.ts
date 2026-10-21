@@ -178,11 +178,13 @@ export const useCallSignaling = (userId: string | null) => {
     return entry;
   }, []);
 
-  const dropPeerChannel = useCallback((peerId: string) => {
+  // Await full removal before the same topic is re-created: realtime-js returns
+  // the existing (still leaving) instance for a topic, which breaks the retry.
+  const dropPeerChannel = useCallback(async (peerId: string) => {
     const entry = peerChannelsRef.current.get(peerId);
     if (entry) {
-      supabase.removeChannel(entry.channel);
       peerChannelsRef.current.delete(peerId);
+      await withTimeout(Promise.resolve(supabase.removeChannel(entry.channel)) as Promise<unknown>, 3000, 'timed_out');
     }
   }, []);
 
@@ -202,7 +204,7 @@ export const useCallSignaling = (userId: string | null) => {
           if (res === 'ok' || res === undefined) return true;
           console.warn('[Signaling] send result:', res);
         }
-        dropPeerChannel(peerId);
+        await dropPeerChannel(peerId);
       }
       console.error('[Signaling] Failed to deliver', event, 'to', peerId);
       return false;

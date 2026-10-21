@@ -577,7 +577,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
 
     if (call) {
       signaling.sendCallState(call.peerId, wasConnected ? 'ended' : 'rejected', call.roomId);
-      await finalizeLog(wasConnected ? 'completed' : call.isOutgoing ? 'missed' : 'rejected');
+      // Logging must never block hangup/redial.
+      finalizeLog(wasConnected ? 'completed' : call.isOutgoing ? 'missed' : 'rejected').catch(() => {});
       pushNotificationService.closeCallNotification();
     }
 
