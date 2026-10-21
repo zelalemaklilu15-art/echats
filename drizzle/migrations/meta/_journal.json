@@ -36,6 +36,13 @@
       "when": 1792603932680,
       "tag": "0004_fix_message_edit_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792604315900,
+      "tag": "0005_private_user_search",
+      "breakpoints": true
     }
   ]
 }
