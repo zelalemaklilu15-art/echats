@@ -8,6 +8,13 @@
       "when": 1792593388710,
       "tag": "0000_signup_bonus_and_local_ads",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792594302765,
+      "tag": "0001_wallet_pin_otp_airtime",
+      "breakpoints": true
     }
   ]
 }

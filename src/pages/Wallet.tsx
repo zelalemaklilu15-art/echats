@@ -8,6 +8,7 @@ import {
   Clock, Star, Target, Link as LinkIcon, ChevronRight, Zap,
   TrendingUp, TrendingDown, ChevronDown,
   Home, Wallet as WalletIcon, BarChart2, User, ArrowLeft,
+  Smartphone,
 } from "lucide-react";
 import { getStarsBalance, refreshStarsBalance } from "@/lib/giftsService";
 import { motion, AnimatePresence } from "framer-motion";
@@ -180,6 +181,7 @@ const Wallet = () => {
     { icon: History,       label: "History",   fn: () => navigate("/transaction-history")                              },
     { icon: Clock,         label: "Scheduled", fn: () => navigate("/scheduled-payments")                              },
     { icon: Target,        label: "Goals",     fn: () => navigate("/savings-goals")                                   },
+    { icon: Smartphone,    label: "Airtime",   fn: () => needsAct ? setShowTerms(true) : navigate("/airtime")         },
     { icon: LinkIcon,      label: "Pay Link",  fn: () => needsAct ? setShowTerms(true) : navigate("/payment-request") },
   ];
 

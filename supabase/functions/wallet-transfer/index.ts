@@ -2,6 +2,22 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 import { sendPushToUser } from '../_shared/fcm.ts';
 
+export const HIGH_RISK_TRANSFER_ETB = 5000;
+
+// The JWT was already validated by auth.getUser(); read its `amr` to see
+// whether the session was confirmed with an email code in the last 10 minutes.
+function hasRecentOtp(authHeader: string): boolean {
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64 + '='.repeat((4 - b64.length % 4) % 4)));
+    const now = Math.floor(Date.now() / 1000);
+    return (payload.amr ?? []).some((e: { method?: string; timestamp?: number }) =>
+      ['otp', 'magiclink', 'email/signup', 'recovery'].includes(e.method ?? '') &&
+      (e.timestamp ?? 0) >= now - 600);
+  } catch { return false; }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -68,25 +84,36 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // ---- Wallet PIN enforcement (server-side) ----
-    // If the sender has a wallet PIN configured, it must be provided and valid.
-    const { data: hasPinData } = await supabaseAdmin
-      .rpc('verify_wallet_pin', { p_user_id: user.id, p_pin: typeof pin === 'string' ? pin : '' });
+    // ---- Wallet PIN enforcement (server-side): required for EVERY transfer ----
     const { data: walletRowForPin } = await supabaseAdmin
       .from('wallets').select('pin_hash').eq('user_id', user.id).maybeSingle();
-    if (walletRowForPin?.pin_hash) {
-      if (typeof pin !== 'string' || !/^\d{4,8}$/.test(pin)) {
-        return new Response(
-          JSON.stringify({ error: 'Wallet PIN is required for transfers.' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (!hasPinData) {
-        return new Response(
-          JSON.stringify({ error: 'Incorrect wallet PIN.' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    if (!walletRowForPin?.pin_hash) {
+      return new Response(
+        JSON.stringify({ error: 'PIN_NOT_SET' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (typeof pin !== 'string' || !/^\d{4,8}$/.test(pin)) {
+      return new Response(
+        JSON.stringify({ error: 'Wallet PIN is required for transfers.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: pinOk } = await supabaseAdmin
+      .rpc('verify_wallet_pin', { p_user_id: user.id, p_pin: pin });
+    if (!pinOk) {
+      return new Response(
+        JSON.stringify({ error: 'Incorrect wallet PIN.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ---- Step-up: transfers above the high-risk threshold need a fresh email code ----
+    if (transferAmount > HIGH_RISK_TRANSFER_ETB && !hasRecentOtp(authHeader)) {
+      return new Response(
+        JSON.stringify({ error: 'STEP_UP_REQUIRED' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check for idempotency
