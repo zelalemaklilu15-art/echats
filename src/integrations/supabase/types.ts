@@ -160,6 +160,39 @@ export type Database = {
         }
         Relationships: []
       }
+      airtime_topups: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          idempotency_key: string
+          phone: string
+          status: string
+          user_id: string
+          wallet_transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          phone: string
+          status?: string
+          user_id: string
+          wallet_transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          phone?: string
+          status?: string
+          user_id?: string
+          wallet_transaction_id?: string | null
+        }
+        Relationships: []
+      }
       bonus_budget: {
         Row: {
           bonus_amount: number
@@ -1749,6 +1782,27 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_pin_failures: {
+        Row: {
+          failed_count: number
+          locked_until: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          failed_count?: number
+          locked_until?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          failed_count?: number
+          locked_until?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallet_terms_acceptance: {
         Row: {
           accepted_at: string
@@ -1848,6 +1902,24 @@ export type Database = {
           },
         ]
       }
+      wallet_trusted_devices: {
+        Row: {
+          created_at: string
+          device_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallets: {
         Row: {
           balance: number
@@ -1901,6 +1973,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      airtime_topup: {
+        Args: {
+          p_amount: number
+          p_idempotency_key: string
+          p_phone: string
+          p_pin: string
+        }
+        Returns: {
+          balance: number
+          duplicate: boolean
+          error: string
+          success: boolean
+          topup_id: string
+        }[]
+      }
+      check_wallet_device: { Args: { p_device_id: string }; Returns: string }
       consume_ai_quota: {
         Args: { p_user_id: string }
         Returns: {
@@ -1972,6 +2060,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      has_recent_otp: { Args: { p_seconds?: number }; Returns: boolean }
       has_wallet_pin: { Args: never; Returns: boolean }
       is_group_admin: {
         Args: { _group_id: string; _user_id: string }
