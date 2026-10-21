@@ -273,13 +273,10 @@ export const useCallSignaling = (userId: string | null) => {
     [userId, sendToPeer],
   );
 
-  // Close outbound channel for a peer once the call is over.
-  const releasePeer = useCallback(
-    (peerId?: string | null) => {
-      if (peerId) dropPeerChannel(peerId);
-    },
-    [dropPeerChannel],
-  );
+  // Outbound peer channels stay open between calls. Closing and immediately
+  // re-opening the same topic raced the leave and broke the next call; a
+  // channel is only replaced when a send actually fails (see sendToPeer).
+  const releasePeer = useCallback((_peerId?: string | null) => {}, []);
 
   const cleanup = useCallback(() => {
     if (reconnectTimerRef.current) {

@@ -249,6 +249,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setUnreadChatCount(0);
 
   }, [clearTimers, stopDurationTimer, webRTC, signaling]);
+  resetCallRef.current = resetCall;
 
   // ---- ICE plumbing -----------------------------------------------------
   const flushLocalIce = useCallback(() => {
