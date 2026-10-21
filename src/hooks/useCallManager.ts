@@ -67,6 +67,17 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const recoveryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const offerRetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resetCallRef = useRef<() => void>(() => {});
+  // Single, cancellable post-call cleanup. A stale timer from the previous call
+  // must never tear down a new call, so every new call clears it first.
+  const scheduleReset = useCallback((ms: number) => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(() => {
+      resetTimerRef.current = null;
+      resetCallRef.current();
+    }, ms);
+  }, []);
   const offerAckedRef = useRef(false);
 
   // Live mirrors so async handlers never read stale state
@@ -206,6 +217,10 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   );
 
   const resetCall = useCallback(() => {
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
     clearTimers();
     stopDurationTimer();
     webRTC.cleanup();
@@ -234,6 +249,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     setUnreadChatCount(0);
 
   }, [clearTimers, stopDurationTimer, webRTC, signaling]);
+  resetCallRef.current = resetCall;
 
   // ---- ICE plumbing -----------------------------------------------------
   const flushLocalIce = useCallback(() => {
@@ -314,7 +330,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
               setCallStateSafe('call_failed');
               setErrorMessage('Connection lost');
               finalizeLog('failed');
-              setTimeout(resetCall, 2500);
+              scheduleReset(2500);
             }
           }, ICE_RECOVERY_MS);
           break;
@@ -323,7 +339,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           setCallStateSafe('call_failed');
           setErrorMessage('Connection failed');
           finalizeLog('failed');
-          setTimeout(resetCall, 2500);
+          scheduleReset(2500);
           break;
         }
         case 'closed': {
@@ -348,9 +364,11 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       if (peerId === userId) {
         setCallStateSafe('call_failed');
         setErrorMessage('You cannot call yourself');
-        setTimeout(resetCall, 2000);
+        scheduleReset(2000);
         return;
       }
+      // A finished call that is only showing its end screen must not block redialing.
+      if (['call_ended','missed','rejected','call_failed'].includes(callStateRef.current)) resetCallRef.current();
       if (callStateRef.current !== 'idle') {
         setErrorMessage('Already in a call');
         return;
@@ -431,7 +449,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
                   : `Could not reach ${peerName}`,
               );
               finalizeLog('missed');
-              setTimeout(resetCall, 3000);
+              scheduleReset(3000);
             }
             return;
           }
@@ -444,7 +462,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
             setCallStateSafe('call_failed');
             setErrorMessage('Call timed out - no answer');
             finalizeLog('missed');
-            setTimeout(resetCall, 3000);
+            scheduleReset(3000);
           }
         }, CALL_TIMEOUT_MS);
       } catch (err) {
@@ -453,7 +471,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         setErrorMessage(err instanceof Error ? err.message : 'Failed to start call');
         finalizeLog('failed');
         webRTC.cleanup();
-        setTimeout(resetCall, 3000);
+        scheduleReset(3000);
       }
     },
     [
@@ -515,7 +533,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           setCallStateSafe('call_failed');
           setErrorMessage('Could not connect');
           finalizeLog('failed');
-          setTimeout(resetCall, 2500);
+          scheduleReset(2500);
         }
       }, CALL_TIMEOUT_MS);
     } catch (err) {
@@ -524,7 +542,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       setErrorMessage(err instanceof Error ? err.message : 'Failed to accept call');
       finalizeLog('failed');
       webRTC.cleanup();
-      setTimeout(resetCall, 3000);
+      scheduleReset(3000);
     }
   }, [
     userId,
@@ -559,13 +577,14 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
 
     if (call) {
       signaling.sendCallState(call.peerId, wasConnected ? 'ended' : 'rejected', call.roomId);
-      await finalizeLog(wasConnected ? 'completed' : call.isOutgoing ? 'missed' : 'rejected');
+      // Logging must never block hangup/redial.
+      finalizeLog(wasConnected ? 'completed' : call.isOutgoing ? 'missed' : 'rejected').catch(() => {});
       pushNotificationService.closeCallNotification();
     }
 
     stopDurationTimer();
     setCallStateSafe('call_ended');
-    setTimeout(resetCall, 1500);
+    scheduleReset(1500);
   }, [signaling, finalizeLog, resetCall, stopDurationTimer, setCallStateSafe]);
 
   // True mute: the microphone hardware is released, not just silenced.
@@ -665,6 +684,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         return;
       }
 
+      if (['call_ended','missed','rejected','call_failed'].includes(callStateRef.current)) resetCallRef.current();
       if (callStateRef.current !== 'idle') {
         signaling.sendCallState(offer.callerId, 'busy', offer.roomId);
         return;
@@ -692,7 +712,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           pushNotificationService.closeCallNotification();
           setCallStateSafe('missed');
           finalizeLog('missed');
-          setTimeout(resetCall, 3000);
+          scheduleReset(3000);
         }
       }, CALL_TIMEOUT_MS);
     },
@@ -713,7 +733,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         setCallStateSafe('call_failed');
         setErrorMessage('Failed to connect');
         finalizeLog('failed');
-        setTimeout(resetCall, 2500);
+        scheduleReset(2500);
       }
     },
     [webRTC, flushRemoteIce, finalizeLog, resetCall, setCallStateSafe],
@@ -736,7 +756,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const handleCallStateEvent = useCallback(
     (event: CallStateEvent) => {
       const call = activeCallRef.current;
-      if (call && event.roomId !== call.roomId) return;
+      // Ignore late events from a previous call.
+      if (!call || event.roomId !== call.roomId) return;
       if (callStateRef.current === 'idle') return;
 
       switch (event.type) {
@@ -744,24 +765,24 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           setCallStateSafe('rejected');
           setErrorMessage('Call was declined');
           finalizeLog('rejected');
-          setTimeout(resetCall, 2500);
+          scheduleReset(2500);
           break;
         case 'ended':
           stopDurationTimer();
           setCallStateSafe('call_ended');
           finalizeLog(durationRef.current > 0 ? 'completed' : 'missed');
-          setTimeout(resetCall, 1500);
+          scheduleReset(1500);
           break;
         case 'busy':
           setCallStateSafe('call_failed');
           setErrorMessage('User is busy');
           finalizeLog('missed');
-          setTimeout(resetCall, 2500);
+          scheduleReset(2500);
           break;
         case 'timeout':
           setCallStateSafe('missed');
           finalizeLog('missed');
-          setTimeout(resetCall, 2500);
+          scheduleReset(2500);
           break;
       }
     },
