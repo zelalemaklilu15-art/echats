@@ -1471,6 +1471,24 @@ export type Database = {
         }
         Relationships: []
       }
+      push_dispatch_config: {
+        Row: {
+          endpoint: string
+          id: number
+          secret: string
+        }
+        Insert: {
+          endpoint: string
+          id?: number
+          secret?: string
+        }
+        Update: {
+          endpoint?: string
+          id?: number
+          secret?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           created_at: string
