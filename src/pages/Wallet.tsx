@@ -19,25 +19,25 @@ import WalletTerms from "@/components/WalletTerms";
 import { toast } from "sonner";
 
 /* ─── Design tokens ─── */
-const P        = "#7C3AED";
-const BG       = "#0D0A1A";
-const CARD_BG  = "#150D28";
-const CARD_BG2 = "#1C1130";
+const P        = "hsl(var(--tertiary))";
+const BG       = "hsl(var(--surface-lowest))";
+const CARD_BG  = "hsl(var(--surface-low))";
+const CARD_BG2 = "hsl(var(--card) / 0.9)";
 
 /* ─── Transaction type config ─── */
 const TXN_CFG: Record<string, { label: string; color: string; bg: string; isIn: boolean; statusText: string }> = {
-  transfer_in:  { label: "Received",    color: "#4ade80", bg: "rgba(74,222,128,0.15)",  isIn: true,  statusText: "Completed" },
-  deposit:      { label: "Added Money", color: "#4ade80", bg: "rgba(74,222,128,0.15)",  isIn: true,  statusText: "Completed" },
-  transfer_out: { label: "Sent",        color: "#f87171", bg: "rgba(248,113,113,0.15)", isIn: false, statusText: "Completed" },
-  withdrawal:   { label: "Withdrawal",  color: "#fb923c", bg: "rgba(251,146,60,0.15)",  isIn: false, statusText: "Processing" },
-  adjustment:   { label: "Adjustment",  color: "#60a5fa", bg: "rgba(96,165,250,0.15)",  isIn: true,  statusText: "Completed" },
+  transfer_in:  { label: "Received",    color: "hsl(var(--cosmic-mint))", bg: "hsl(var(--cosmic-mint) / 0.15)",  isIn: true,  statusText: "Completed" },
+  deposit:      { label: "Added Money", color: "hsl(var(--cosmic-mint))", bg: "hsl(var(--cosmic-mint) / 0.15)",  isIn: true,  statusText: "Completed" },
+  transfer_out: { label: "Sent",        color: "hsl(var(--destructive))", bg: "hsl(var(--destructive) / 0.15)", isIn: false, statusText: "Completed" },
+  withdrawal:   { label: "Withdrawal",  color: "hsl(var(--cosmic-magenta))", bg: "hsl(var(--cosmic-magenta) / 0.15)",  isIn: false, statusText: "Processing" },
+  adjustment:   { label: "Adjustment",  color: "hsl(var(--cosmic-cyan))", bg: "hsl(var(--cosmic-cyan) / 0.15)",  isIn: true,  statusText: "Completed" },
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  completed: "#4ade80",
-  pending:   "#fbbf24",
-  failed:    "#f87171",
-  reversed:  "#fb923c",
+  completed: "hsl(var(--cosmic-mint))",
+  pending:   "hsl(var(--tertiary))",
+  failed:    "hsl(var(--destructive))",
+  reversed:  "hsl(var(--cosmic-magenta))",
 };
 
 /* ─── Helpers ─── */
@@ -154,12 +154,12 @@ const Wallet = () => {
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4" style={{ background: BG }}>
       <div className="w-16 h-16 rounded-full flex items-center justify-center"
-        style={{ background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.3)" }}>
+        style={{ background: "hsl(var(--tertiary) / 0.15)", border: "1px solid hsl(var(--tertiary) / 0.3)" }}>
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}>
           <Loader2 style={{ color: P, width: 28, height: 28 }} />
         </motion.div>
       </div>
-      <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>Loading wallet…</p>
+      <p className="text-sm font-medium" style={{ color: "hsl(var(--foreground) / 0.4)" }}>Loading wallet…</p>
     </div>
   );
 
@@ -188,37 +188,37 @@ const Wallet = () => {
 
       {/* ─── HEADER ─── */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3"
-        style={{ background: `${BG}EE`, backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        style={{ background: "hsl(var(--surface-lowest) / 0.9)", backdropFilter: "blur(16px)", borderBottom: "1px solid hsl(var(--foreground) / 0.05)" }}>
         <div className="flex items-center gap-2">
           {/* Back to main app */}
           <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate("/chats")}
             aria-label="Back to Echat"
             className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <ArrowLeft style={{ color: "rgba(255,255,255,0.85)", width: 18, height: 18 }} />
+            style={{ background: "hsl(var(--foreground) / 0.06)", border: "1px solid hsl(var(--foreground) / 0.08)" }}>
+            <ArrowLeft style={{ color: "hsl(var(--foreground) / 0.85)", width: 18, height: 18 }} />
           </motion.button>
           {/* Avatar */}
-          <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-[16px] text-white flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #7C3AED, #a855f7)" }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-[16px] text-foreground flex-shrink-0"
+            style={{ background: "var(--gradient-gold)" }}>
             {firstName[0].toUpperCase()}
           </div>
           <div>
-            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>Welcome back,</p>
-            <p className="text-[15px] font-bold text-white leading-tight capitalize">{firstName}</p>
+            <p className="text-[11px]" style={{ color: "hsl(var(--foreground) / 0.4)" }}>Welcome back,</p>
+            <p className="text-[15px] font-bold text-foreground leading-tight capitalize">{firstName}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <motion.button whileTap={{ scale: 0.88 }} onClick={() => setRefreshing(true) || load(true)}
             className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            style={{ background: "hsl(var(--foreground) / 0.06)", border: "1px solid hsl(var(--foreground) / 0.08)" }}>
             <motion.div animate={refreshing ? { rotate: 360 } : {}} transition={{ duration: 0.7, repeat: refreshing ? Infinity : 0, ease: "linear" }}>
-              <RefreshCw style={{ color: "rgba(255,255,255,0.5)", width: 15, height: 15 }} />
+              <RefreshCw style={{ color: "hsl(var(--foreground) / 0.5)", width: 15, height: 15 }} />
             </motion.div>
           </motion.button>
           <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate("/wallet/settings")}
             className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <Bell style={{ color: "rgba(255,255,255,0.5)", width: 15, height: 15 }} />
+            style={{ background: "hsl(var(--foreground) / 0.06)", border: "1px solid hsl(var(--foreground) / 0.08)" }}>
+            <Bell style={{ color: "hsl(var(--foreground) / 0.5)", width: 15, height: 15 }} />
           </motion.button>
         </div>
       </div>
@@ -228,17 +228,17 @@ const Wallet = () => {
         {needsAct && (
           <motion.button initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             onClick={() => setShowTerms(true)} className="w-full flex items-center gap-3 px-4 py-3 text-left"
-            style={{ background: "rgba(251,191,36,0.07)", borderBottom: "1px solid rgba(251,191,36,0.18)" }}
+            style={{ background: "hsl(var(--tertiary) / 0.07)", borderBottom: "1px solid hsl(var(--tertiary) / 0.18)" }}
             data-testid="banner-activate-wallet">
             <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(251,191,36,0.18)" }}>
-              <Zap style={{ color: "#fbbf24", width: 16, height: 16 }} />
+              style={{ background: "hsl(var(--tertiary) / 0.18)" }}>
+              <Zap style={{ color: "hsl(var(--tertiary))", width: 16, height: 16 }} />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-white">Activate your wallet</p>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Accept terms to unlock all features</p>
+              <p className="text-sm font-semibold text-foreground">Activate your wallet</p>
+              <p className="text-xs" style={{ color: "hsl(var(--foreground) / 0.4)" }}>Accept terms to unlock all features</p>
             </div>
-            <ChevronRight style={{ color: "#fbbf24", width: 16, height: 16 }} />
+            <ChevronRight style={{ color: "hsl(var(--tertiary))", width: 16, height: 16 }} />
           </motion.button>
         )}
       </AnimatePresence>
@@ -246,19 +246,19 @@ const Wallet = () => {
         {pendingReqs.length > 0 && (
           <motion.button initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             onClick={() => navigate("/request-money")} className="w-full flex items-center gap-3 px-4 py-3 text-left"
-            style={{ background: "rgba(96,165,250,0.07)", borderBottom: "1px solid rgba(96,165,250,0.15)" }}
+            style={{ background: "hsl(var(--cosmic-cyan) / 0.07)", borderBottom: "1px solid hsl(var(--cosmic-cyan) / 0.15)" }}
             data-testid="banner-pending-requests">
             <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(96,165,250,0.18)" }}>
-              <Clock style={{ color: "#60a5fa", width: 16, height: 16 }} />
+              style={{ background: "hsl(var(--cosmic-cyan) / 0.18)" }}>
+              <Clock style={{ color: "hsl(var(--cosmic-cyan))", width: 16, height: 16 }} />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-white">{pendingReqs.length} pending request{pendingReqs.length > 1 ? "s" : ""}</p>
-              <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.4)" }}>
+              <p className="text-sm font-semibold text-foreground">{pendingReqs.length} pending request{pendingReqs.length > 1 ? "s" : ""}</p>
+              <p className="text-xs truncate" style={{ color: "hsl(var(--foreground) / 0.4)" }}>
                 {pendingReqs.map(r => `${r.amount.toLocaleString()} ETB from @${r.toUsername}`).slice(0, 2).join(", ")}
               </p>
             </div>
-            <ChevronRight style={{ color: "#60a5fa", width: 16, height: 16 }} />
+            <ChevronRight style={{ color: "hsl(var(--cosmic-cyan))", width: 16, height: 16 }} />
           </motion.button>
         )}
       </AnimatePresence>
@@ -271,36 +271,36 @@ const Wallet = () => {
           transition={{ type: "spring", stiffness: 280, damping: 24 }}
           className="relative rounded-3xl overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, #2D0A8A 0%, #6B1FD4 35%, #9B35EA 65%, #5B10C4 100%)",
-            boxShadow: "0 20px 60px rgba(107,31,212,0.55), 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.12)",
+            background: "linear-gradient(140deg, hsl(var(--surface-lowest)) 0%, hsl(var(--secondary) / 0.55) 45%, hsl(260 67% 40%) 75%, hsl(var(--surface-low)) 100%)",
+            boxShadow: "0 20px 50px -18px hsl(var(--tertiary) / 0.45), 0 0 0 1px hsl(var(--tertiary) / 0.35), inset 0 1px 0 hsl(var(--tertiary) / 0.2)",
             minHeight: 185,
           }}
         >
           {/* Bright orb top-right */}
           <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none"
-            style={{ background: "radial-gradient(circle, rgba(200,100,255,0.45) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, hsl(var(--tertiary) / 0.45) 0%, transparent 70%)" }} />
           {/* Subtle bottom-left glow */}
           <div className="absolute -bottom-12 -left-8 w-40 h-40 rounded-full pointer-events-none"
-            style={{ background: "radial-gradient(circle, rgba(80,20,180,0.35) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, hsl(var(--secondary) / 0.35) 0%, transparent 70%)" }} />
           {/* Dot grid texture */}
           <div className="absolute inset-0 pointer-events-none opacity-[0.07]"
-            style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,1) 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
+            style={{ backgroundImage: "radial-gradient(circle, hsl(var(--foreground) / 1) 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
 
           <div className="relative p-5">
             {/* Top row: MAIN BALANCE + eye | card icon */}
             <div className="flex items-center justify-between mb-4">
               <button onClick={() => setShowBal(v => !v)} className="flex items-center gap-2">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "hsl(var(--foreground) / 0.55)" }}>
                   MAIN BALANCE
                 </p>
                 {showBal
-                  ? <Eye style={{ color: "rgba(255,255,255,0.5)", width: 14, height: 14 }} />
-                  : <EyeOff style={{ color: "rgba(255,255,255,0.5)", width: 14, height: 14 }} />}
+                  ? <Eye style={{ color: "hsl(var(--foreground) / 0.5)", width: 14, height: 14 }} />
+                  : <EyeOff style={{ color: "hsl(var(--foreground) / 0.5)", width: 14, height: 14 }} />}
               </button>
               {/* Credit card icon */}
               <div className="w-9 h-6 rounded-md flex items-end justify-end px-1 pb-0.5"
-                style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)" }}>
-                <div className="w-4 h-1.5 rounded-sm" style={{ background: "rgba(255,255,255,0.5)" }} />
+                style={{ background: "hsl(var(--foreground) / 0.15)", border: "1px solid hsl(var(--foreground) / 0.2)" }}>
+                <div className="w-4 h-1.5 rounded-sm" style={{ background: "hsl(var(--foreground) / 0.5)" }} />
               </div>
             </div>
 
@@ -308,37 +308,37 @@ const Wallet = () => {
             <AnimatePresence mode="wait">
               {showBal ? (
                 <motion.div key="vis" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-3">
-                  <p className="font-black text-white leading-none" style={{ fontSize: 34, letterSpacing: "-0.02em" }}>
+                  <p className="font-display font-bold text-foreground leading-none" style={{ fontSize: 34, letterSpacing: "-0.02em" }}>
                     {formatETB(needsAct ? 0 : balance)}{" "}
-                    <span className="text-[20px] font-bold" style={{ color: "rgba(255,255,255,0.65)" }}>ETB</span>
+                    <span className="text-[20px] font-bold" style={{ color: "hsl(var(--foreground) / 0.65)" }}>ETB</span>
                   </p>
                   {!needsAct && balance > 0 && (
-                    <p className="text-[12px] mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    <p className="text-[12px] mt-1" style={{ color: "hsl(var(--foreground) / 0.4)" }}>
                       ≈ ${(balance / 57.5).toFixed(2)} USD
                     </p>
                   )}
                 </motion.div>
               ) : (
                 <motion.div key="hid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mb-3">
-                  <p className="font-black text-white tracking-widest" style={{ fontSize: 28 }}>••••••••</p>
-                  <p className="text-[12px] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>Balance hidden</p>
+                  <p className="font-black text-foreground tracking-widest" style={{ fontSize: 28 }}>••••••••</p>
+                  <p className="text-[12px] mt-1" style={{ color: "hsl(var(--foreground) / 0.3)" }}>Balance hidden</p>
                 </motion.div>
               )}
             </AnimatePresence>
 
             {/* Card number row */}
             <div className="flex items-center justify-between mt-1">
-              <p className="font-mono text-[14px]" style={{ color: "rgba(255,255,255,0.55)", letterSpacing: "0.14em" }}>
+              <p className="font-mono text-[14px]" style={{ color: "hsl(var(--foreground) / 0.55)", letterSpacing: "0.14em" }}>
                 {showBal ? `**** **** **** ${last4}` : "•••• •••• •••• ••••"}
               </p>
               <div className="flex items-center gap-2">
                 {wallet && (
                   <motion.button whileTap={{ scale: 0.88 }} onClick={doCopy}
                     className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{ background: "rgba(255,255,255,0.12)" }} data-testid="button-copy-card">
+                    style={{ background: "hsl(var(--foreground) / 0.12)" }} data-testid="button-copy-card">
                     {copied
-                      ? <Check style={{ color: "#4ade80", width: 13, height: 13 }} />
-                      : <Copy style={{ color: "rgba(255,255,255,0.55)", width: 13, height: 13 }} />}
+                      ? <Check style={{ color: "hsl(var(--cosmic-mint))", width: 13, height: 13 }} />
+                      : <Copy style={{ color: "hsl(var(--foreground) / 0.55)", width: 13, height: 13 }} />}
                   </motion.button>
                 )}
                 {/* Mastercard circles */}
@@ -365,10 +365,10 @@ const Wallet = () => {
             >
               {/* CIRCLE — not square */}
               <div className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.09)" }}>
-                <a.icon style={{ color: "rgba(255,255,255,0.75)", width: 22, height: 22 }} />
+                style={{ background: "hsl(var(--foreground) / 0.07)", border: "1px solid hsl(var(--foreground) / 0.09)" }}>
+                <a.icon style={{ color: "hsl(var(--foreground) / 0.75)", width: 22, height: 22 }} />
               </div>
-              <span className="text-[10.5px] font-semibold text-center" style={{ color: "rgba(255,255,255,0.45)" }}>{a.label}</span>
+              <span className="text-[10.5px] font-semibold text-center" style={{ color: "hsl(var(--foreground) / 0.45)" }}>{a.label}</span>
             </motion.button>
           ))}
         </div>
@@ -377,19 +377,19 @@ const Wallet = () => {
       {/* ─── STARS & GIFTS ─── */}
       <div className="px-4 pb-5">
         <div className="rounded-2xl flex items-center gap-3 px-4 py-3.5"
-          style={{ background: CARD_BG2, border: "1px solid rgba(124,58,237,0.22)" }}>
+          style={{ background: CARD_BG2, border: "1px solid hsl(var(--tertiary) / 0.22)" }}>
           {/* Star circle icon */}
           <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ background: "rgba(124,58,237,0.25)", border: "1px solid rgba(124,58,237,0.35)" }}>
-            <Star style={{ color: "#a78bfa", width: 18, height: 18 }} />
+            style={{ background: "hsl(var(--tertiary) / 0.25)", border: "1px solid hsl(var(--tertiary) / 0.35)" }}>
+            <Star style={{ color: "hsl(var(--primary))", width: 18, height: 18 }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[14px] font-bold text-white">Stars & Gifts</p>
-            <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>{stars.toLocaleString()} Stars available</p>
+            <p className="text-[14px] font-bold text-foreground">Stars & Gifts</p>
+            <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.4)" }}>{stars.toLocaleString()} Stars available</p>
           </div>
           <motion.button whileTap={{ scale: 0.92 }} onClick={() => navigate("/buy-stars")}
-            className="px-4 py-2 rounded-xl font-bold text-[13px] text-white flex-shrink-0"
-            style={{ background: P, boxShadow: "0 4px 14px rgba(124,58,237,0.45)" }}
+            className="px-4 py-2 rounded-xl font-bold text-[13px] text-foreground flex-shrink-0"
+            style={{ background: P, boxShadow: "0 4px 14px hsl(var(--tertiary) / 0.45)" }}
             data-testid="button-buy-stars-wallet">
             Redeem
           </motion.button>
@@ -399,7 +399,7 @@ const Wallet = () => {
       {/* ─── QUICK SEND ─── */}
       <div className="px-4 pb-5">
         <div className="flex items-center justify-between mb-3.5">
-          <p className="font-bold text-[15px] text-white">Quick Send</p>
+          <p className="font-bold text-[15px] text-foreground">Quick Send</p>
           <button onClick={() => navigate("/send-money")} className="text-[13px] font-semibold" style={{ color: P }}>View All</button>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
@@ -407,10 +407,10 @@ const Wallet = () => {
           <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate("/send-money")}
             className="flex flex-col items-center gap-1.5 flex-shrink-0">
             <div className="w-14 h-14 rounded-full flex items-center justify-center"
-              style={{ background: "rgba(255,255,255,0.04)", border: "2px dashed rgba(255,255,255,0.18)" }}>
-              <Plus style={{ color: "rgba(255,255,255,0.35)", width: 20, height: 20 }} />
+              style={{ background: "hsl(var(--foreground) / 0.04)", border: "2px dashed hsl(var(--foreground) / 0.18)" }}>
+              <Plus style={{ color: "hsl(var(--foreground) / 0.35)", width: 20, height: 20 }} />
             </div>
-            <p className="text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.35)" }}>New</p>
+            <p className="text-[11px] font-medium" style={{ color: "hsl(var(--foreground) / 0.35)" }}>New</p>
           </motion.button>
 
           {contacts.map(c => (
@@ -418,22 +418,22 @@ const Wallet = () => {
               onClick={() => navigate(`/send-money?to=${c.id}`)}
               className="flex flex-col items-center gap-1.5 flex-shrink-0"
               data-testid={`quick-send-${c.id}`}>
-              <div className="w-14 h-14 rounded-full flex items-center justify-center text-[20px] font-black text-white"
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-[20px] font-black text-foreground"
                 style={{
-                  background: "linear-gradient(135deg, #6D28D9, #a855f7)",
-                  boxShadow: "0 4px 14px rgba(124,58,237,0.45)",
+                  background: "var(--gradient-gold)",
+                  boxShadow: "0 4px 14px hsl(var(--tertiary) / 0.45)",
                 }}>
                 {c.name.charAt(0).toUpperCase()}
               </div>
               <p className="text-[11px] font-medium max-w-[56px] truncate text-center"
-                style={{ color: "rgba(255,255,255,0.5)" }}>
+                style={{ color: "hsl(var(--foreground) / 0.5)" }}>
                 {c.name.split(" ")[0]}
               </p>
             </motion.button>
           ))}
 
           {contacts.length === 0 && (
-            <p className="text-[13px] py-4" style={{ color: "rgba(255,255,255,0.25)" }}>
+            <p className="text-[13px] py-4" style={{ color: "hsl(var(--foreground) / 0.25)" }}>
               Send to someone to see them here
             </p>
           )}
@@ -442,11 +442,11 @@ const Wallet = () => {
 
       {/* ─── ACTIVITY CHART ─── */}
       <div className="px-4 pb-5">
-        <div className="rounded-2xl overflow-hidden" style={{ background: CARD_BG2, border: "1px solid rgba(255,255,255,0.07)" }}>
+        <div className="rounded-2xl overflow-hidden" style={{ background: CARD_BG2, border: "1px solid hsl(var(--foreground) / 0.07)" }}>
           <div className="flex items-center justify-between px-4 pt-4 pb-1">
             <div>
-              <p className="font-bold text-[15px] text-white">Activity</p>
-              <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>Last 7 days performance</p>
+              <p className="font-bold text-[15px] text-foreground">Activity</p>
+              <p className="text-[11px]" style={{ color: "hsl(var(--foreground) / 0.38)" }}>Last 7 days performance</p>
             </div>
             <button className="flex items-center gap-1" style={{ color: P }}>
               <span className="text-[13px] font-semibold">Weekly</span>
@@ -456,43 +456,43 @@ const Wallet = () => {
 
           {chartData.every(d => d.income === 0 && d.expense === 0) ? (
             <div className="flex flex-col items-center py-10 gap-2">
-              <ArrowRightLeft style={{ color: "rgba(255,255,255,0.12)", width: 32, height: 32 }} />
-              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.25)" }}>No activity this week</p>
+              <ArrowRightLeft style={{ color: "hsl(var(--foreground) / 0.12)", width: 32, height: 32 }} />
+              <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.25)" }}>No activity this week</p>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={115}>
               <AreaChart data={chartData} margin={{ left: -28, right: 8, top: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.6} />
-                    <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.0} />
+                    <stop offset="0%" stopColor="#e5c977" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#e5c977" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "rgba(255,255,255,0.28)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "rgba(255,255,255,0.28)" }} axisLine={false} tickLine={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "hsl(var(--foreground) / 0.28)" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "hsl(var(--foreground) / 0.28)" }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: "#1C1130", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, color: "#fff" }}
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--foreground) / 0.1)", borderRadius: 10, fontSize: 12, color: "hsl(var(--foreground))" }}
                   formatter={(v: number) => [`${v.toLocaleString()} ETB`]}
                 />
-                <Area type="monotone" dataKey="income" stroke="#7C3AED" fill="url(#purpleGrad)"
-                  strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "#7C3AED", strokeWidth: 0 }} />
+                <Area type="monotone" dataKey="income" stroke="#e5c977" fill="url(#purpleGrad)"
+                  strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: "#e5c977", strokeWidth: 0 }} />
               </AreaChart>
             </ResponsiveContainer>
           )}
 
           {/* Income / Expense stat bars */}
           <div className="flex items-center gap-3 px-4 py-3"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+            style={{ borderTop: "1px solid hsl(var(--foreground) / 0.06)" }}>
             <div className="flex items-center gap-2 flex-1">
-              <div className="h-2 flex-1 max-w-[50px] rounded-full" style={{ background: "#4ade80" }} />
-              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>Income</p>
-              <p className="text-[13px] font-bold" style={{ color: "#4ade80" }}>+{shortNum(weekIncome)}</p>
+              <div className="h-2 flex-1 max-w-[50px] rounded-full" style={{ background: "hsl(var(--cosmic-mint))" }} />
+              <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.4)" }}>Income</p>
+              <p className="text-[13px] font-bold" style={{ color: "hsl(var(--cosmic-mint))" }}>+{shortNum(weekIncome)}</p>
             </div>
-            <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="w-px h-5" style={{ background: "hsl(var(--foreground) / 0.08)" }} />
             <div className="flex items-center gap-2 flex-1 justify-end">
-              <p className="text-[13px] font-bold" style={{ color: "#f87171" }}>-{shortNum(weekExpense)}</p>
-              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>Expense</p>
-              <div className="h-2 flex-1 max-w-[50px] rounded-full" style={{ background: "#f87171" }} />
+              <p className="text-[13px] font-bold" style={{ color: "hsl(var(--destructive))" }}>-{shortNum(weekExpense)}</p>
+              <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.4)" }}>Expense</p>
+              <div className="h-2 flex-1 max-w-[50px] rounded-full" style={{ background: "hsl(var(--destructive))" }} />
             </div>
           </div>
         </div>
@@ -501,7 +501,7 @@ const Wallet = () => {
       {/* ─── RECENT TRANSACTIONS ─── */}
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
-          <p className="font-bold text-[15px] text-white">Recent Transactions</p>
+          <p className="font-bold text-[15px] text-foreground">Recent Transactions</p>
           <button onClick={() => navigate("/transaction-history")}
             className="text-[13px] font-semibold" style={{ color: P }} data-testid="button-view-all-txns">
             See All
@@ -510,18 +510,18 @@ const Wallet = () => {
 
         {recentTxns.length === 0 ? (
           <div className="rounded-2xl flex flex-col items-center py-12 gap-4"
-            style={{ background: CARD_BG2, border: "1px solid rgba(255,255,255,0.07)" }}>
+            style={{ background: CARD_BG2, border: "1px solid hsl(var(--foreground) / 0.07)" }}>
             <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 2.5 }}>
-              <ArrowRightLeft style={{ color: "rgba(255,255,255,0.12)", width: 40, height: 40 }} />
+              <ArrowRightLeft style={{ color: "hsl(var(--foreground) / 0.12)", width: 40, height: 40 }} />
             </motion.div>
-            <p className="text-[14px] font-medium text-white">No transactions yet</p>
-            <p className="text-[12px] text-center max-w-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <p className="text-[14px] font-medium text-foreground">No transactions yet</p>
+            <p className="text-[12px] text-center max-w-xs" style={{ color: "hsl(var(--foreground) / 0.3)" }}>
               {needsAct ? "Activate your wallet to get started" : "Add money or send to get started"}
             </p>
             {needsAct && (
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowTerms(true)}
-                className="mt-1 px-5 py-2.5 rounded-xl text-[13px] font-bold text-white"
-                style={{ background: P, boxShadow: "0 4px 14px rgba(124,58,237,0.4)" }}>
+                className="mt-1 px-5 py-2.5 rounded-xl text-[13px] font-bold text-foreground"
+                style={{ background: P, boxShadow: "0 4px 14px hsl(var(--tertiary) / 0.4)" }}>
                 Activate Wallet
               </motion.button>
             )}
@@ -530,7 +530,7 @@ const Wallet = () => {
           /* ── Each transaction is its own card ── */
           <div className="space-y-2.5">
             {recentTxns.map((t, i) => {
-              const cfg = TXN_CFG[t.type] ?? { label: t.type, color: "#fff", bg: "rgba(255,255,255,0.1)", isIn: false, statusText: t.status };
+              const cfg = TXN_CFG[t.type] ?? { label: t.type, color: "#fff", bg: "hsl(var(--foreground) / 0.1)", isIn: false, statusText: t.status };
               const meta = t.metadata as Record<string, unknown>;
               const counterparty = cfg.isIn
                 ? (meta.sender_name ? String(meta.sender_name) : null)
@@ -545,7 +545,7 @@ const Wallet = () => {
                   whileTap={{ scale: 0.99 }}
                   onClick={() => navigate(`/transaction-detail/${t.id}`)}
                   className="w-full flex items-center gap-3 px-4 py-3.5 text-left rounded-2xl transition-colors"
-                  style={{ background: CARD_BG2, border: "1px solid rgba(255,255,255,0.06)" }}
+                  style={{ background: CARD_BG2, border: "1px solid hsl(var(--foreground) / 0.06)" }}
                   data-testid={`txn-row-${t.id}`}
                 >
                   {/* Colored icon box */}
@@ -556,10 +556,10 @@ const Wallet = () => {
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-bold text-white truncate">
+                    <p className="text-[14px] font-bold text-foreground truncate">
                       {counterparty ?? (t.description || cfg.label)}
                     </p>
-                    <p className="text-[12px] mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>
+                    <p className="text-[12px] mt-0.5" style={{ color: "hsl(var(--foreground) / 0.38)" }}>
                       {shortDate(t.created_at)}
                     </p>
                   </div>
@@ -581,21 +581,21 @@ const Wallet = () => {
       {/* ─── MONTHLY STATS ─── */}
       <div className="px-4 mt-5">
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl p-4" style={{ background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.14)" }}>
+          <div className="rounded-2xl p-4" style={{ background: "hsl(var(--cosmic-mint) / 0.07)", border: "1px solid hsl(var(--cosmic-mint) / 0.14)" }}>
             <div className="flex items-center justify-between mb-2">
-              <TrendingUp style={{ color: "#4ade80", width: 16, height: 16 }} />
-              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.3)" }}>This month</span>
+              <TrendingUp style={{ color: "hsl(var(--cosmic-mint))", width: 16, height: 16 }} />
+              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "hsl(var(--foreground) / 0.3)" }}>This month</span>
             </div>
-            <p className="font-black text-[20px] leading-tight" style={{ color: "#4ade80" }}>+{formatETB(stats.monthly_received)}</p>
-            <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>Money In</p>
+            <p className="font-black text-[20px] leading-tight" style={{ color: "hsl(var(--cosmic-mint))" }}>+{formatETB(stats.monthly_received)}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: "hsl(var(--foreground) / 0.38)" }}>Money In</p>
           </div>
-          <div className="rounded-2xl p-4" style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.14)" }}>
+          <div className="rounded-2xl p-4" style={{ background: "hsl(var(--destructive) / 0.07)", border: "1px solid hsl(var(--destructive) / 0.14)" }}>
             <div className="flex items-center justify-between mb-2">
-              <TrendingDown style={{ color: "#f87171", width: 16, height: 16 }} />
-              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.3)" }}>This month</span>
+              <TrendingDown style={{ color: "hsl(var(--destructive))", width: 16, height: 16 }} />
+              <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "hsl(var(--foreground) / 0.3)" }}>This month</span>
             </div>
-            <p className="font-black text-[20px] leading-tight" style={{ color: "#f87171" }}>-{formatETB(stats.monthly_sent)}</p>
-            <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.38)" }}>Money Out</p>
+            <p className="font-black text-[20px] leading-tight" style={{ color: "hsl(var(--destructive))" }}>-{formatETB(stats.monthly_sent)}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: "hsl(var(--foreground) / 0.38)" }}>Money Out</p>
           </div>
         </div>
       </div>
@@ -603,9 +603,9 @@ const Wallet = () => {
       {/* ─── WALLET BOTTOM NAVIGATION ─── */}
       <div className="fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto"
         style={{
-          background: "#0D0A1A",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
-          boxShadow: "0 -8px 32px rgba(0,0,0,0.45)",
+          background: "hsl(var(--surface-lowest) / 0.94)",
+          borderTop: "1px solid hsl(var(--foreground) / 0.07)",
+          boxShadow: "0 -8px 32px hsl(var(--surface-lowest) / 0.6)",
         }}>
         <div className="flex items-end justify-around px-2 pb-safe" style={{ height: 68 }}>
 
@@ -614,8 +614,8 @@ const Wallet = () => {
             onClick={() => navigate("/wallet")}
             className="flex flex-col items-center justify-center gap-1 flex-1 h-full"
             data-testid="wallet-nav-home">
-            <Home style={{ color: "rgba(255,255,255,0.38)", width: 22, height: 22 }} />
-            <span className="text-[10px] font-semibold" style={{ color: "rgba(255,255,255,0.38)" }}>HOME</span>
+            <Home style={{ color: "hsl(var(--foreground) / 0.38)", width: 22, height: 22 }} />
+            <span className="text-[10px] font-semibold" style={{ color: "hsl(var(--foreground) / 0.38)" }}>HOME</span>
           </motion.button>
 
           {/* WALLET — active */}
@@ -623,7 +623,7 @@ const Wallet = () => {
             className="flex flex-col items-center justify-center gap-1 flex-1 h-full"
             data-testid="wallet-nav-wallet">
             <WalletIcon style={{ color: "#fff", width: 22, height: 22 }} />
-            <span className="text-[10px] font-bold text-white">WALLET</span>
+            <span className="text-[10px] font-bold text-foreground">WALLET</span>
           </motion.button>
 
           {/* QR — center raised button */}
@@ -636,8 +636,8 @@ const Wallet = () => {
                 width: 58,
                 height: 58,
                 marginTop: -22,
-                background: `linear-gradient(135deg, #6D28D9, #9333EA)`,
-                boxShadow: `0 4px 20px rgba(124,58,237,0.6), 0 0 0 4px #0D0A1A`,
+                background: "var(--gradient-gold)",
+                boxShadow: `0 4px 20px hsl(var(--tertiary) / 0.6), 0 0 0 4px hsl(var(--surface-lowest))`,
               }}
               data-testid="wallet-nav-qr">
               <QrCode style={{ color: "#fff", width: 24, height: 24 }} />
@@ -649,8 +649,8 @@ const Wallet = () => {
             onClick={() => navigate("/transaction-history")}
             className="flex flex-col items-center justify-center gap-1 flex-1 h-full"
             data-testid="wallet-nav-insights">
-            <BarChart2 style={{ color: "rgba(255,255,255,0.38)", width: 22, height: 22 }} />
-            <span className="text-[10px] font-semibold" style={{ color: "rgba(255,255,255,0.38)" }}>INSIGHTS</span>
+            <BarChart2 style={{ color: "hsl(var(--foreground) / 0.38)", width: 22, height: 22 }} />
+            <span className="text-[10px] font-semibold" style={{ color: "hsl(var(--foreground) / 0.38)" }}>INSIGHTS</span>
           </motion.button>
 
           {/* PROFILE */}
@@ -658,8 +658,8 @@ const Wallet = () => {
             onClick={() => navigate("/profile")}
             className="flex flex-col items-center justify-center gap-1 flex-1 h-full"
             data-testid="wallet-nav-profile">
-            <User style={{ color: "rgba(255,255,255,0.38)", width: 22, height: 22 }} />
-            <span className="text-[10px] font-semibold" style={{ color: "rgba(255,255,255,0.38)" }}>PROFILE</span>
+            <User style={{ color: "hsl(var(--foreground) / 0.38)", width: 22, height: 22 }} />
+            <span className="text-[10px] font-semibold" style={{ color: "hsl(var(--foreground) / 0.38)" }}>PROFILE</span>
           </motion.button>
 
         </div>
