@@ -15,6 +15,13 @@
       "when": 1792594302765,
       "tag": "0001_wallet_pin_otp_airtime",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792602503126,
+      "tag": "0002_server_push_triggers",
+      "breakpoints": true
     }
   ]
 }
