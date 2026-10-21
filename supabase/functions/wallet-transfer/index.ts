@@ -89,30 +89,30 @@ Deno.serve(async (req) => {
       .from('wallets').select('pin_hash').eq('user_id', user.id).maybeSingle();
     if (!walletRowForPin?.pin_hash) {
       return new Response(
-        JSON.stringify({ error: 'PIN_NOT_SET' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'PIN_NOT_SET' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     if (typeof pin !== 'string' || !/^\d{4,8}$/.test(pin)) {
       return new Response(
-        JSON.stringify({ error: 'Wallet PIN is required for transfers.' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Wallet PIN is required for transfers.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     const { data: pinOk } = await supabaseAdmin
       .rpc('verify_wallet_pin', { p_user_id: user.id, p_pin: pin });
     if (!pinOk) {
       return new Response(
-        JSON.stringify({ error: 'Incorrect wallet PIN.' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Incorrect wallet PIN.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // ---- Step-up: transfers above the high-risk threshold need a fresh email code ----
     if (transferAmount > HIGH_RISK_TRANSFER_ETB && !hasRecentOtp(authHeader)) {
       return new Response(
-        JSON.stringify({ error: 'STEP_UP_REQUIRED' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'STEP_UP_REQUIRED' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
