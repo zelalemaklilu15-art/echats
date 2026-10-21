@@ -40,7 +40,7 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
       const n = await nameOf(r.sender_id);
       return send([r.receiver_id], r.sender_id, {
         title: n, body: preview(r.content, r.message_type), tag: `chat-${r.chat_id}`,
-        url: `/chat/${r.sender_id}`, data: { type: 'direct_message', chatId: r.chat_id, senderId: r.sender_id },
+        url: `/chat/${r.chat_id}`, data: { type: 'direct_message', chatId: r.chat_id, senderId: r.sender_id },
       });
     }
     case 'group_messages': {
@@ -98,7 +98,7 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
     case 'stars_gifts':
       return send([r.receiver_id], r.sender_id, {
         title: `🎁 Gift from ${await nameOf(r.sender_id)}`, body: r.message ? clip(r.message) : `${r.stars} Stars gift`,
-        tag: `gift-${r.id}`, url: `/chat/${r.sender_id}`, data: { type: 'gift', chatId: r.chat_id },
+        tag: `gift-${r.id}`, url: `/chat/${r.chat_id}`, data: { type: 'gift', chatId: r.chat_id },
       });
     case 'user_stories': {
       const { data: c } = await db.from('chats').select('participant_1, participant_2')
@@ -110,7 +110,7 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
       });
     }
     case 'call_logs':
-      if (r.status !== 'missed') return 0;
+      if (op !== 'UPDATE' || r.status !== 'missed' || !r.ended_at) return 0;
       return send([r.receiver_id], r.caller_id, {
         title: 'Missed call', body: `${await nameOf(r.caller_id)} · ${r.call_type === 'video' ? 'Video' : 'Voice'} call`,
         tag: `missed-${r.caller_id}`, url: '/calls', data: { type: 'missed_call' },
