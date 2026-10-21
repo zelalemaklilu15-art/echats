@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { walletService } from "@/lib/walletService";
 
 /* ─── design tokens ─── */
-const BG    = "#0D0A1A";
-const CARD  = "#16102A";
-const P     = "#7C3AED";
-const PA    = "rgba(124,58,237,0.18)";
+const BG    = "hsl(var(--surface-lowest))";
+const CARD  = "hsl(var(--surface-low))";
+const P     = "hsl(var(--tertiary))";
+const PA    = "hsl(var(--tertiary) / 0.18)";
 
 type Frequency = "Once" | "Daily" | "Weekly" | "Monthly" | "Yearly";
 type Status    = "pending" | "processed" | "cancelled";
@@ -33,12 +33,12 @@ const DEMO_SEED: ScheduledPayment[] = [
   {
     id: "demo-1", toUserId: "u1", toName: "Abebe Bikila",
     amount: 2500, scheduledAt: "2024-10-28T10:00:00",
-    status: "pending", frequency: "Monthly", avatarColor: "#2d1a4a",
+    status: "pending", frequency: "Monthly", avatarColor: "hsl(var(--surface-high))",
   },
   {
     id: "demo-2", toUserId: "u2", toName: "Sara Jenkins",
     amount: 12400, scheduledAt: "2024-11-02T09:00:00",
-    status: "pending", frequency: "Once", avatarColor: "#3a1a30",
+    status: "pending", frequency: "Once", avatarColor: "hsl(var(--surface-high))",
   },
   {
     id: "demo-3", toUserId: "u3", toName: "Netflix Subscription",
@@ -97,11 +97,11 @@ function formatETB(n: number) {
 
 /* Deterministic avatar gradient from name */
 const AVATAR_GRADIENTS = [
-  ["#4c2b8a", "#7c3aed"],
-  ["#1e3a5f", "#2563eb"],
-  ["#1a3a2a", "#059669"],
-  ["#3a1a2a", "#be185d"],
-  ["#3a2a1a", "#d97706"],
+  ["hsl(var(--secondary))", "hsl(var(--tertiary))"],
+  ["hsl(var(--surface-high))", "hsl(var(--cosmic-cyan))"],
+  ["hsl(var(--surface-high))", "hsl(var(--cosmic-mint))"],
+  ["hsl(var(--surface-high))", "hsl(var(--cosmic-magenta))"],
+  ["hsl(var(--surface-high))", "hsl(var(--tertiary))"],
 ];
 function avatarGradient(name: string): [string, string] {
   const i = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
@@ -147,13 +147,13 @@ const ScheduledPayments = () => {
       <div style={{ display: "flex", alignItems: "center", padding: "48px 16px 16px" }}>
         <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate("/wallet")}
           style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <ArrowLeft style={{ color: "rgba(255,255,255,0.85)", width: 22, height: 22 }} />
+          <ArrowLeft style={{ color: "hsl(var(--foreground) / 0.85)", width: 22, height: 22 }} />
         </motion.button>
-        <h1 style={{ flex: 1, textAlign: "center", fontWeight: 700, fontSize: 18, color: "#fff", margin: 0 }}>
+        <h1 style={{ flex: 1, textAlign: "center", fontWeight: 700, fontSize: 18, color: "hsl(var(--foreground))", margin: 0 }}>
           Scheduled Payments
         </h1>
         <button style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", cursor: "pointer" }}>
-          <MoreVertical style={{ color: "rgba(255,255,255,0.45)", width: 20, height: 20 }} />
+          <MoreVertical style={{ color: "hsl(var(--foreground) / 0.45)", width: 20, height: 20 }} />
         </button>
       </div>
 
@@ -167,9 +167,9 @@ const ScheduledPayments = () => {
             width: "100%", padding: "16px 0",
             borderRadius: 999, border: "none", cursor: "pointer",
             background: P,
-            boxShadow: "0 6px 28px rgba(124,58,237,0.45)",
+            boxShadow: "0 6px 28px hsl(var(--tertiary) / 0.45)",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            fontWeight: 700, fontSize: 16, color: "#fff",
+            fontWeight: 700, fontSize: 16, color: "hsl(var(--foreground))",
           }}
         >
           <Plus style={{ width: 20, height: 20 }} />
@@ -184,12 +184,12 @@ const ScheduledPayments = () => {
           <div style={{ marginBottom: 28 }}>
             {/* Section header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <h2 style={{ fontWeight: 700, fontSize: 18, color: "#fff", margin: 0 }}>Upcoming Payments</h2>
+              <h2 style={{ fontWeight: 700, fontSize: 18, color: "hsl(var(--foreground))", margin: 0 }}>Upcoming Payments</h2>
               <div style={{
                 background: PA,
                 borderRadius: 999, padding: "4px 12px",
               }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#a78bfa" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "hsl(var(--primary))" }}>
                   {upcoming.length} Active
                 </span>
               </div>
@@ -211,7 +211,7 @@ const ScheduledPayments = () => {
                       style={{
                         background: CARD,
                         borderRadius: 18,
-                        border: "1px solid rgba(255,255,255,0.07)",
+                        border: "1px solid hsl(var(--foreground) / 0.07)",
                         padding: "14px 16px",
                         display: "flex", alignItems: "center", gap: 12,
                       }}
@@ -222,24 +222,24 @@ const ScheduledPayments = () => {
                         width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
                         background: `linear-gradient(135deg, ${g1}, ${g2})`,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 20, fontWeight: 800, color: "#fff",
-                        border: "2px solid rgba(255,255,255,0.12)",
+                        fontSize: 20, fontWeight: 800, color: "hsl(var(--foreground))",
+                        border: "2px solid hsl(var(--foreground) / 0.12)",
                       }}>
                         {initial}
                       </div>
 
                       {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontWeight: 700, fontSize: 16, color: "#fff", margin: "0 0 2px" }}>
+                        <p style={{ fontWeight: 700, fontSize: 16, color: "hsl(var(--foreground))", margin: "0 0 2px" }}>
                           {p.toName}
                         </p>
-                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", margin: "0 0 5px" }}>
+                        <p style={{ fontSize: 12, color: "hsl(var(--foreground) / 0.4)", margin: "0 0 5px" }}>
                           {formatDateTime(p.scheduledAt)}
                           {p.frequency && (
-                            <span style={{ color: "#a78bfa", marginLeft: 4 }}>• {p.frequency}</span>
+                            <span style={{ color: "hsl(var(--primary))", marginLeft: 4 }}>• {p.frequency}</span>
                           )}
                         </p>
-                        <p style={{ fontWeight: 700, fontSize: 14, color: "#a78bfa", margin: 0 }}>
+                        <p style={{ fontWeight: 700, fontSize: 14, color: "hsl(var(--primary))", margin: 0 }}>
                           ETB {formatETB(p.amount)}
                         </p>
                       </div>
@@ -249,13 +249,13 @@ const ScheduledPayments = () => {
                         <motion.button whileTap={{ scale: 0.85 }}
                           onClick={() => toast.info("Edit coming soon")}
                           style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                          <Pencil style={{ color: "rgba(255,255,255,0.35)", width: 16, height: 16 }} />
+                          <Pencil style={{ color: "hsl(var(--foreground) / 0.35)", width: 16, height: 16 }} />
                         </motion.button>
                         <motion.button whileTap={{ scale: 0.85 }}
                           onClick={() => handleDelete(p.id)}
                           style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}
                           data-testid={`button-delete-${p.id}`}>
-                          <Trash2 style={{ color: "rgba(255,255,255,0.35)", width: 16, height: 16 }} />
+                          <Trash2 style={{ color: "hsl(var(--foreground) / 0.35)", width: 16, height: 16 }} />
                         </motion.button>
                       </div>
                     </motion.div>
@@ -269,14 +269,14 @@ const ScheduledPayments = () => {
         {/* ── RECENTLY COMPLETED ── */}
         {completed.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <h2 style={{ fontWeight: 700, fontSize: 18, color: "#fff", margin: "0 0 14px" }}>
+            <h2 style={{ fontWeight: 700, fontSize: 18, color: "hsl(var(--foreground))", margin: "0 0 14px" }}>
               Recently Completed
             </h2>
 
             <div style={{
               background: CARD,
               borderRadius: 18,
-              border: "1px solid rgba(255,255,255,0.07)",
+              border: "1px solid hsl(var(--foreground) / 0.07)",
               overflow: "hidden",
             }}>
               {completed.map((p, idx) => (
@@ -288,7 +288,7 @@ const ScheduledPayments = () => {
                   style={{
                     display: "flex", alignItems: "center", gap: 12,
                     padding: "16px",
-                    borderTop: idx > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                    borderTop: idx > 0 ? "1px solid hsl(var(--foreground) / 0.06)" : "none",
                   }}
                   data-testid={`row-completed-${p.id}`}
                 >
@@ -298,21 +298,21 @@ const ScheduledPayments = () => {
                     background: PA,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    <Check style={{ color: "#a78bfa", width: 16, height: 16, strokeWidth: 2.5 }} />
+                    <Check style={{ color: "hsl(var(--primary))", width: 16, height: 16, strokeWidth: 2.5 }} />
                   </div>
 
                   {/* Name + date */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 600, fontSize: 14, color: "#fff", margin: "0 0 2px" }}>
+                    <p style={{ fontWeight: 600, fontSize: 14, color: "hsl(var(--foreground))", margin: "0 0 2px" }}>
                       {p.toName}
                     </p>
-                    <p style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", margin: 0 }}>
+                    <p style={{ fontSize: 12, color: "hsl(var(--foreground) / 0.38)", margin: 0 }}>
                       {formatDateOnly(p.scheduledAt)}
                     </p>
                   </div>
 
                   {/* Amount */}
-                  <p style={{ fontWeight: 700, fontSize: 14, color: "#fff", flexShrink: 0, margin: 0 }}>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: "hsl(var(--foreground))", flexShrink: 0, margin: 0 }}>
                     ETB {formatETB(p.amount)}
                   </p>
                 </motion.div>
@@ -325,10 +325,10 @@ const ScheduledPayments = () => {
         {upcoming.length === 0 && completed.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 80, textAlign: "center", gap: 16 }}>
             <div style={{ width: 64, height: 64, borderRadius: 20, background: PA, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Plus style={{ color: "#a78bfa", width: 28, height: 28 }} />
+              <Plus style={{ color: "hsl(var(--primary))", width: 28, height: 28 }} />
             </div>
-            <p style={{ fontWeight: 700, fontSize: 16, color: "#fff", margin: 0 }}>No scheduled payments</p>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", margin: 0 }}>Schedule a payment from Send Money</p>
+            <p style={{ fontWeight: 700, fontSize: 16, color: "hsl(var(--foreground))", margin: 0 }}>No scheduled payments</p>
+            <p style={{ fontSize: 13, color: "hsl(var(--foreground) / 0.38)", margin: 0 }}>Schedule a payment from Send Money</p>
           </div>
         )}
       </div>
@@ -336,8 +336,8 @@ const ScheduledPayments = () => {
       {/* ── BOTTOM NAV ── */}
       <div style={{
         position: "fixed", bottom: 0, left: 0, right: 0,
-        background: "#0f0c1f",
-        borderTop: "1px solid rgba(255,255,255,0.07)",
+        background: "hsl(var(--surface-lowest))",
+        borderTop: "1px solid hsl(var(--foreground) / 0.07)",
         display: "flex", alignItems: "center", justifyContent: "space-around",
         padding: "10px 0 20px",
         zIndex: 50,
@@ -356,8 +356,8 @@ const ScheduledPayments = () => {
             }}
             data-testid={`nav-${label.toLowerCase()}`}
           >
-            <Icon style={{ width: 22, height: 22, color: active ? P : "rgba(255,255,255,0.4)" }} />
-            <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? P : "rgba(255,255,255,0.4)" }}>
+            <Icon style={{ width: 22, height: 22, color: active ? P : "hsl(var(--foreground) / 0.4)" }} />
+            <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? P : "hsl(var(--foreground) / 0.4)" }}>
               {label}
             </span>
           </button>

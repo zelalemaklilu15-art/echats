@@ -8,19 +8,19 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 /* ─── tokens ─── */
-const BG   = "#0D0A1A";
-const CARD = "#16102A";
-const P    = "#7C3AED";
+const BG   = "hsl(var(--surface-lowest))";
+const CARD = "hsl(var(--surface-low))";
+const P    = "hsl(var(--tertiary))";
 
 function formatETB(n: number) {
   return n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 const STATUS_CFG: Record<string, { bg: string; color: string; dot: string }> = {
-  completed: { bg: "rgba(16,185,129,0.18)",  color: "#10b981", dot: "#10b981" },
-  pending:   { bg: "rgba(245,158,11,0.18)",  color: "#f59e0b", dot: "#f59e0b" },
-  failed:    { bg: "rgba(239,68,68,0.18)",   color: "#ef4444", dot: "#ef4444" },
-  reversed:  { bg: "rgba(251,146,60,0.18)",  color: "#fb923c", dot: "#fb923c" },
+  completed: { bg: "hsl(var(--cosmic-mint) / 0.18)",  color: "hsl(var(--cosmic-mint))", dot: "hsl(var(--cosmic-mint))" },
+  pending:   { bg: "hsl(var(--tertiary) / 0.18)",  color: "hsl(var(--tertiary))", dot: "hsl(var(--tertiary))" },
+  failed:    { bg: "hsl(var(--destructive) / 0.18)",   color: "hsl(var(--destructive))", dot: "hsl(var(--destructive))" },
+  reversed:  { bg: "hsl(var(--cosmic-magenta) / 0.18)",  color: "hsl(var(--cosmic-magenta))", dot: "hsl(var(--cosmic-magenta))" },
 };
 
 const TransactionDetail = () => {
@@ -103,9 +103,9 @@ const TransactionDetail = () => {
       <div className="flex items-center px-4 pt-12 pb-5">
         <motion.button whileTap={{ scale: 0.88 }} onClick={() => navigate(-1)}
           className="w-9 h-9 flex items-center justify-center">
-          <ArrowLeft style={{ color: "rgba(255,255,255,0.85)", width: 22, height: 22 }} />
+          <ArrowLeft style={{ color: "hsl(var(--foreground) / 0.85)", width: 22, height: 22 }} />
         </motion.button>
-        <h1 className="flex-1 text-center font-bold text-[18px] text-white">Transaction Detail</h1>
+        <h1 className="flex-1 text-center font-bold text-[18px] text-foreground">Transaction Detail</h1>
         <div className="w-9" />
       </div>
 
@@ -117,17 +117,17 @@ const TransactionDetail = () => {
         <div className="relative mb-5">
           {/* Outer dim ring */}
           <div className="w-24 h-24 rounded-full flex items-center justify-center"
-            style={{ border: "2px solid rgba(124,58,237,0.25)", background: "rgba(124,58,237,0.06)" }}>
+            style={{ border: "2px solid hsl(var(--tertiary) / 0.25)", background: "hsl(var(--tertiary) / 0.06)" }}>
             {/* Inner purple filled circle */}
             <div className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${P}, #a855f7)`, boxShadow: `0 4px 20px rgba(124,58,237,0.5)` }}>
-              <Check style={{ color: "#fff", width: 26, height: 26, strokeWidth: 3 }} />
+              style={{ background: `linear-gradient(135deg, ${P}, hsl(var(--secondary)))`, boxShadow: `0 4px 20px hsl(var(--tertiary) / 0.5)` }}>
+              <Check style={{ color: "hsl(var(--foreground))", width: 26, height: 26, strokeWidth: 3 }} />
             </div>
           </div>
         </div>
 
         {/* Amount */}
-        <p className="font-black text-[38px] text-white leading-none mb-3" style={{ letterSpacing: "-0.02em" }}>
+        <p className="font-black text-[38px] text-foreground leading-none mb-3" style={{ letterSpacing: "-0.02em" }}>
           {isIn ? "+" : "-"}{formatETB(transaction.amount)} ETB
         </p>
 
@@ -144,32 +144,32 @@ const TransactionDetail = () => {
       <div className="px-4 space-y-4">
         {/* ── DETAILS SECTION ── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-          <p className="font-bold text-[18px] text-white mb-3">Details</p>
+          <p className="font-bold text-[18px] text-foreground mb-3">Details</p>
 
-          <div className="rounded-2xl overflow-hidden" style={{ background: CARD, border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: CARD, border: "1px solid hsl(var(--foreground) / 0.07)" }}>
             {/* From/To */}
             <div className="flex items-center justify-between px-4 py-4"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>From/To</span>
+              style={{ borderBottom: "1px solid hsl(var(--foreground) / 0.06)" }}>
+              <span className="text-[13px]" style={{ color: "hsl(var(--foreground) / 0.45)" }}>From/To</span>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center"
-                  style={{ background: "rgba(124,58,237,0.2)" }}>
-                  <User style={{ color: "#a78bfa", width: 14, height: 14 }} />
+                  style={{ background: "hsl(var(--tertiary) / 0.2)" }}>
+                  <User style={{ color: "hsl(var(--primary))", width: 14, height: 14 }} />
                 </div>
-                <span className="font-bold text-[14px] text-white">{fromTo}</span>
+                <span className="font-bold text-[14px] text-foreground">{fromTo}</span>
               </div>
             </div>
 
             {/* Transaction ID */}
             <div className="flex items-center justify-between px-4 py-4"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>Transaction ID</span>
+              style={{ borderBottom: "1px solid hsl(var(--foreground) / 0.06)" }}>
+              <span className="text-[13px]" style={{ color: "hsl(var(--foreground) / 0.45)" }}>Transaction ID</span>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-[14px] text-white font-mono">{shortId}</span>
+                <span className="font-bold text-[14px] text-foreground font-mono">{shortId}</span>
                 <motion.button whileTap={{ scale: 0.85 }} onClick={handleCopyId}>
                   {copied
-                    ? <Check style={{ color: "#10b981", width: 15, height: 15 }} />
-                    : <Copy style={{ color: "rgba(255,255,255,0.35)", width: 15, height: 15 }} />
+                    ? <Check style={{ color: "hsl(var(--cosmic-mint))", width: 15, height: 15 }} />
+                    : <Copy style={{ color: "hsl(var(--foreground) / 0.35)", width: 15, height: 15 }} />
                   }
                 </motion.button>
               </div>
@@ -177,31 +177,31 @@ const TransactionDetail = () => {
 
             {/* Date & Time */}
             <div className="flex items-center justify-between px-4 py-4"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>Date & Time</span>
-              <span className="font-bold text-[14px] text-white">
+              style={{ borderBottom: "1px solid hsl(var(--foreground) / 0.06)" }}>
+              <span className="text-[13px]" style={{ color: "hsl(var(--foreground) / 0.45)" }}>Date & Time</span>
+              <span className="font-bold text-[14px] text-foreground">
                 {format(new Date(transaction.created_at), "MMM d, yyyy, h:mm a")}
               </span>
             </div>
 
             {/* Payment Method */}
             <div className="flex items-center justify-between px-4 py-4"
-              style={{ borderBottom: note ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-              <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>Payment Method</span>
+              style={{ borderBottom: note ? "1px solid hsl(var(--foreground) / 0.06)" : "none" }}>
+              <span className="text-[13px]" style={{ color: "hsl(var(--foreground) / 0.45)" }}>Payment Method</span>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ background: "rgba(124,58,237,0.2)" }}>
-                  <Wallet style={{ color: "#a78bfa", width: 14, height: 14 }} />
+                  style={{ background: "hsl(var(--tertiary) / 0.2)" }}>
+                  <Wallet style={{ color: "hsl(var(--primary))", width: 14, height: 14 }} />
                 </div>
-                <span className="font-bold text-[14px] text-white">{method}</span>
+                <span className="font-bold text-[14px] text-foreground">{method}</span>
               </div>
             </div>
 
             {/* Reference Note (only if present) */}
             {note && (
               <div className="flex items-center justify-between px-4 py-4">
-                <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>Reference Note</span>
-                <span className="font-bold text-[14px] text-white italic">"{note}"</span>
+                <span className="text-[13px]" style={{ color: "hsl(var(--foreground) / 0.45)" }}>Reference Note</span>
+                <span className="font-bold text-[14px] text-foreground italic">"{note}"</span>
               </div>
             )}
           </div>
@@ -210,14 +210,14 @@ const TransactionDetail = () => {
         {/* ── OFFICIAL E-RECEIPT ROW ── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
           <div className="flex items-center gap-3 px-4 py-4 rounded-2xl"
-            style={{ background: CARD, border: "1px solid rgba(255,255,255,0.07)" }}>
+            style={{ background: CARD, border: "1px solid hsl(var(--foreground) / 0.07)" }}>
             <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "rgba(124,58,237,0.2)" }}>
-              <FileText style={{ color: "#a78bfa", width: 20, height: 20 }} />
+              style={{ background: "hsl(var(--tertiary) / 0.2)" }}>
+              <FileText style={{ color: "hsl(var(--primary))", width: 20, height: 20 }} />
             </div>
             <div>
-              <p className="font-bold text-[14px] text-white">Official E-Receipt</p>
-              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.4)" }}>Validated by Wallet Network</p>
+              <p className="font-bold text-[14px] text-foreground">Official E-Receipt</p>
+              <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.4)" }}>Validated by Wallet Network</p>
             </div>
           </div>
         </motion.div>
@@ -226,8 +226,8 @@ const TransactionDetail = () => {
         <motion.button whileTap={{ scale: 0.97 }}
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}
           onClick={handleDownload}
-          className="w-full py-4 rounded-full font-bold text-[16px] text-white flex items-center justify-center gap-2"
-          style={{ background: P, boxShadow: "0 6px 24px rgba(124,58,237,0.45)" }}
+          className="w-full py-4 rounded-full font-bold text-[16px] text-foreground flex items-center justify-center gap-2"
+          style={{ background: P, boxShadow: "0 6px 24px hsl(var(--tertiary) / 0.45)" }}
           data-testid="button-download-receipt">
           <Download style={{ width: 18, height: 18 }} />
           Download Receipt
@@ -238,7 +238,7 @@ const TransactionDetail = () => {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}
           onClick={() => toast.info("Support team will be contacted")}
           className="w-full py-4 rounded-full font-bold text-[16px] flex items-center justify-center gap-2"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+          style={{ background: "hsl(var(--foreground) / 0.06)", border: "1px solid hsl(var(--foreground) / 0.1)", color: "hsl(var(--foreground) / 0.7)" }}
           data-testid="button-report-issue">
           <AlertCircle style={{ width: 18, height: 18 }} />
           Report an Issue
@@ -246,7 +246,7 @@ const TransactionDetail = () => {
 
         {/* Bottom dash indicator */}
         <div className="flex justify-center pb-4 pt-2">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} />
+          <div className="w-10 h-1 rounded-full" style={{ background: "hsl(var(--foreground) / 0.15)" }} />
         </div>
       </div>
     </div>

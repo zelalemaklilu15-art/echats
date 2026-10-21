@@ -6,18 +6,18 @@ import { walletService } from "@/lib/walletService";
 import { toast } from "sonner";
 
 /* ─── Design tokens ─── */
-const BG    = "#0D0A1A";
-const CARD  = "#1A1030";
-const CARD2 = "#211540";
-const P     = "#7C3AED";
+const BG    = "hsl(var(--surface-lowest))";
+const CARD  = "hsl(var(--card))";
+const CARD2 = "hsl(var(--surface-high))";
+const P     = "hsl(var(--tertiary))";
 
 /* ─── Payment methods ─── */
 const METHODS = [
-  { id: "telebirr",  label: "Telebirr",         sub: "Instant deposit",              Icon: Wallet,    iconBg: "rgba(124,58,237,0.25)",  iconColor: "#a78bfa" },
-  { id: "cbebirr",   label: "CBEBirr",           sub: "Commercial Bank of Ethiopia",  Icon: Landmark,  iconBg: "rgba(96,165,250,0.15)",   iconColor: "#60a5fa" },
-  { id: "awash",     label: "Awash Bank",        sub: "Secure bank transfer",         Icon: Banknote,  iconBg: "rgba(52,211,153,0.15)",   iconColor: "#34d399" },
-  { id: "card",      label: "Credit/Debit Card", sub: "Visa, Mastercard, Amex",       Icon: CreditCard,iconBg: "rgba(251,191,36,0.15)",   iconColor: "#fbbf24" },
-  { id: "dashen",    label: "Dashen Bank",       sub: "Fast Amole integration",       Icon: Landmark,  iconBg: "rgba(249,115,22,0.15)",   iconColor: "#fb923c" },
+  { id: "telebirr",  label: "Telebirr",         sub: "Instant deposit",              Icon: Wallet,    iconBg: "hsl(var(--tertiary) / 0.25)",  iconColor: "hsl(var(--primary))" },
+  { id: "cbebirr",   label: "CBEBirr",           sub: "Commercial Bank of Ethiopia",  Icon: Landmark,  iconBg: "hsl(var(--cosmic-cyan) / 0.15)",   iconColor: "hsl(var(--cosmic-cyan))" },
+  { id: "awash",     label: "Awash Bank",        sub: "Secure bank transfer",         Icon: Banknote,  iconBg: "hsl(var(--cosmic-mint) / 0.15)",   iconColor: "hsl(var(--cosmic-mint))" },
+  { id: "card",      label: "Credit/Debit Card", sub: "Visa, Mastercard, Amex",       Icon: CreditCard,iconBg: "hsl(var(--tertiary) / 0.15)",   iconColor: "hsl(var(--tertiary))" },
+  { id: "dashen",    label: "Dashen Bank",       sub: "Fast Amole integration",       Icon: Landmark,  iconBg: "hsl(var(--cosmic-magenta) / 0.15)",   iconColor: "hsl(var(--cosmic-magenta))" },
 ];
 
 const QUICK = [100, 250, 500, 1000, 2500, 5000];
@@ -65,17 +65,17 @@ const AddMoney = () => {
           onClick={() => step === "main" ? navigate("/wallet") : setStep("main")}
           className="w-9 h-9 flex items-center justify-center"
           data-testid="button-back-add-money">
-          <ArrowLeft style={{ color: "rgba(255,255,255,0.85)", width: 22, height: 22 }} />
+          <ArrowLeft style={{ color: "hsl(var(--foreground) / 0.85)", width: 22, height: 22 }} />
         </motion.button>
-        <h1 className="flex-1 text-center font-bold text-[18px] text-white">Add Money</h1>
+        <h1 className="flex-1 text-center font-bold text-[18px] text-foreground">Add Money</h1>
         <div className="w-9" />
       </div>
 
       {/* ── PAGE INDICATOR DOTS ── */}
       <div className="flex items-center justify-center gap-2 pb-6">
         <div className="h-[4px] w-7 rounded-full" style={{ background: P }} />
-        <div className="h-[4px] w-4 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
-        <div className="h-[4px] w-4 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }} />
+        <div className="h-[4px] w-4 rounded-full" style={{ background: "hsl(var(--foreground) / 0.2)" }} />
+        <div className="h-[4px] w-4 rounded-full" style={{ background: "hsl(var(--foreground) / 0.2)" }} />
       </div>
 
       <AnimatePresence mode="wait">
@@ -91,13 +91,13 @@ const AddMoney = () => {
 
               {/* Amount display */}
               <div className="flex items-center justify-center gap-2 mb-6">
-                <span className="text-[22px] font-bold" style={{ color: "rgba(255,255,255,0.38)" }}>ETB</span>
+                <span className="text-[22px] font-bold" style={{ color: "hsl(var(--foreground) / 0.38)" }}>ETB</span>
                 <input
                   type="number"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
                   placeholder="0"
-                  className="bg-transparent border-0 outline-none text-white font-black text-center"
+                  className="bg-transparent border-0 outline-none text-foreground font-black text-center"
                   style={{ fontSize: 48, letterSpacing: "-0.02em", width: "220px" }}
                   data-testid="input-add-amount"
                 />
@@ -113,9 +113,9 @@ const AddMoney = () => {
                       className="px-5 py-2.5 rounded-full font-bold text-[14px]"
                       style={{
                         background: active ? P : CARD2,
-                        color: active ? "#fff" : "rgba(255,255,255,0.75)",
-                        border: `1px solid ${active ? P : "rgba(255,255,255,0.1)"}`,
-                        boxShadow: active ? `0 4px 14px rgba(124,58,237,0.45)` : "none",
+                        color: active ? "hsl(var(--foreground))" : "hsl(var(--foreground) / 0.75)",
+                        border: `1px solid ${active ? P : "hsl(var(--foreground) / 0.1)"}`,
+                        boxShadow: active ? `0 4px 14px hsl(var(--tertiary) / 0.45)` : "none",
                       }}>
                       {q >= 1000 ? q.toLocaleString() : q}
                     </motion.button>
@@ -125,11 +125,11 @@ const AddMoney = () => {
             </div>
 
             {/* Separator */}
-            <div className="mx-5 mb-5" style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+            <div className="mx-5 mb-5" style={{ height: 1, background: "hsl(var(--foreground) / 0.07)" }} />
 
             {/* ── SELECT PAYMENT METHOD ── */}
             <div className="px-5 flex-1">
-              <p className="font-bold text-[17px] text-white mb-4">Select Payment Method</p>
+              <p className="font-bold text-[17px] text-foreground mb-4">Select Payment Method</p>
 
               <div className="space-y-2.5">
                 {METHODS.map(m => {
@@ -139,8 +139,8 @@ const AddMoney = () => {
                       onClick={() => setMethod(m.id)}
                       className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left"
                       style={{
-                        background: active ? "rgba(124,58,237,0.15)" : CARD,
-                        border: `1px solid ${active ? "rgba(124,58,237,0.45)" : "rgba(255,255,255,0.08)"}`,
+                        background: active ? "hsl(var(--tertiary) / 0.15)" : CARD,
+                        border: `1px solid ${active ? "hsl(var(--tertiary) / 0.45)" : "hsl(var(--foreground) / 0.08)"}`,
                       }}
                       data-testid={`method-${m.id}`}>
                       {/* Icon */}
@@ -149,13 +149,13 @@ const AddMoney = () => {
                         <m.Icon style={{ color: m.iconColor, width: 20, height: 20 }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-[15px] text-white">{m.label}</p>
-                        <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>{m.sub}</p>
+                        <p className="font-bold text-[15px] text-foreground">{m.label}</p>
+                        <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.45)" }}>{m.sub}</p>
                       </div>
                       {/* Radio */}
                       <div className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center"
                         style={{
-                          border: `2px solid ${active ? P : "rgba(255,255,255,0.3)"}`,
+                          border: `2px solid ${active ? P : "hsl(var(--foreground) / 0.3)"}`,
                           background: active ? P : "transparent",
                         }}>
                         {active && <div className="w-2 h-2 rounded-full bg-white" />}
@@ -171,10 +171,10 @@ const AddMoney = () => {
               <motion.button whileTap={{ scale: 0.97 }}
                 disabled={numeric <= 0}
                 onClick={() => numeric > 0 && setStep("confirm")}
-                className="w-full py-4 rounded-full font-bold text-[16px] text-white flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-full font-bold text-[16px] text-foreground flex items-center justify-center gap-2"
                 style={{
-                  background: numeric > 0 ? P : "rgba(124,58,237,0.3)",
-                  boxShadow: numeric > 0 ? "0 6px 24px rgba(124,58,237,0.45)" : "none",
+                  background: numeric > 0 ? P : "hsl(var(--tertiary) / 0.3)",
+                  boxShadow: numeric > 0 ? "0 6px 24px hsl(var(--tertiary) / 0.45)" : "none",
                   opacity: numeric > 0 ? 1 : 0.5,
                 }}
                 data-testid="button-amount-next">
@@ -189,14 +189,14 @@ const AddMoney = () => {
           <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
             className="flex-1 flex flex-col px-5">
 
-            <div className="rounded-3xl overflow-hidden mb-4" style={{ background: CARD, border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="rounded-3xl overflow-hidden mb-4" style={{ background: CARD, border: "1px solid hsl(var(--foreground) / 0.08)" }}>
               {/* Amount hero */}
-              <div className="px-6 py-7 text-center border-b" style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(124,58,237,0.1)" }}>
-                <p className="text-[11px] uppercase tracking-widest font-bold mb-2" style={{ color: "rgba(255,255,255,0.45)" }}>You're adding</p>
-                <p className="text-[44px] font-black text-white leading-none">
-                  {fmt(numeric)} <span className="text-[20px] font-bold" style={{ color: "rgba(255,255,255,0.45)" }}>ETB</span>
+              <div className="px-6 py-7 text-center border-b" style={{ borderColor: "hsl(var(--foreground) / 0.07)", background: "hsl(var(--tertiary) / 0.1)" }}>
+                <p className="text-[11px] uppercase tracking-widest font-bold mb-2" style={{ color: "hsl(var(--foreground) / 0.45)" }}>You're adding</p>
+                <p className="text-[44px] font-black text-foreground leading-none">
+                  {fmt(numeric)} <span className="text-[20px] font-bold" style={{ color: "hsl(var(--foreground) / 0.45)" }}>ETB</span>
                 </p>
-                <p className="text-[12px] mt-1.5" style={{ color: "rgba(255,255,255,0.35)" }}>≈ ${(numeric / 57.5).toFixed(2)} USD</p>
+                <p className="text-[12px] mt-1.5" style={{ color: "hsl(var(--foreground) / 0.35)" }}>≈ ${(numeric / 57.5).toFixed(2)} USD</p>
               </div>
 
               {/* Detail rows */}
@@ -207,23 +207,23 @@ const AddMoney = () => {
                 { label: "Processing Time", value: "Instant" },
               ].map((row, i, arr) => (
                 <div key={row.label} className="flex items-center justify-between px-5 py-3.5"
-                  style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none" }}>
-                  <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>{row.label}</span>
-                  <span className="text-[13px] font-bold text-white">{row.value}</span>
+                  style={{ borderBottom: i < arr.length - 1 ? "1px solid hsl(var(--foreground) / 0.07)" : "none" }}>
+                  <span className="text-[13px]" style={{ color: "hsl(var(--foreground) / 0.5)" }}>{row.label}</span>
+                  <span className="text-[13px] font-bold text-foreground">{row.value}</span>
                 </div>
               ))}
             </div>
 
             <div className="flex items-center gap-2 rounded-2xl px-4 py-3 mb-5"
-              style={{ background: "rgba(52,211,153,0.07)", border: "1px solid rgba(52,211,153,0.18)" }}>
-              <Shield style={{ color: "#34d399", width: 16, height: 16, flexShrink: 0 }} />
-              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.5)" }}>Secured by 256-bit encryption · No hidden fees</p>
+              style={{ background: "hsl(var(--cosmic-mint) / 0.07)", border: "1px solid hsl(var(--cosmic-mint) / 0.18)" }}>
+              <Shield style={{ color: "hsl(var(--cosmic-mint))", width: 16, height: 16, flexShrink: 0 }} />
+              <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.5)" }}>Secured by 256-bit encryption · No hidden fees</p>
             </div>
 
             <motion.button whileTap={{ scale: 0.97 }}
               onClick={handleConfirm} disabled={loading}
-              className="w-full py-4 rounded-full font-bold text-[16px] text-white flex items-center justify-center gap-2"
-              style={{ background: P, boxShadow: "0 6px 24px rgba(124,58,237,0.45)", opacity: loading ? 0.7 : 1 }}
+              className="w-full py-4 rounded-full font-bold text-[16px] text-foreground flex items-center justify-center gap-2"
+              style={{ background: P, boxShadow: "0 6px 24px hsl(var(--tertiary) / 0.45)", opacity: loading ? 0.7 : 1 }}
               data-testid="button-confirm-add">
               {loading
                 ? <><Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} /> Processing…</>

@@ -530,12 +530,12 @@ const Wallet = () => {
           /* ── Each transaction is its own card ── */
           <div className="space-y-2.5">
             {recentTxns.map((t, i) => {
-              const cfg = TXN_CFG[t.type] ?? { label: t.type, color: "#fff", bg: "hsl(var(--foreground) / 0.1)", isIn: false, statusText: t.status };
+              const cfg = TXN_CFG[t.type] ?? { label: t.type, color: "hsl(var(--foreground))", bg: "hsl(var(--foreground) / 0.1)", isIn: false, statusText: t.status };
               const meta = t.metadata as Record<string, unknown>;
               const counterparty = cfg.isIn
                 ? (meta.sender_name ? String(meta.sender_name) : null)
                 : (meta.recipient_name ? String(meta.recipient_name) : null);
-              const statusCol = STATUS_COLOR[t.status] ?? "#888";
+              const statusCol = STATUS_COLOR[t.status] ?? "hsl(var(--muted-foreground))";
               const statusLabel = t.status === "completed" ? cfg.statusText : t.status.charAt(0).toUpperCase() + t.status.slice(1);
 
               return (
@@ -622,7 +622,7 @@ const Wallet = () => {
           <motion.button whileTap={{ scale: 0.88 }}
             className="flex flex-col items-center justify-center gap-1 flex-1 h-full"
             data-testid="wallet-nav-wallet">
-            <WalletIcon style={{ color: "#fff", width: 22, height: 22 }} />
+            <WalletIcon style={{ color: "hsl(var(--foreground))", width: 22, height: 22 }} />
             <span className="text-[10px] font-bold text-foreground">WALLET</span>
           </motion.button>
 
@@ -640,7 +640,7 @@ const Wallet = () => {
                 boxShadow: `0 4px 20px hsl(var(--tertiary) / 0.6), 0 0 0 4px hsl(var(--surface-lowest))`,
               }}
               data-testid="wallet-nav-qr">
-              <QrCode style={{ color: "#fff", width: 24, height: 24 }} />
+              <QrCode style={{ color: "hsl(var(--foreground))", width: 24, height: 24 }} />
             </motion.button>
           </div>
 
