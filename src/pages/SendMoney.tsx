@@ -8,6 +8,11 @@ import { walletService } from "@/lib/walletService";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { toast } from "sonner";
+import PinConfirmSheet from "@/components/wallet/PinConfirmSheet";
+import OtpSheet from "@/components/wallet/OtpSheet";
+import PinResetFlow from "@/components/wallet/PinResetFlow";
+import PinSetupSheet from "@/components/wallet/PinSetupSheet";
+import { newIdempotencyKey, needsStepUpForTransfer, HIGH_RISK_TRANSFER_ETB } from "@/lib/walletSecurity";
 
 /* ─── tokens ─── */
 const BG   = "hsl(var(--surface-lowest))";
@@ -97,17 +102,41 @@ const SendMoney = () => {
   const canSend = numeric > 0 && numeric <= balance;
   const grouped = useMemo(() => groupAlpha(query.length >= 2 ? results : allContacts), [results, allContacts, query]);
 
-  const handleSend = async () => {
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [pendingPin, setPendingPin] = useState("");
+  const [txKey, setTxKey] = useState(() => newIdempotencyKey("transfer"));
+
+  const handleSend = () => {
     if (!selected || !canSend) return;
-    setSending(true);
+    setPinError("");
+    setPinOpen(true);
+  };
+
+  const doTransfer = async (pin: string) => {
+    if (!selected) return;
+    setSending(true); setPinError("");
     try {
-      const result = await walletService.transfer(selected.id, numeric, note || undefined);
+      const result = await walletService.transfer(selected.id, numeric, note || undefined, txKey, pin);
       if (result.success && result.transaction) {
+        setPinOpen(false);
         navigate("/transaction-receipt", {
           state: { transaction: { type: "sent", amount: result.transaction.amount, recipient: selected.name, transactionId: result.transaction.id, timestamp: result.transaction.created_at, status: result.transaction.status, note: result.transaction.note } },
         });
-      } else toast.error(result.error || "Failed to send money");
-    } catch { toast.error("Failed. Please try again."); }
+      } else if (result.error === "STEP_UP_REQUIRED") {
+        setPendingPin(pin); setPinOpen(false); setOtpOpen(true);
+      } else if (result.error === "PIN_NOT_SET") {
+        setPinOpen(false); setSetupOpen(true);
+      } else if (result.error?.toLowerCase().includes("pin")) {
+        setPinError(result.error);
+      } else {
+        setPinOpen(false); toast.error(result.error || "Failed to send money");
+        setTxKey(newIdempotencyKey("transfer"));
+      }
+    } catch { setPinOpen(false); toast.error("Failed. Please try again."); }
     finally { setSending(false); }
   };
 
@@ -452,6 +481,14 @@ const SendMoney = () => {
           </motion.button>
         </div>
       </div>
+      <PinConfirmSheet open={pinOpen} onOpenChange={setPinOpen} busy={sending} error={pinError}
+        summary={`Send ${numeric.toLocaleString()} ETB to ${selected?.name ?? ""}${needsStepUpForTransfer(numeric) ? ` · over ${HIGH_RISK_TRANSFER_ETB.toLocaleString()} ETB also needs an email code` : ""}`}
+        onSubmit={doTransfer} onForgot={() => { setPinOpen(false); setResetOpen(true); }} />
+      <OtpSheet open={otpOpen} onOpenChange={setOtpOpen}
+        reason={`Transfers over ${HIGH_RISK_TRANSFER_ETB.toLocaleString()} ETB need an email code.`}
+        onVerified={() => { setOtpOpen(false); void doTransfer(pendingPin); }} />
+      <PinResetFlow open={resetOpen} onClose={() => setResetOpen(false)} />
+      <PinSetupSheet open={setupOpen} onOpenChange={setSetupOpen} onDone={() => { setSetupOpen(false); setPinOpen(true); }} />
     </div>
   );
 };

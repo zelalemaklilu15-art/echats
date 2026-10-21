@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Smile, CreditCard } from "lucide-react";
 import { verifyWalletPinAsync, isWalletLockEnabled } from "@/lib/chatLockService";
+import PinResetFlow from "@/components/wallet/PinResetFlow";
 
 let _walletUnlocked = false;
 export function resetWalletSession() { _walletUnlocked = false; }
@@ -19,6 +20,7 @@ export default function WalletLockGate({ children }: Props) {
   const [shake,  setShake]  = useState(false);
   const [error,  setError]  = useState("");
   const [checking, setChecking] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const handleDigit = (d: string) => {
     if (pin.length >= PIN_LENGTH || checking) return;
@@ -188,6 +190,7 @@ export default function WalletLockGate({ children }: Props) {
           whileTap={{ scale: 0.95 }}
           className="text-[15px] font-semibold"
           style={{ color: P }}
+          onClick={() => setResetOpen(true)}
           data-testid="pin-forgot"
         >
           Forgot PIN?
@@ -200,6 +203,7 @@ export default function WalletLockGate({ children }: Props) {
           <div className="h-[3px] w-8 rounded-full" style={{ background: "rgba(255,255,255,0.18)" }} />
         </div>
       </div>
+      <PinResetFlow open={resetOpen} onClose={() => setResetOpen(false)} />
     </div>
   );
 }
