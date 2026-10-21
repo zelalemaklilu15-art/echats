@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { isUserOnline } from "@/lib/formatLastSeen";
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Search, Loader2, X, Check, AlertCircle, QrCode, Home, CreditCard, History, User, Clock, Shield, Send as SendIcon, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { walletService } from "@/lib/walletService";
