@@ -208,7 +208,8 @@ class WalletService {
     amount: number,
     note?: string,
     idempotencyKey?: string,
-    pin?: string
+    pin?: string,
+    paymentRequestId?: string
   ): Promise<TransferResult> {
     const token = await this.getAuthToken();
     
@@ -221,6 +222,7 @@ class WalletService {
         amount,
         note,
         pin,
+        payment_request_id: paymentRequestId,
         idempotency_key: idempotencyKey || this.generateIdempotencyKey(),
       },
     });

@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { recipient_id, amount, note, idempotency_key, pin } = await req.json();
+    const { recipient_id, amount, note, idempotency_key, pin, payment_request_id } = await req.json();
 
     // Validate inputs
     if (!recipient_id) {
@@ -267,6 +267,19 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Failed to complete transfer. Please contact support.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Mark a matching payment request as paid (only if it really matches this transfer)
+    if (typeof payment_request_id === 'string' && /^[0-9a-f-]{36}$/i.test(payment_request_id)) {
+      const { error: prErr } = await supabaseAdmin
+        .from('payment_requests')
+        .update({ status: 'paid', paid_transaction_id: senderTx.id })
+        .eq('id', payment_request_id)
+        .eq('payer_id', user.id)
+        .eq('requester_id', recipient_id)
+        .eq('amount', transferAmount)
+        .eq('status', 'pending');
+      if (prErr) console.error('[Wallet] Failed to mark payment request paid:', prErr.message);
     }
 
     // Get recipient profile for response
