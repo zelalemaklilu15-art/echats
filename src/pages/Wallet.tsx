@@ -603,9 +603,9 @@ const Wallet = () => {
       {/* ─── WALLET BOTTOM NAVIGATION ─── */}
       <div className="fixed bottom-0 left-0 right-0 z-50 max-w-lg mx-auto"
         style={{
-          background: "#0D0A1A",
+          background: "hsl(var(--surface-lowest) / 0.94)",
           borderTop: "1px solid hsl(var(--foreground) / 0.07)",
-          boxShadow: "0 -8px 32px rgba(0,0,0,0.45)",
+          boxShadow: "0 -8px 32px hsl(var(--surface-lowest) / 0.6)",
         }}>
         <div className="flex items-end justify-around px-2 pb-safe" style={{ height: 68 }}>
 
@@ -636,8 +636,8 @@ const Wallet = () => {
                 width: 58,
                 height: 58,
                 marginTop: -22,
-                background: `linear-gradient(135deg, #6D28D9, #9333EA)`,
-                boxShadow: `0 4px 20px hsl(var(--tertiary) / 0.6), 0 0 0 4px #0D0A1A`,
+                background: "var(--gradient-gold)",
+                boxShadow: `0 4px 20px hsl(var(--tertiary) / 0.6), 0 0 0 4px hsl(var(--surface-lowest))`,
               }}
               data-testid="wallet-nav-qr">
               <QrCode style={{ color: "#fff", width: 24, height: 24 }} />
