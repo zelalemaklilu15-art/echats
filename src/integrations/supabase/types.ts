@@ -1312,6 +1312,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string
+          edited_at: string | null
           file_name: string | null
           group_id: string
           id: string
@@ -1323,6 +1324,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string
+          edited_at?: string | null
           file_name?: string | null
           group_id: string
           id?: string
@@ -1334,6 +1336,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string
+          edited_at?: string | null
           file_name?: string | null
           group_id?: string
           id?: string
@@ -1493,6 +1496,7 @@ export type Database = {
           chat_id: string
           content: string | null
           created_at: string
+          edited_at: string | null
           file_name: string | null
           id: string
           media_url: string | null
@@ -1506,6 +1510,7 @@ export type Database = {
           chat_id: string
           content?: string | null
           created_at?: string
+          edited_at?: string | null
           file_name?: string | null
           id?: string
           media_url?: string | null
@@ -1519,6 +1524,7 @@ export type Database = {
           chat_id?: string
           content?: string | null
           created_at?: string
+          edited_at?: string | null
           file_name?: string | null
           id?: string
           media_url?: string | null

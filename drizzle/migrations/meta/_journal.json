@@ -29,6 +29,13 @@
       "when": 1792602953327,
       "tag": "0003_channels_and_payment_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792603932680,
+      "tag": "0004_fix_message_edit_policies",
+      "breakpoints": true
     }
   ]
 }
