@@ -146,8 +146,8 @@ class PushNotificationService {
     
     if (this.registration) {
       this.registration.showNotification(title, {
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
         requireInteraction: true,
         ...options,
       });
