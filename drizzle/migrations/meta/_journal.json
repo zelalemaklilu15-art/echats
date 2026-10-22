@@ -43,6 +43,13 @@
       "when": 1792604315900,
       "tag": "0005_private_user_search",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792648104157,
+      "tag": "0006_strict_profile_access",
+      "breakpoints": true
     }
   ]
 }
