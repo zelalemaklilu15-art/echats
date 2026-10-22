@@ -70,6 +70,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const offerRetryTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resetCallRef = useRef<() => void>(() => {});
+  const stopResourcesRef = useRef<() => void>(() => {});
   // Single, cancellable post-call cleanup. A stale timer from the previous call
   // must never tear down a new call, so every new call clears it first.
   const scheduleReset = useCallback((ms: number) => {
@@ -89,6 +90,9 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const logFinalizedRef = useRef(false);
   const mutedRef = useRef(false);
   const cameraOffRef = useRef(false);
+  const isCurrentCall = useCallback((roomId: string) =>
+    activeCallRef.current?.roomId === roomId &&
+    ['outgoing_calling', 'incoming_ringing', 'connecting', 'in_call'].includes(callStateRef.current), []);
 
   // ICE buffers
   const pendingRemoteIce = useRef<RTCIceCandidateInit[]>([]);
@@ -145,15 +149,15 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const setCallStateSafe = useCallback((s: CallState) => {
     callStateRef.current = s;
     setCallState(s);
+    if (['call_ended', 'call_failed', 'rejected', 'missed'].includes(s)) stopResourcesRef.current();
   }, []);
 
   const setActiveCallSafe = useCallback(
     (updater: ActiveCall | null | ((prev: ActiveCall | null) => ActiveCall | null)) => {
-      setActiveCall((prev) => {
-        const next = typeof updater === 'function' ? (updater as any)(prev) : updater;
-        activeCallRef.current = next;
-        return next;
-      });
+      // Async call setup must see this immediately, not only after React renders.
+      const next = typeof updater === 'function' ? updater(activeCallRef.current) : updater;
+      activeCallRef.current = next;
+      setActiveCall(next);
     },
     [],
   );
@@ -193,6 +197,17 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       durationIntervalRef.current = null;
     }
   }, []);
+
+  const stopCallResources = useCallback(() => {
+    clearTimers();
+    stopDurationTimer();
+    webRTC.cleanup();
+    pendingOfferRef.current = null;
+    pendingRemoteIce.current = [];
+    pendingLocalIce.current = [];
+    pushNotificationService.closeCallNotification();
+  }, [clearTimers, stopDurationTimer, webRTC.cleanup]);
+  stopResourcesRef.current = stopCallResources;
 
   // Persist the final outcome of a call exactly once
   const finalizeLog = useCallback(
@@ -262,13 +277,16 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   }, [signaling]);
 
   const flushRemoteIce = useCallback(async () => {
+    const roomId = activeCallRef.current?.roomId;
+    if (!roomId || !isCurrentCall(roomId)) return;
     if (!webRTC.hasRemoteDescription()) return;
     const queued = pendingRemoteIce.current;
     pendingRemoteIce.current = [];
     for (const c of queued) {
+      if (!isCurrentCall(roomId)) return;
       await webRTC.addIceCandidate(c);
     }
-  }, [webRTC]);
+  }, [webRTC, isCurrentCall]);
 
   const handleIceCandidate = useCallback(
     (candidate: RTCIceCandidate) => {
@@ -289,6 +307,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     if (!call || !call.isOutgoing) return;
     try {
       const offer = await webRTC.createOffer({ iceRestart: true });
+      if (!isCurrentCall(call.roomId)) return;
       await signaling.sendOffer(
         call.peerId,
         offer,
@@ -301,10 +320,12 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     } catch (e) {
       console.warn('[CallManager] ICE restart failed:', e);
     }
-  }, [webRTC, signaling, userName, userAvatar]);
+  }, [webRTC, signaling, userName, userAvatar, isCurrentCall]);
 
   const handleConnectionStateChange = useCallback(
     (state: RTCPeerConnectionState) => {
+      const roomId = activeCallRef.current?.roomId;
+      if (!roomId || !isCurrentCall(roomId)) return;
       console.log('[CallManager] Connection state:', state);
 
       switch (state) {
@@ -352,7 +373,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         }
       }
     },
-    [setCallStateSafe, setActiveCallSafe, startDurationTimer, attemptIceRestart, finalizeLog, resetCall],
+    [setCallStateSafe, setActiveCallSafe, startDurationTimer, attemptIceRestart, finalizeLog, resetCall, isCurrentCall],
   );
 
   // ---- Outgoing call ----------------------------------------------------
@@ -381,7 +402,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       const presenceSaysOffline = isPresenceReady() && !isPeerAvailable(peerId);
 
       const sorted = [userId, peerId].sort();
-      const roomId = `call_${sorted[0]}_${sorted[1]}_${Date.now()}`;
+      const roomId = `call_${sorted[0]}_${sorted[1]}_${crypto.randomUUID()}`;
 
       try {
         logFinalizedRef.current = false;
@@ -403,7 +424,10 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         const callLogId = await callLogService
           .createCallLog({ callerId: userId, receiverId: peerId, callType, roomId })
           .catch(() => null);
-        if (activeCallRef.current?.roomId !== roomId) return;
+        if (!isCurrentCall(roomId)) {
+          if (callLogId) void callLogService.updateCallLog(callLogId, 'missed', 0);
+          return;
+        }
         callLogIdRef.current = callLogId;
         setActiveCallSafe(prev => prev?.roomId === roomId ? { ...prev, callLogId: callLogId || undefined } : prev);
 
@@ -414,12 +438,17 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           .catch(() => {});
 
         const localStream = await webRTC.getUserMedia(callType);
-        await webRTC.createPeerConnection(handleIceCandidate, handleConnectionStateChange, {
+        if (!isCurrentCall(roomId)) return;
+        await webRTC.createPeerConnection(
+          candidate => { if (isCurrentCall(roomId)) handleIceCandidate(candidate); },
+          state => { if (isCurrentCall(roomId)) handleConnectionStateChange(state); }, {
           createDataChannel: true,
         });
+        if (!isCurrentCall(roomId)) return;
         webRTC.addLocalTracks(localStream);
 
         const offer = await webRTC.createOffer();
+        if (!isCurrentCall(roomId)) return;
 
         const deliver = () =>
           signaling
@@ -427,6 +456,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
             .catch((e) => console.warn('[CallManager] Offer send failed:', e));
 
         await deliver();
+        if (!isCurrentCall(roomId)) return;
         flushLocalIce();
 
         // Keep re-ringing until the callee's device confirms it received the
@@ -436,6 +466,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         offerRetryTimerRef.current = setInterval(() => {
           attempts += 1;
           if (
+            !isCurrentCall(roomId) ||
             offerAckedRef.current ||
             attempts > OFFER_RETRY_MAX ||
             (callStateRef.current !== 'outgoing_calling' && callStateRef.current !== 'connecting')
@@ -457,7 +488,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         }, OFFER_RETRY_INTERVAL_MS);
 
         callTimeoutRef.current = setTimeout(() => {
-          if (callStateRef.current === 'outgoing_calling' || callStateRef.current === 'connecting') {
+          if (isCurrentCall(roomId) && (callStateRef.current === 'outgoing_calling' || callStateRef.current === 'connecting')) {
             signaling.sendCallState(peerId, 'timeout', roomId);
             setCallStateSafe('call_failed');
             setErrorMessage('Call timed out - no answer');
@@ -466,11 +497,11 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           }
         }, CALL_TIMEOUT_MS);
       } catch (err) {
+        if (!isCurrentCall(roomId)) return;
         console.error('[CallManager] Start call error:', err);
         setCallStateSafe('call_failed');
         setErrorMessage(err instanceof Error ? err.message : 'Failed to start call');
         finalizeLog('failed');
-        webRTC.cleanup();
         scheduleReset(3000);
       }
     },
@@ -488,6 +519,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       setActiveCallSafe,
       setCallStateSafe,
       stopOfferRetries,
+      isCurrentCall,
     ],
   );
 
@@ -495,7 +527,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   // ---- Incoming call ----------------------------------------------------
   const acceptCall = useCallback(async () => {
     const incomingCall = pendingOfferRef.current;
-    if (!incomingCall || !userId) return;
+    if (!incomingCall || !userId || callStateRef.current !== 'incoming_ringing') return;
+    const roomId = incomingCall.roomId;
 
     try {
       setCallStateSafe('connecting');
@@ -516,15 +549,23 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       });
 
       const localStream = await webRTC.getUserMedia(incomingCall.callType);
-      await webRTC.createPeerConnection(handleIceCandidate, handleConnectionStateChange);
+      if (!isCurrentCall(roomId)) return;
+      await webRTC.createPeerConnection(
+        candidate => { if (isCurrentCall(roomId)) handleIceCandidate(candidate); },
+        state => { if (isCurrentCall(roomId)) handleConnectionStateChange(state); },
+      );
+      if (!isCurrentCall(roomId)) return;
       webRTC.addLocalTracks(localStream);
 
       const answer = await webRTC.handleOffer(incomingCall.offer);
+      if (!isCurrentCall(roomId)) return;
       // Only the authenticated receiver can establish call-based profile access.
       const { data: accepted, error: acceptanceError } = await supabase.rpc('accept_profile_call', { p_room_id: incomingCall.roomId });
+      if (!isCurrentCall(roomId)) return;
       if (acceptanceError || !accepted) console.warn('[CallManager] Could not record profile acceptance');
       if (accepted) window.dispatchEvent(new Event(PROFILE_ACCESS_EVENT));
       await signaling.sendAnswer(incomingCall.callerId, answer, incomingCall.roomId);
+      if (!isCurrentCall(roomId)) return;
       getAccessProfile(incomingCall.callerId).then(profile => {
         setActiveCallSafe(prev => prev?.roomId === incomingCall.roomId && profile
           ? { ...prev, peerName: profile.name ?? profile.username ?? 'Hidden profile', peerAvatar: profile.avatar_url ?? undefined } : prev);
@@ -532,12 +573,13 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
 
       flushLocalIce();
       await flushRemoteIce();
+      if (!isCurrentCall(roomId)) return;
 
       pendingOfferRef.current = null;
 
       // Connection watchdog for the answering side
       callTimeoutRef.current = setTimeout(() => {
-        if (callStateRef.current === 'connecting') {
+        if (isCurrentCall(roomId) && callStateRef.current === 'connecting') {
           setCallStateSafe('call_failed');
           setErrorMessage('Could not connect');
           finalizeLog('failed');
@@ -545,11 +587,11 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         }
       }, CALL_TIMEOUT_MS);
     } catch (err) {
+      if (!isCurrentCall(roomId)) return;
       console.error('[CallManager] Accept call error:', err);
       setCallStateSafe('call_failed');
       setErrorMessage(err instanceof Error ? err.message : 'Failed to accept call');
       finalizeLog('failed');
-      webRTC.cleanup();
       scheduleReset(3000);
     }
   }, [
@@ -564,6 +606,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     resetCall,
     setActiveCallSafe,
     setCallStateSafe,
+    isCurrentCall,
   ]);
 
   const rejectCall = useCallback(() => {
@@ -683,11 +726,12 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       }
 
       // ICE-restart offer for the call we are already in
-      if (current && current.roomId === offer.roomId && callStateRef.current !== 'incoming_ringing') {
+      if (current && current.roomId === offer.roomId) {
+        if (!isCurrentCall(offer.roomId) || current.isOutgoing || !webRTC.hasRemoteDescription()) return;
         webRTC
           .handleOffer(offer.offer)
-          .then((answer) => signaling.sendAnswer(offer.callerId, answer, offer.roomId))
-          .then(() => flushRemoteIce())
+          .then((answer) => { if (isCurrentCall(offer.roomId)) return signaling.sendAnswer(offer.callerId, answer, offer.roomId); })
+          .then(() => { if (isCurrentCall(offer.roomId)) return flushRemoteIce(); })
           .catch((e) => console.warn('[CallManager] Renegotiation failed:', e));
         return;
       }
@@ -727,13 +771,13 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         }
       }, CALL_TIMEOUT_MS);
     },
-    [signaling, webRTC, flushRemoteIce, resetCall, finalizeLog, setActiveCallSafe, setCallStateSafe],
+    [signaling, webRTC, flushRemoteIce, resetCall, finalizeLog, setActiveCallSafe, setCallStateSafe, isCurrentCall],
   );
 
   const handleCallAnswer = useCallback(
     async (answer: CallAnswer) => {
       const call = activeCallRef.current;
-      if (!call || answer.roomId !== call.roomId) return;
+      if (!call || !isCurrentCall(answer.roomId)) return;
 
       try {
         if (callStateRef.current === 'outgoing_calling') setCallStateSafe('connecting');
@@ -742,8 +786,10 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
             ? { ...prev, peerName: profile.name ?? profile.username ?? 'Hidden profile', peerAvatar: profile.avatar_url ?? undefined } : prev);
         }).catch(() => {});
         await webRTC.handleAnswer(answer.answer);
+        if (!isCurrentCall(call.roomId)) return;
         await flushRemoteIce();
       } catch (err) {
+        if (!isCurrentCall(call.roomId)) return;
         console.error('[CallManager] Handle answer error:', err);
         setCallStateSafe('call_failed');
         setErrorMessage('Failed to connect');
@@ -751,13 +797,13 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         scheduleReset(2500);
       }
     },
-    [webRTC, flushRemoteIce, finalizeLog, resetCall, setCallStateSafe],
+    [webRTC, flushRemoteIce, finalizeLog, resetCall, setCallStateSafe, isCurrentCall],
   );
 
   const handleReceivedIceCandidate = useCallback(
     async (data: IceCandidate) => {
       const call = activeCallRef.current;
-      if (!call || data.roomId !== call.roomId) return;
+      if (!call || !isCurrentCall(data.roomId)) return;
 
       if (!webRTC.hasRemoteDescription()) {
         pendingRemoteIce.current.push(data.candidate);
@@ -765,7 +811,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       }
       await webRTC.addIceCandidate(data.candidate);
     },
-    [webRTC],
+    [webRTC, isCurrentCall],
   );
 
   const handleCallStateEvent = useCallback(
@@ -773,7 +819,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       const call = activeCallRef.current;
       // Ignore late events from a previous call.
       if (!call || event.roomId !== call.roomId) return;
-      if (callStateRef.current === 'idle') return;
+      if (!isCurrentCall(event.roomId)) return;
 
       switch (event.type) {
         case 'rejected':
@@ -785,7 +831,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         case 'ended':
           stopDurationTimer();
           setCallStateSafe('call_ended');
-          finalizeLog(durationRef.current > 0 ? 'completed' : 'missed');
+          finalizeLog(call.startTime ? 'completed' : 'missed');
           scheduleReset(1500);
           break;
         case 'busy':
@@ -801,7 +847,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
           break;
       }
     },
-    [resetCall, finalizeLog, stopDurationTimer, setCallStateSafe],
+    [resetCall, finalizeLog, stopDurationTimer, setCallStateSafe, isCurrentCall],
   );
 
   // Keep callbacks fresh without tearing down the realtime channel
@@ -840,14 +886,12 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  // Cleanup on unmount
+  // Account changes and unmount invalidate all in-flight setup and capture.
   useEffect(() => {
     return () => {
-      if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
-      if (recoveryTimeoutRef.current) clearTimeout(recoveryTimeoutRef.current);
-      if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+      resetCallRef.current();
     };
-  }, []);
+  }, [userId]);
 
   return {
     // State
