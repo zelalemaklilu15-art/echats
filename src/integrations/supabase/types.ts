@@ -1550,6 +1550,24 @@ export type Database = {
           },
         ]
       }
+      notification_privacy: {
+        Row: {
+          show_identity: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          show_identity?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          show_identity?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_requests: {
         Row: {
           amount: number
@@ -2320,6 +2338,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      notification_identity_allowed: {
+        Args: { p_subject: string; p_viewer: string }
+        Returns: boolean
       }
       notification_profile_name: {
         Args: { p_subject: string; p_viewer: string }
