@@ -14,7 +14,7 @@
 ## A-Z audit (step by step)
 - [x] 1. General health: tests, errors (presence offline-on-leave fixed, denied-notification noise quieted)
 - [x] 2. Sign-in & account (password reset page added, signup email-confirm handling)
-- [ ] 3. Chat
+- [x] 3. Chat (undo-send deleted the wrong message — fixed)
 - [ ] 4. Calls
 - [ ] 5. Wallet
 - [ ] 6. eTok, Stories, Channels
