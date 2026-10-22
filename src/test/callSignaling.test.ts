@@ -47,4 +47,17 @@ describe('call signaling disposal', () => {
     await result.current.sendCallState('peer', 'ended', 'room');
     expect(channels[0].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'call_state' }));
   });
+
+  it('ignores late broadcasts and reconnects from a previous account', () => {
+    const incoming = vi.fn();
+    const { result, rerender } = renderHook(({ user }) => useCallSignaling(user), { initialProps: { user: 'self' } });
+    act(() => result.current.subscribeToSignaling({ onIncomingCall: incoming }));
+    const oldOffer = channels[0].on.mock.calls.find(([, filter]) => filter.event === 'call_offer')?.[2];
+    if (!oldOffer) throw new Error('No call offer handler');
+    rerender({ user: 'other' });
+    act(() => result.current.subscribeToSignaling({ onIncomingCall: incoming }));
+    act(() => { oldOffer({ payload: { roomId: 'old-room' } }); statuses[0]('CHANNEL_ERROR'); vi.advanceTimersByTime(2000); });
+    expect(incoming).not.toHaveBeenCalled();
+    expect(mocks.channel).toHaveBeenCalledTimes(2);
+  });
 });
