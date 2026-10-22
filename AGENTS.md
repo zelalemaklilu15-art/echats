@@ -4,3 +4,5 @@
 - Visual styling uses semantic Cosmic Obsidian tokens and shared UI primitives instead of page-level raw colors. Why: all web and Android screens must remain visually consistent and themeable.
 - Push notifications are sent server-side: DB triggers call `dispatch_push_event` → `push-dispatch` edge function; never add client-side notify calls. Why: client paths were skipped and unreliable.
 - Channels and payment requests live in the database; `channelService` keeps a localStorage cache refreshed by `useChannelSync`. Why: other users must see them and get notified.
+- Profile identity is authorized server-side by reciprocal direct messages, receiver-accepted calls, or subject-owned contacts; use `profileAccess` for client identity resolution and recipient-specific notification resolution. Why: empty chats, one-sided activity, public content and ID knowledge must not unlock personal identity.
+- Managed avatar images use private authenticated storage downloads, never public or persistent signed URLs; identity caches must be viewer-scoped and revalidated. Why: URLs and account-switch caches must not bypass profile authorization.
