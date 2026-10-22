@@ -222,6 +222,7 @@ export type Database = {
           duration_seconds: number | null
           ended_at: string | null
           id: string
+          receiver_accepted: boolean
           receiver_id: string
           room_id: string | null
           started_at: string
@@ -234,6 +235,7 @@ export type Database = {
           duration_seconds?: number | null
           ended_at?: string | null
           id?: string
+          receiver_accepted?: boolean
           receiver_id: string
           room_id?: string | null
           started_at?: string
@@ -246,6 +248,7 @@ export type Database = {
           duration_seconds?: number | null
           ended_at?: string | null
           id?: string
+          receiver_accepted?: boolean
           receiver_id?: string
           room_id?: string | null
           started_at?: string
@@ -1580,6 +1583,39 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_contacts: {
+        Row: {
+          contact_user_id: string
+          created_at: string
+          owner_id: string
+        }
+        Insert: {
+          contact_user_id: string
+          created_at?: string
+          owner_id: string
+        }
+        Update: {
+          contact_user_id?: string
+          created_at?: string
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_contacts_contact_fk"
+            columns: ["contact_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_contacts_owner_fk"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2145,6 +2181,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_profile_call: { Args: { p_room_id: string }; Returns: boolean }
       airtime_topup: {
         Args: {
           p_amount: number
@@ -2160,6 +2197,7 @@ export type Database = {
           topup_id: string
         }[]
       }
+      can_read_profile: { Args: { p_subject: string }; Returns: boolean }
       can_view_channel: {
         Args: { _channel_id: string; _uid: string }
         Returns: boolean
@@ -2195,6 +2233,21 @@ export type Database = {
           used: number
         }[]
       }
+      get_channel_posts_safe: {
+        Args: { p_channel_id: string }
+        Returns: {
+          channel_id: string
+          content: string
+          created_at: string
+          edited: boolean
+          id: string
+          reactions: Json
+          sender_id: string
+          sender_name: string
+          type: string
+          views: number
+        }[]
+      }
       get_my_private_profile: {
         Args: never
         Returns: {
@@ -2203,6 +2256,7 @@ export type Database = {
         }[]
       }
       get_or_create_etok_coins: { Args: never; Returns: number }
+      get_profile_access_state: { Args: { p_subject: string }; Returns: string }
       get_public_profile: {
         Args: { profile_id: string }
         Returns: {
@@ -2262,6 +2316,14 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      notification_profile_name: {
+        Args: { p_subject: string; p_viewer: string }
+        Returns: string
+      }
+      profile_access_allowed: {
+        Args: { p_subject: string; p_viewer: string }
+        Returns: boolean
       }
       purchase_ai_premium: {
         Args: { p_method: string; p_plan: string }
