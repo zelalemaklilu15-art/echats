@@ -451,14 +451,13 @@ const Chat = () => {
       return;
     }
 
-    const success = await sendMessage(messageText);
-    if (!success) {
+    const sent = await sendMessage(messageText);
+    if (!sent) {
       toast.error("Failed to send message");
     } else if (chatId) {
-      // Register undo for text messages (5-second window)
-      const latestMessages = rawMessages;
-      const lastMsg = latestMessages[latestMessages.length - 1];
-      if (lastMsg) {
+      // Register undo for the message just sent (5-second window)
+      const lastMsg = typeof sent === "object" ? sent : null;
+      if (lastMsg?.id) {
         registerUndoSend(lastMsg.id, chatId, async () => {
           await deleteMessage(lastMsg.id);
           toast.success("Message unsent");
