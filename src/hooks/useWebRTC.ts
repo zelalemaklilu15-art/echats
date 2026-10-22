@@ -107,6 +107,9 @@ export const useWebRTC = () => {
   const audioSenderRef = useRef<RTCRtpSender | null>(null);
   const videoSenderRef = useRef<RTCRtpSender | null>(null);
   const cameraEnabledRef = useRef(true);
+  const microphoneEnabledRef = useRef(true);
+  const mediaOperationRef = useRef({ audio: 0, video: 0 });
+  const replacementQueueRef = useRef<{ audio: Promise<void>; video: Promise<void> }>({ audio: Promise.resolve(), video: Promise.resolve() });
 
   const [state, setState] = useState<WebRTCState>({
     localStream: null,
@@ -450,22 +453,34 @@ export const useWebRTC = () => {
   const getPeerConnection = useCallback(() => peerConnectionRef.current, []);
 
   // ---- Track replacement helpers ---------------------------------------
+  const beginMediaOperation = useCallback((kind: 'audio' | 'video') => {
+    const generation = generationRef.current;
+    const operation = ++mediaOperationRef.current[kind];
+    return () => generation === generationRef.current && operation === mediaOperationRef.current[kind];
+  }, []);
+
   const replaceOutgoingTrack = useCallback(
-    async (kind: 'audio' | 'video', track: MediaStreamTrack | null) => {
+    async (kind: 'audio' | 'video', track: MediaStreamTrack | null, isCurrent: () => boolean = () => true) => {
       const pc = peerConnectionRef.current;
       if (!pc) return;
+      const generation = generationRef.current;
       // replaceTrack(null) intentionally removes sender.track. Retain the
       // negotiated sender so unmute/camera-on does not require a new offer.
       const sender = kind === 'audio' ? audioSenderRef.current : videoSenderRef.current;
-      if (sender) {
-        await sender.replaceTrack(track);
-        if (kind === 'video' && track) await tuneVideoSender(sender);
-      } else if (track && localStreamRef.current) {
-        const added = pc.addTrack(track, localStreamRef.current);
-        if (kind === 'audio') audioSenderRef.current = added;
-        else videoSenderRef.current = added;
-        if (kind === 'video') await tuneVideoSender(added);
-      }
+      const replacement = replacementQueueRef.current[kind].catch(() => {}).then(async () => {
+        if (generation !== generationRef.current || pc !== peerConnectionRef.current || !isCurrent()) return;
+        if (sender) {
+          await sender.replaceTrack(track);
+          if (kind === 'video' && track && isCurrent()) await tuneVideoSender(sender);
+        } else if (track && localStreamRef.current) {
+          const added = pc.addTrack(track, localStreamRef.current);
+          if (kind === 'audio') audioSenderRef.current = added;
+          else videoSenderRef.current = added;
+          if (kind === 'video') await tuneVideoSender(added);
+        }
+      });
+      replacementQueueRef.current[kind] = replacement.catch(() => {});
+      await replacement;
     },
     [],
   );
@@ -481,32 +496,48 @@ export const useWebRTC = () => {
     setState((prev) => ({ ...prev, localStream: next }));
   }, []);
 
+  const commitCapturedTrack = useCallback(async (kind: 'audio' | 'video', stream: MediaStream, isCurrent: () => boolean) => {
+    try {
+      if (!isCurrent()) throw new DOMException('Media request superseded', 'AbortError');
+      const track = kind === 'audio' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
+      if (!track) throw new DOMException('No capture track available', 'NotFoundError');
+      await replaceOutgoingTrack(kind, track, isCurrent);
+      if (!isCurrent()) throw new DOMException('Media request superseded', 'AbortError');
+      localStreamRef.current?.getTracks().filter(t => t.kind === kind && t !== track).forEach(t => t.stop());
+      swapLocalTrack(kind, track);
+    } catch (error) {
+      stream.getTracks().forEach(track => track.stop());
+      throw error;
+    }
+  }, [replaceOutgoingTrack, swapLocalTrack]);
+
   // ---- True mute / hardware stop ---------------------------------------
   /** Fully stops the microphone hardware when muting; re-acquires it on unmute. */
   const setMicrophoneEnabled = useCallback(
     async (enabled: boolean) => {
+      const isCurrent = beginMediaOperation('audio');
+      microphoneEnabledRef.current = enabled;
       if (!enabled) {
         localStreamRef.current?.getAudioTracks().forEach((t) => {
           t.enabled = false;
           t.stop();
         });
-        await replaceOutgoingTrack('audio', null);
-        swapLocalTrack('audio', null);
+        await replaceOutgoingTrack('audio', null, isCurrent);
+        if (isCurrent()) swapLocalTrack('audio', null);
         return;
       }
       const audio: MediaTrackConstraints = { ...HQ_AUDIO };
       if (selectedAudioInputRef.current) audio.deviceId = { exact: selectedAudioInputRef.current };
       const stream = await acquireMedia({ audio });
-      const track = stream.getAudioTracks()[0];
-      await replaceOutgoingTrack('audio', track);
-      swapLocalTrack('audio', track);
+      await commitCapturedTrack('audio', stream, isCurrent);
     },
-    [acquireMedia, replaceOutgoingTrack, swapLocalTrack],
+    [acquireMedia, beginMediaOperation, commitCapturedTrack, replaceOutgoingTrack, swapLocalTrack],
   );
 
   /** Fully stops the camera (LED off, battery saved) and re-acquires on demand. */
   const setCameraEnabled = useCallback(
     async (enabled: boolean) => {
+      const isCurrent = beginMediaOperation('video');
       cameraEnabledRef.current = enabled;
       if (!enabled) {
         cameraTrackBeforeShareRef.current?.stop();
@@ -516,8 +547,8 @@ export const useWebRTC = () => {
           t.enabled = false;
           t.stop();
         });
-        await replaceOutgoingTrack('video', null);
-        swapLocalTrack('video', null);
+        await replaceOutgoingTrack('video', null, isCurrent);
+        if (isCurrent()) swapLocalTrack('video', null);
         return;
       }
       const video: MediaTrackConstraints = { ...HD_VIDEO };
@@ -527,11 +558,9 @@ export const useWebRTC = () => {
       }
       if (screenTrackRef.current) return;
       const stream = await acquireMedia({ video });
-      const track = stream.getVideoTracks()[0];
-      await replaceOutgoingTrack('video', track);
-      swapLocalTrack('video', track);
+      await commitCapturedTrack('video', stream, isCurrent);
     },
-    [acquireMedia, replaceOutgoingTrack, swapLocalTrack],
+    [acquireMedia, beginMediaOperation, commitCapturedTrack, replaceOutgoingTrack, swapLocalTrack],
   );
 
   // Legacy soft-mute helpers kept for compatibility
@@ -546,35 +575,34 @@ export const useWebRTC = () => {
   const switchAudioInput = useCallback(
     async (deviceId: string) => {
       selectedAudioInputRef.current = deviceId;
+      if (!microphoneEnabledRef.current) return;
+      const isCurrent = beginMediaOperation('audio');
       const stream = await acquireMedia({
         audio: { ...HQ_AUDIO, deviceId: { exact: deviceId } },
       });
-      const track = stream.getAudioTracks()[0];
-      localStreamRef.current?.getAudioTracks().forEach((t) => t.stop());
-      await replaceOutgoingTrack('audio', track);
-      swapLocalTrack('audio', track);
+      await commitCapturedTrack('audio', stream, isCurrent);
     },
-    [acquireMedia, replaceOutgoingTrack, swapLocalTrack],
+    [acquireMedia, beginMediaOperation, commitCapturedTrack],
   );
 
   const switchVideoInput = useCallback(
     async (deviceId: string) => {
-      if (isScreenSharing) return;
+      if (screenTrackRef.current) return;
       selectedVideoInputRef.current = deviceId;
+      if (!cameraEnabledRef.current) return;
+      const isCurrent = beginMediaOperation('video');
       const stream = await acquireMedia({
         video: { ...HD_VIDEO, deviceId: { exact: deviceId }, facingMode: undefined } as MediaTrackConstraints,
       });
-      const track = stream.getVideoTracks()[0];
-      localStreamRef.current?.getVideoTracks().forEach((t) => t.stop());
-      await replaceOutgoingTrack('video', track);
-      swapLocalTrack('video', track);
+      await commitCapturedTrack('video', stream, isCurrent);
     },
-    [acquireMedia, isScreenSharing, replaceOutgoingTrack, swapLocalTrack],
+    [acquireMedia, beginMediaOperation, commitCapturedTrack],
   );
 
   /** Flips between front and back cameras on mobile. */
   const flipCamera = useCallback(async () => {
-    if (isScreenSharing) return;
+    if (screenTrackRef.current || !cameraEnabledRef.current) return;
+    const isCurrent = beginMediaOperation('video');
     const current = localStreamRef.current?.getVideoTracks()[0];
     const currentFacing = (current?.getSettings().facingMode as string) || 'user';
     const nextFacing = currentFacing === 'user' ? 'environment' : 'user';
@@ -582,11 +610,8 @@ export const useWebRTC = () => {
     const stream = await acquireMedia({
       video: { ...HD_VIDEO, facingMode: { ideal: nextFacing } },
     });
-    const track = stream.getVideoTracks()[0];
-    current?.stop();
-    await replaceOutgoingTrack('video', track);
-    swapLocalTrack('video', track);
-  }, [acquireMedia, isScreenSharing, replaceOutgoingTrack, swapLocalTrack]);
+    await commitCapturedTrack('video', stream, isCurrent);
+  }, [acquireMedia, beginMediaOperation, commitCapturedTrack]);
 
   // ---- Screen sharing ---------------------------------------------------
   const stopScreenShare = useCallback(async () => {
@@ -649,6 +674,9 @@ export const useWebRTC = () => {
   // ---- Cleanup ----------------------------------------------------------
   const cleanup = useCallback(() => {
     generationRef.current += 1;
+    mediaOperationRef.current.audio += 1;
+    mediaOperationRef.current.video += 1;
+    replacementQueueRef.current = { audio: Promise.resolve(), video: Promise.resolve() };
     stopStatsMonitor();
 
     if (screenTrackRef.current) screenTrackRef.current.onended = null;
@@ -689,6 +717,7 @@ export const useWebRTC = () => {
     audioSenderRef.current = null;
     videoSenderRef.current = null;
     cameraEnabledRef.current = true;
+    microphoneEnabledRef.current = true;
 
     setIsScreenSharing(false);
     setNetworkStats({
