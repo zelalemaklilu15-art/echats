@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import logoImage from "@/assets/echat-logo.jpg";
+import logoImage from "@/assets/echat-logo.png";
 
 export default function OAuthConsent() {
   const [params] = useSearchParams();

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Delete, Fingerprint } from "lucide-react";
 import { verifyAppPin, isAppLockEnabled } from "@/lib/chatLockService";
-import logoImage from "@/assets/echat-logo.jpg";
+import logoImage from "@/assets/echat-logo.png";
 
 let _appUnlocked = false;
 export function setAppSessionUnlocked() { _appUnlocked = true; }

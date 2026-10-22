@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { signUpWithEmail, signInWithEmail, isUsernameUnique } from "@/lib/supabaseAuth";
 import { toast } from "sonner";
-import logoImage from "@/assets/echat-logo.jpg";
+import logoImage from "@/assets/echat-logo.png";
 
 const FloatingBlob = ({ className, delay = 0 }: { className: string; delay?: number }) => (
   <motion.div
