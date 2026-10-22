@@ -88,7 +88,7 @@ const rowToMessage = (r: any): ChannelMessage => ({
   createdAt: r.created_at, type: r.type, views: r.views, edited: r.edited, reactions: r.reactions || {},
 });
 const messageToRow = (m: ChannelMessage) => ({
-  id: m.id, channel_id: m.channelId, sender_id: m.senderId, sender_name: m.senderName || '',
+  id: m.id, channel_id: m.channelId, sender_id: m.senderId, sender_name: '',
   content: m.content || '', type: m.type || 'text', created_at: m.createdAt,
 });
 
@@ -128,10 +128,10 @@ export function syncChannels(): Promise<void> {
 
 /** Pull the posts of one channel from the server. */
 export async function syncChannelMessages(channelId: string): Promise<void> {
-  const { data, error } = await db.from('channel_posts').select('*').eq('channel_id', channelId)
-    .order('created_at', { ascending: true }).limit(500);
+  const { data, error } = await db.rpc('get_channel_posts_safe', { p_channel_id: channelId });
   if (error) { console.error('[channels] posts sync failed', error.message); return; }
-  writeJson(channelMessagesKey(channelId), (data ?? []).map(rowToMessage));
+  // Persistent posts contain content only, never viewer-specific personal identity.
+  writeJson(channelMessagesKey(channelId), (data ?? []).map((r: any) => ({ ...rowToMessage(r), senderName: 'Hidden profile' })));
   emit();
 }
 
@@ -215,7 +215,7 @@ export function getSubscriberCount(channelId: string): number {
 }
 
 export function getChannelMessages(channelId: string): ChannelMessage[] {
-  return readJson<ChannelMessage[]>(channelMessagesKey(channelId), []);
+  return readJson<ChannelMessage[]>(channelMessagesKey(channelId), []).map(m => ({ ...m, senderName: 'Hidden profile' }));
 }
 
 export function sendChannelMessage(
@@ -224,7 +224,7 @@ export function sendChannelMessage(
   const messages = getChannelMessages(channelId);
   const message: ChannelMessage = {
     id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    channelId, content, senderId, senderName, createdAt: new Date().toISOString(),
+    channelId, content, senderId, senderName: 'Hidden profile', createdAt: new Date().toISOString(),
     type: type as ChannelMessage['type'], views: 0, edited: false, reactions: {},
   };
   messages.push(message);

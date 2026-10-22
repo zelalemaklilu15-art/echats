@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { chatStore, Chat, Message, PublicProfile } from "@/lib/chatStore";
 import { supabase } from "@/integrations/supabase/client";
+import { PROFILE_ACCESS_EVENT, hiddenProfile } from '@/lib/profileAccess';
 
 // =============================================
 // MAIN INIT HOOK
@@ -237,18 +238,27 @@ export function useProfile(userId: string | undefined) {
       return;
     }
 
-    const cached = chatStore.getCachedProfile(userId);
-    if (cached) {
-      setProfile(cached);
-      setLoading(false);
-      return;
-    }
-
+    let cancelled = false;
+    setProfile(null);
     setLoading(true);
-    chatStore.getProfile(userId).then((p) => {
-      setProfile(p);
-      setLoading(false);
-    });
+    const refresh = () => {
+      chatStore.getProfile(userId).then(p => {
+        if (cancelled) return;
+        setProfile(p ?? hiddenProfile(userId));
+        setLoading(false);
+      });
+    };
+    const invalidate = () => { setProfile(null); refresh(); };
+    refresh();
+    const timer = window.setInterval(refresh, 15000);
+    window.addEventListener(PROFILE_ACCESS_EVENT, invalidate);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener(PROFILE_ACCESS_EVENT, invalidate);
+      window.removeEventListener('focus', refresh);
+    };
   }, [userId]);
 
   return { profile, loading };

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import type { CallType } from '@/hooks/useWebRTC';
+import { getAccessProfiles, hiddenProfile } from '@/lib/profileAccess';
 
 export interface CallLog {
   id: string;
@@ -131,10 +132,7 @@ class CallLogService {
     });
 
     // Fetch profiles for all users
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, name, avatar_url')
-      .in('id', Array.from(userIds));
+    const profiles = await getAccessProfiles(Array.from(userIds)).catch(() => []);
 
     const profileMap = new Map<string, { id: string; name: string | null; avatar_url: string | null }>();
     profiles?.forEach(p => profileMap.set(p.id, p));
@@ -144,8 +142,8 @@ class CallLogService {
       ...log,
       call_type: log.call_type as CallType,
       status: log.status as 'completed' | 'missed' | 'rejected' | 'failed',
-      caller_profile: profileMap.get(log.caller_id),
-      receiver_profile: profileMap.get(log.receiver_id),
+      caller_profile: profileMap.get(log.caller_id) ?? hiddenProfile(log.caller_id),
+      receiver_profile: profileMap.get(log.receiver_id) ?? hiddenProfile(log.receiver_id),
     }));
   }
 

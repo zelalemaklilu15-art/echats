@@ -56,7 +56,7 @@ const ContactItem = ({ userId, onClick }: { userId: string; onClick: (id: string
             return <BadgeCheck className={`h-3.5 w-3.5 flex-shrink-0 ${cfg.color}`} />;
           })()}
         </div>
-        <p className="text-[12px] text-muted-foreground truncate mt-0.5">@{profile.username}</p>
+        {profile.username && <p className="text-[12px] text-muted-foreground truncate mt-0.5">@{profile.username}</p>}
         {lastSeen && (
           <p className={`text-[11px] mt-0.5 font-medium ${online ? "text-emerald-400" : "text-muted-foreground"}`}>
             {lastSeen}
