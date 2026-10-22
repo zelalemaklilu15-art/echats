@@ -37,4 +37,14 @@ describe('call signaling disposal', () => {
     expect(mocks.remove).toHaveBeenCalledTimes(2);
     expect(channels[1].send).not.toHaveBeenCalled();
   });
+
+  it('cancels a queued old offer while still allowing its hangup signal', async () => {
+    const { result } = renderHook(() => useCallSignaling('self'));
+    const pending = result.current.sendOffer('peer', { type: 'offer' }, 'voice', 'Self', undefined, 'room').catch(() => null);
+    act(() => result.current.cancelCall('room'));
+    await act(async () => { statuses[0]('SUBSCRIBED'); await pending; });
+    expect(channels[0].send).not.toHaveBeenCalled();
+    await result.current.sendCallState('peer', 'ended', 'room');
+    expect(channels[0].send).toHaveBeenCalledWith(expect.objectContaining({ event: 'call_state' }));
+  });
 });

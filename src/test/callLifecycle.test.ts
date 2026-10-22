@@ -13,7 +13,7 @@ vi.mock('@/hooks/useWebRTC', () => ({ useWebRTC: () => ({
 }) }));
 vi.mock('@/hooks/useCallSignaling', () => ({ useCallSignaling: () => ({
   subscribeToSignaling: mocks.subscribe, sendOffer: mocks.sendOffer, sendCallState: mocks.sendState,
-  releasePeer: vi.fn(), sendOfferAck: vi.fn().mockResolvedValue(undefined),
+  releasePeer: vi.fn(), cancelCall: vi.fn(), sendOfferAck: vi.fn().mockResolvedValue(undefined),
 }) }));
 vi.mock('@/lib/callLogService', () => ({ callLogService: {
   createCallLog: mocks.createLog, updateCallLog: mocks.updateLog,

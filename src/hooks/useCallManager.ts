@@ -199,6 +199,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   }, []);
 
   const stopCallResources = useCallback(() => {
+    const roomId = activeCallRef.current?.roomId;
+    if (roomId) signaling.cancelCall(roomId);
     clearTimers();
     stopDurationTimer();
     webRTC.cleanup();
@@ -206,7 +208,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     pendingRemoteIce.current = [];
     pendingLocalIce.current = [];
     pushNotificationService.closeCallNotification();
-  }, [clearTimers, stopDurationTimer, webRTC.cleanup]);
+  }, [clearTimers, stopDurationTimer, webRTC.cleanup, signaling.cancelCall]);
   stopResourcesRef.current = stopCallResources;
 
   // Persist the final outcome of a call exactly once
@@ -239,6 +241,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
     }
     clearTimers();
     stopDurationTimer();
+    const roomId = activeCallRef.current?.roomId;
+    if (roomId) signaling.cancelCall(roomId);
     webRTC.cleanup();
     signaling.releasePeer(activeCallRef.current?.peerId);
     pushNotificationService.closeCallNotification();
