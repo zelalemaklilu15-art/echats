@@ -4,6 +4,7 @@ import { useCallSignaling, CallOffer, CallAnswer, IceCandidate, CallStateEvent }
 import { callLogService } from '@/lib/callLogService';
 import { pushNotificationService } from '@/lib/pushNotificationService';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccessProfile, PROFILE_ACCESS_EVENT } from '@/lib/profileAccess';
 import {
   joinCallPresence,
   leaveCallPresence,
@@ -509,8 +510,8 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       setActiveCallSafe({
         roomId: incomingCall.roomId,
         peerId: incomingCall.callerId,
-        peerName: incomingCall.callerName,
-        peerAvatar: incomingCall.callerAvatar,
+        peerName: activeCallRef.current?.peerName ?? 'Hidden profile',
+        peerAvatar: activeCallRef.current?.peerAvatar,
         callType: incomingCall.callType,
         isOutgoing: false,
       });
@@ -520,7 +521,15 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       webRTC.addLocalTracks(localStream);
 
       const answer = await webRTC.handleOffer(incomingCall.offer);
+      // Only the authenticated receiver can establish call-based profile access.
+      const { data: accepted, error: acceptanceError } = await supabase.rpc('accept_profile_call', { p_room_id: incomingCall.roomId });
+      if (acceptanceError || !accepted) console.warn('[CallManager] Could not record profile acceptance');
+      if (accepted) window.dispatchEvent(new Event(PROFILE_ACCESS_EVENT));
       await signaling.sendAnswer(incomingCall.callerId, answer, incomingCall.roomId);
+      getAccessProfile(incomingCall.callerId).then(profile => {
+        setActiveCallSafe(prev => prev?.roomId === incomingCall.roomId && profile
+          ? { ...prev, peerName: profile.name ?? profile.username ?? 'Hidden profile', peerAvatar: profile.avatar_url ?? undefined } : prev);
+      }).catch(() => {});
 
       flushLocalIce();
       await flushRemoteIce();
@@ -696,14 +705,17 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
       setActiveCallSafe({
         roomId: offer.roomId,
         peerId: offer.callerId,
-        peerName: offer.callerName,
-        peerAvatar: offer.callerAvatar,
+        peerName: 'Hidden profile',
         callType: offer.callType,
         isOutgoing: false,
       });
       setCallStateSafe('incoming_ringing');
 
-      pushNotificationService.showIncomingCallNotification(offer.callerName, offer.callType);
+      pushNotificationService.showIncomingCallNotification('Hidden profile', offer.callType);
+      getAccessProfile(offer.callerId).then(profile => {
+        if (!profile || activeCallRef.current?.roomId !== offer.roomId) return;
+        setActiveCallSafe(prev => prev ? { ...prev, peerName: profile.name ?? profile.username ?? 'Hidden profile', peerAvatar: profile.avatar_url ?? undefined } : prev);
+      }).catch(() => {});
 
       if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = setTimeout(() => {
@@ -726,6 +738,10 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
 
       try {
         if (callStateRef.current === 'outgoing_calling') setCallStateSafe('connecting');
+        getAccessProfile(call.peerId).then(profile => {
+          setActiveCallSafe(prev => prev?.roomId === call.roomId && profile
+            ? { ...prev, peerName: profile.name ?? profile.username ?? 'Hidden profile', peerAvatar: profile.avatar_url ?? undefined } : prev);
+        }).catch(() => {});
         await webRTC.handleAnswer(answer.answer);
         await flushRemoteIce();
       } catch (err) {

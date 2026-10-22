@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
+import { getAccessProfile, getAccessProfiles, hiddenProfile, searchAccessProfiles } from '@/lib/profileAccess';
 
 /* ═══════════════════════════════════════════
    Types
@@ -99,8 +100,8 @@ function mapVideo(row: any): EtokVideo {
 function mapUser(row: any): EtokUser {
   return {
     id: row.id,
-    username: row.username ?? "user",
-    displayName: row.name ?? row.username ?? "User",
+    username: row.username ?? "",
+    displayName: row.name ?? row.username ?? "Hidden profile",
     avatar: row.avatar_url,
     bio: row.bio,
     isOnline: row.is_online,
@@ -126,13 +127,10 @@ async function hydrateVideos(rows: any[] | null | undefined): Promise<EtokVideo[
   const authorIds = [...new Set(list.map(r => r.author_id).filter(Boolean))];
   const profilesById = new Map<string, EtokUser>();
   if (authorIds.length > 0) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, name, avatar_url, bio, is_online")
-      .in("id", authorIds);
+    const data = await getAccessProfiles(authorIds).catch(() => []);
     (data ?? []).forEach(p => profilesById.set(p.id, mapUser(p)));
   }
-  return list.map(row => ({ ...mapVideo(row), author: profilesById.get(row.author_id) }));
+  return list.map(row => ({ ...mapVideo(row), author: profilesById.get(row.author_id) ?? mapUser(hiddenProfile(row.author_id)) }));
 }
 
 async function hydrateComments(rows: any[] | null | undefined): Promise<EtokComment[]> {
@@ -140,13 +138,10 @@ async function hydrateComments(rows: any[] | null | undefined): Promise<EtokComm
   const authorIds = [...new Set(list.map(r => r.author_id).filter(Boolean))];
   const profilesById = new Map<string, EtokUser>();
   if (authorIds.length > 0) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, name, avatar_url, bio, is_online")
-      .in("id", authorIds);
+    const data = await getAccessProfiles(authorIds).catch(() => []);
     (data ?? []).forEach(p => profilesById.set(p.id, mapUser(p)));
   }
-  return list.map(row => ({ ...mapComment(row), author: profilesById.get(row.author_id) }));
+  return list.map(row => ({ ...mapComment(row), author: profilesById.get(row.author_id) ?? mapUser(hiddenProfile(row.author_id)) }));
 }
 
 /* ═══════════════════════════════════════════
@@ -353,11 +348,7 @@ export async function deleteCommentAsync(commentId: string): Promise<void> {
 
 export async function fetchEtokProfile(userId: string): Promise<EtokUser | null> {
   if (!userId) return null;
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, username, name, avatar_url, bio, is_online")
-    .eq("id", userId)
-    .single();
+  const data = await getAccessProfile(userId);
   return data ? mapUser(data) : null;
 }
 
@@ -405,12 +396,7 @@ export async function searchVideosAsync(query: string): Promise<EtokVideo[]> {
 }
 
 export async function searchUsersAsync(query: string): Promise<EtokUser[]> {
-  const q = `%${query}%`;
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, username, name, avatar_url, bio, is_online")
-    .or(`username.ilike.${q},name.ilike.${q}`)
-    .limit(20);
+  const data = await searchAccessProfiles(query);
   return (data ?? []).map(mapUser);
 }
 
@@ -515,7 +501,7 @@ function mapSound(r: any): EtokSound {
   return {
     id: r.id,
     title: r.title,
-    authorName: r.author_name,
+    authorName: r.authorName ?? 'Hidden profile',
     coverEmoji: r.cover_emoji,
     duration: r.duration,
     videoCount: r.video_count,
@@ -528,13 +514,19 @@ function mapHashtag(r: any): EtokHashtag {
 }
 
 export async function fetchAllSounds(): Promise<EtokSound[]> {
-  const { data } = await supabase.from("etok_sounds").select("*").order("video_count", { ascending: false });
-  return (data ?? []).map(mapSound);
+  const { data } = await supabase.from("etok_sounds").select("id,title,author_id,cover_emoji,duration,video_count,is_original").order("video_count", { ascending: false });
+  return hydrateSounds(data);
+}
+
+async function hydrateSounds(rows: any[] | null): Promise<EtokSound[]> {
+  const profiles = await getAccessProfiles((rows ?? []).map(r => r.author_id).filter(Boolean)).catch(() => []);
+  const byId = new Map(profiles.map(p => [p.id, p]));
+  return (rows ?? []).map(r => mapSound({ ...r, authorName: byId.get(r.author_id)?.name ?? 'Hidden profile' }));
 }
 
 export async function fetchSoundById(id: string): Promise<EtokSound | null> {
-  const { data } = await supabase.from("etok_sounds").select("*").eq("id", id).maybeSingle();
-  return data ? mapSound(data) : null;
+  const { data } = await supabase.from("etok_sounds").select("id,title,author_id,cover_emoji,duration,video_count,is_original").eq("id", id).maybeSingle();
+  return data ? (await hydrateSounds([data]))[0] ?? null : null;
 }
 
 export async function fetchAllHashtags(): Promise<EtokHashtag[]> {
@@ -552,10 +544,10 @@ export async function searchSoundsAsync(query: string): Promise<EtokSound[]> {
   const q = query.trim();
   if (!q) return [];
   const { data } = await supabase
-    .from("etok_sounds").select("*")
-    .or(`title.ilike.%${q}%,author_name.ilike.%${q}%`)
+    .from("etok_sounds").select("id,title,author_id,cover_emoji,duration,video_count,is_original")
+    .ilike('title', `%${q}%`)
     .limit(50);
-  return (data ?? []).map(mapSound);
+  return hydrateSounds(data);
 }
 
 export async function searchHashtagsAsync(query: string): Promise<EtokHashtag[]> {

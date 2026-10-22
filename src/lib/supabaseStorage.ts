@@ -114,7 +114,7 @@ const uploadFile = async (
   }
 
   return {
-    url: urlData.signedUrl,
+    url: bucket === 'avatars' ? `avatars/${data.path}` : urlData.signedUrl,
     path: data.path,
     name: file.name,
     size: file.size,

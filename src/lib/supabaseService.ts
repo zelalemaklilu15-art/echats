@@ -103,7 +103,7 @@ export const getProfile = async (userId: string): Promise<Profile | null> => {
     phone_number: privateProfile.phone ?? null,
     phone: privateProfile.phone ?? null,
     birthday: privateProfile.birthday ?? null,
-    avatar_url: await resolveProfileAvatar(publicProfile.avatar_url),
+    avatar_url: publicProfile.avatar_url,
     bio: publicProfile.bio,
     is_active: publicProfile.is_active,
     is_online: publicProfile.is_online,
