@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
+import { getAccessProfile, getAccessProfiles, hiddenProfile } from '@/lib/profileAccess';
 
 /* ═══════════════════════════════════════════
    Types & constants
@@ -99,7 +100,7 @@ function mapComment(row: any): LiveComment {
     id: row.id,
     streamId: row.stream_id,
     authorId: row.author_id,
-    authorName: row.profiles?.username ?? row.profiles?.name ?? "user",
+    authorName: row.profiles?.name ?? row.profiles?.username ?? "Hidden profile",
     authorAvatar: row.profiles?.avatar_url ?? "👤",
     text: row.text,
     isGift: row.is_gift,
@@ -189,7 +190,7 @@ export async function leaveLiveAsync(streamId: string, userId: string): Promise<
 export async function fetchLiveComments(streamId: string): Promise<LiveComment[]> {
   const { data, error } = await supabase
     .from("etok_live_comments")
-    .select("*, profiles!etok_live_comments_author_id_fkey(username, name, avatar_url)")
+    .select("*")
     .eq("stream_id", streamId)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -203,7 +204,9 @@ export async function fetchLiveComments(streamId: string): Promise<LiveComment[]
       .limit(100);
     return (bare ?? []).reverse().map(mapComment);
   }
-  return (data ?? []).reverse().map(mapComment);
+  const profiles = await getAccessProfiles((data ?? []).map(r => r.author_id)).catch(() => []);
+  const byId = new Map(profiles.map(p => [p.id, p]));
+  return (data ?? []).reverse().map(r => mapComment({ ...r, profiles: byId.get(r.author_id) ?? hiddenProfile(r.author_id) }));
 }
 
 export async function addLiveCommentAsync(
@@ -375,11 +378,7 @@ export function subscribeLiveComments(streamId: string, onNew: (c: LiveComment) 
       filter: `stream_id=eq.${streamId}`,
     }, async (payload: any) => {
       const row = payload.new;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username, name, avatar_url")
-        .eq("id", row.author_id)
-        .maybeSingle();
+      const profile = await getAccessProfile(row.author_id).catch(() => hiddenProfile(row.author_id));
       onNew(mapComment({ ...row, profiles: profile }));
     })
     .subscribe();

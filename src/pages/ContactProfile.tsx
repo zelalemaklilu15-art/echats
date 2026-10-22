@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { GiftPicker } from "@/components/chat/GiftPicker";
 import { sendGift, getStarsBalance, refreshStarsBalance } from "@/lib/giftsService";
+import { getAccessProfile, saveProfileContact, removeProfileContact } from '@/lib/profileAccess';
 
 interface ProfileData {
   id: string;
@@ -37,6 +38,7 @@ interface ProfileData {
   last_seen: string | null;
   email: string | null;
   birthday?: string | null;
+  profile_hidden?: boolean;
 }
 
 interface SharedMedia {
@@ -61,6 +63,8 @@ const ContactProfile = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [savedContact, setSavedContact] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
 
 
   const [note, setNote] = useState("");
@@ -83,22 +87,34 @@ const ContactProfile = () => {
     refreshStarsBalance().then(setStarsBalance).catch(() => setStarsBalance(getStarsBalance()));
     loadProfile();
     loadChatId();
-  }, [userId]);
+    if (currentUser) supabase.from('profile_contacts').select('contact_user_id')
+      .eq('owner_id', currentUser.id).eq('contact_user_id', userId)
+      .then(({ data }) => setSavedContact(Boolean(data?.length)));
+  }, [userId, currentUser?.id]);
 
   const loadProfile = async () => {
     if (!userId) return;
     setLoading(true);
     setLoadError(null);
-    const { data, error } = await supabase.rpc("get_public_profile", { profile_id: userId });
-
-    if (error) {
+    try {
+      setProfile(await getAccessProfile(userId));
+    } catch (error) {
       setProfile(null);
-      setLoadError(error.message || "Failed to load profile");
-    } else {
-      const row = Array.isArray(data) ? data[0] : data;
-      setProfile((row as ProfileData) || null);
+      setLoadError(error instanceof Error ? error.message : 'Failed to load profile');
     }
     setLoading(false);
+  };
+
+  const toggleContact = async () => {
+    if (!userId || savingContact) return;
+    setSavingContact(true);
+    try {
+      if (savedContact) await removeProfileContact(userId);
+      else await saveProfileContact(userId);
+      setSavedContact(!savedContact);
+      toast.success(savedContact ? 'Contact removed' : 'Contact saved');
+    } catch { toast.error('Could not save contact'); }
+    finally { setSavingContact(false); }
   };
 
   const loadChatId = async () => {
@@ -302,8 +318,8 @@ const ContactProfile = () => {
   const displayName = profile.name || profile.username;
   const effectiveOnline = isUserOnline(profile.last_seen, profile.is_online || false);
   const lastSeenText = formatLastSeen(profile.last_seen, effectiveOnline);
-  const verification = getVerification(userId || "");
-  const music = getProfileMusic(userId || "");
+  const verification = profile.profile_hidden ? null : getVerification(userId || "");
+  const music = profile.profile_hidden ? null : getProfileMusic(userId || "");
 
   const birthdayFormatted = profile.birthday
     ? (() => {
@@ -374,7 +390,7 @@ const ContactProfile = () => {
           )}
 
           <p className="text-sm text-muted-foreground mt-0.5" data-testid="text-contact-status">
-            {lastSeenText || "offline"}
+            {profile.profile_hidden ? 'Profile private' : lastSeenText || "offline"}
           </p>
 
           {todayIsBirthday && (
@@ -430,13 +446,13 @@ const ContactProfile = () => {
               <p className="text-xs text-muted-foreground">Bio</p>
             </div>
           )}
-          <div className="py-3 px-1 flex items-center justify-between">
+          {profile.username && <div className="py-3 px-1 flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">@{profile.username}</p>
               <p className="text-xs text-muted-foreground">Username</p>
             </div>
             <QrCode className="h-5 w-5 text-muted-foreground" />
-          </div>
+          </div>}
           {birthdayFormatted && (
             <div className="py-3 px-1 flex items-center gap-2">
               <Cake className="h-4 w-4 text-pink-500 shrink-0" />
@@ -568,6 +584,10 @@ const ContactProfile = () => {
             <SheetTitle className="text-base">{profile?.name || `@${profile?.username}`}</SheetTitle>
           </SheetHeader>
           <div className="px-3 space-y-1">
+            <Button variant="ghost" onClick={toggleContact} disabled={savingContact} className="w-full justify-start gap-3" title="Saving allows this contact to see your name and photo">
+              {savedContact ? <UserX className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+              {savedContact ? 'Remove contact' : 'Save contact'}
+            </Button>
             {[
               { label: "Message", icon: MessageSquare, action: handleMessage, testid: "menu-message" },
               { label: "Voice call", icon: Phone, action: () => handleCall("voice"), testid: "menu-voice" },

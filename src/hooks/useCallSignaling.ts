@@ -233,8 +233,8 @@ export const useCallSignaling = (userId: string | null) => {
 
       const delivered = await sendToPeer(receiverId, 'call_offer', {
         callerId: userId,
-        callerName,
-        callerAvatar,
+        // Identity is resolved for the receiver, never trusted from a broadcast.
+        callerName: 'Hidden profile',
         callType,
         offer,
         roomId: finalRoomId,

@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { getAccessProfile, PROFILE_ACCESS_EVENT } from '@/lib/profileAccess';
 import type { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import { shouldSendReadReceipts, shouldShowTyping } from '@/lib/ghostModeService';
 
@@ -111,6 +112,7 @@ class ChatStore {
 
   async initialize(userId: string): Promise<boolean> {
     const isSameUser = this.currentUserId === userId;
+    if (!isSameUser) this.profiles.clear();
 
     // If we're already initialized for this user and have an active subscription + data,
     // avoid doing work. (Important: if we previously failed and chats are still empty,
@@ -162,6 +164,7 @@ class ChatStore {
     // Clear state
     this.chats.clear();
     this.messages.clear();
+    this.profiles.clear();
     this.chatListeners.clear();
     this.messageListeners.clear();
     this.typingListeners.clear();
@@ -803,25 +806,10 @@ class ChatStore {
   // =============================================
 
   async getProfile(userId: string): Promise<PublicProfile | null> {
-    // Check cache first
-    if (this.profiles.has(userId)) {
-      return this.profiles.get(userId)!;
-    }
-    
     try {
-      // Fetch from server using RPC for public profiles
-      const { data, error } = await supabase.rpc('get_public_profile', {
-        profile_id: userId,
-      });
-      
-      if (error || !data?.[0]) {
-        // Silently ignore AbortError
-        if (error?.message?.includes('aborted')) return null;
-        console.error('[ChatStore] Error fetching profile:', error);
-        return null;
-      }
-      
-      const profile = data[0] as PublicProfile;
+      const viewer = this.currentUserId;
+      const profile = await getAccessProfile(userId);
+      if (viewer !== this.currentUserId || !profile) return null;
       this.profiles.set(userId, profile);
       this.lastSyncTimes.profiles = new Date();
       
@@ -835,7 +823,8 @@ class ChatStore {
   }
 
   getCachedProfile(userId: string): PublicProfile | undefined {
-    return this.profiles.get(userId);
+    // Authorize on each mount; never reveal a previous viewer's cached identity.
+    return undefined;
   }
 
   // =============================================

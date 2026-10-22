@@ -7,8 +7,17 @@ const db = adminClient();
 const clip = (s: string, n = 120) => (s || '').slice(0, n);
 
 async function nameOf(id: string): Promise<string> {
-  const { data } = await db.from('profiles').select('name, username').eq('id', id).maybeSingle();
-  return data?.name || data?.username || 'Someone';
+  // Deferred until delivery: every recipient has a different authorization.
+  return `{{profile:${id}}}`;
+}
+
+async function recipientText(text: string, viewer: string): Promise<string> {
+  let result = text;
+  for (const match of text.matchAll(/\{\{profile:([0-9a-f-]+)\}\}/g)) {
+    const { data, error } = await db.rpc('notification_profile_name', { p_viewer: viewer, p_subject: match[1] });
+    result = result.replaceAll(match[0], !error && typeof data === 'string' ? data : 'Hidden profile');
+  }
+  return result;
 }
 
 function preview(content: string, type: string): string {
@@ -25,7 +34,10 @@ function preview(content: string, type: string): string {
 async function send(ids: string[], actor: string, msg: PushMessage) {
   const targets = [...new Set(ids)].filter((id) => id && id !== actor);
   let sent = 0;
-  for (const id of targets) sent += (await sendPushToUser(id, msg)).sent;
+  for (const id of targets) {
+    const [title, body] = await Promise.all([recipientText(msg.title, id), recipientText(msg.body, id)]);
+    sent += (await sendPushToUser(id, { ...msg, title, body })).sent;
+  }
   return sent;
 }
 
