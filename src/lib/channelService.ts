@@ -71,15 +71,22 @@ function writeJson<T>(key: string, value: T): void {
 // ---------------------------------------------------------------------------
 
 export const CHANNELS_SYNC_EVENT = 'echat:channels-sync';
+const emit = () => window.dispatchEvent(new Event(CHANNELS_SYNC_EVENT));
 const MIGRATED_KEY = 'echat_channels_migrated_v1';
 const senderIdentity = new Map<string, { viewer: string; name: string; checkedAt: number }>();
 let identityViewer: string | null = null;
-supabase.auth.onAuthStateChange((_event, session) => {
-  identityViewer = session?.user.id ?? null;
+let accessGeneration = 0;
+const invalidateIdentity = () => {
+  accessGeneration += 1;
   senderIdentity.clear();
+  emit();
+};
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'TOKEN_REFRESHED') return;
+  identityViewer = session?.user.id ?? null;
+  invalidateIdentity();
 });
-window.addEventListener(PROFILE_ACCESS_EVENT, () => senderIdentity.clear());
-const emit = () => window.dispatchEvent(new Event(CHANNELS_SYNC_EVENT));
+window.addEventListener(PROFILE_ACCESS_EVENT, invalidateIdentity);
 const db = supabase as any;
 const bg = (p: PromiseLike<{ error: any }>, what: string) =>
   Promise.resolve(p).then(({ error }) => { if (error) console.error(`[channels] ${what} failed:`, error.message); });
@@ -115,34 +122,39 @@ async function migrateLocal(uid: string) {
   localStorage.setItem(MIGRATED_KEY, uid);
 }
 
-let syncing: Promise<void> | null = null;
+let syncing: { generation: number; promise: Promise<void> } | null = null;
 /** Pull channels (public + mine + subscribed) and my subscriptions from the server. */
 export function syncChannels(): Promise<void> {
-  if (syncing) return syncing;
-  syncing = (async () => {
+  const generation = accessGeneration;
+  if (syncing?.generation === generation) return syncing.promise;
+  const promise = (async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user || generation !== accessGeneration || identityViewer !== user.id) return;
     await migrateLocal(user.id);
+    if (generation !== accessGeneration || identityViewer !== user.id) return;
     const [{ data: chans, error }, { data: subs }] = await Promise.all([
       db.from('channels').select('*').order('created_at', { ascending: true }).limit(500),
       db.from('channel_subscribers').select('channel_id').eq('user_id', user.id),
     ]);
     if (error) { console.error('[channels] sync failed', error.message); return; }
+    if (generation !== accessGeneration || identityViewer !== user.id) return;
     writeJson(CHANNELS_KEY, (chans ?? []).map(rowToChannel));
     const subscribed = new Set((subs ?? []).map((s: any) => s.channel_id));
     for (const c of chans ?? []) writeJson(channelSubscribersKey(c.id), subscribed.has(c.id) ? [user.id] : []);
     emit();
-  })().finally(() => { syncing = null; });
-  return syncing;
+  })().finally(() => { if (syncing?.generation === generation) syncing = null; });
+  syncing = { generation, promise };
+  return promise;
 }
 
 /** Pull the posts of one channel from the server. */
 export async function syncChannelMessages(channelId: string): Promise<void> {
+  const generation = accessGeneration;
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user || generation !== accessGeneration || identityViewer !== user.id) return;
   const { data, error } = await db.rpc('get_channel_posts_safe', { p_channel_id: channelId });
   if (error) { console.error('[channels] posts sync failed', error.message); return; }
-  if (identityViewer !== user.id) return;
+  if (generation !== accessGeneration || identityViewer !== user.id) return;
   for (const row of data ?? []) senderIdentity.set(row.id, { viewer: user.id, name: row.sender_name, checkedAt: Date.now() });
   // Persistent posts contain content only, never viewer-specific personal identity.
   writeJson(channelMessagesKey(channelId), (data ?? []).map((r: any) => ({ ...rowToMessage(r), senderName: 'Hidden profile' })));

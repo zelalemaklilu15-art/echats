@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
+import { resolveProfileAvatar } from '@/lib/profileAccess';
 
 export interface UploadResult {
   url: string;
@@ -137,6 +138,11 @@ export const deleteFile = async (bucket: string, path: string): Promise<void> =>
 
 // Get signed file URL (async for private buckets)
 export const getFileUrl = async (bucket: string, path: string): Promise<string> => {
+  if (bucket === 'avatars') {
+    const url = await resolveProfileAvatar(`avatars/${path}`);
+    if (!url) throw new Error('Profile photo unavailable');
+    return url;
+  }
   const { data, error } = await supabase.storage
     .from(bucket)
     .createSignedUrl(path, 3600);
