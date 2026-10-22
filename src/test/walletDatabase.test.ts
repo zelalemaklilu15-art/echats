@@ -45,6 +45,7 @@ beforeAll(async()=>{
  const oldStars=readFileSync('supabase/migrations/20260607034822_5b9e578a-160d-4077-b6e1-edd26e15105e.sql','utf8');
  await db.exec(oldStars.slice(oldStars.indexOf('CREATE OR REPLACE FUNCTION public.purchase_stars_with_wallet')));
  await db.exec(readFileSync('drizzle/migrations/0011_wallet_purchase_security.sql','utf8'));
+ await db.exec(readFileSync('drizzle/migrations/0012_stars_purchase_atomic_result.sql','utf8'));
 },30000);
 beforeEach(async()=>{
  await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claim.sub','${A}',false); SELECT set_config('test.otp','false',false);
