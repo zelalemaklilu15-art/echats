@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, Trash2, TrendingUp, Wallet, Target as TargetIcon, BarChart2, User, MoreVertical, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getGoals, createGoal, addFundsToGoal, deleteGoal, type SavingsGoal } from "@/lib/savingsGoalService";
-import { walletService } from "@/lib/walletService";
+import { getGoals, createGoal, deleteGoal, type SavingsGoal } from "@/lib/savingsGoalService";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 /* ─── tokens ─── */
 const BG   = "hsl(var(--surface-lowest))";
@@ -15,6 +15,7 @@ const EMOJIS = ["🎯","🏠","✈️","📱","🎓","💍","🚗","💻","🏖�
 
 const SavingsGoals = () => {
   const navigate = useNavigate();
+  const { userId } = useAuth();
   const [goals,       setGoals]       = useState<SavingsGoal[]>([]);
   const [showCreate,  setShowCreate]  = useState(false);
   const [name,        setName]        = useState("");
@@ -24,29 +25,18 @@ const SavingsGoals = () => {
   const [addFundsId,  setAddFundsId]  = useState<string | null>(null);
   const [addAmount,   setAddAmount]   = useState("");
 
-  useEffect(() => { setGoals(getGoals()); }, []);
+  useEffect(() => { setGoals(userId ? getGoals(userId) : []); }, [userId]);
 
   const handleCreate = () => {
-    if (!name || !target) { toast.error("Enter name and target amount"); return; }
-    const g = createGoal(name, emoji, parseFloat(target), deadline || undefined);
+    if (!userId || !name || !Number.isFinite(Number(target)) || Number(target) <= 0) { toast.error("Enter name and a valid target amount"); return; }
+    const g = createGoal(userId, name, emoji, Number(target), deadline || undefined);
     setGoals(prev => [...prev, g]);
     setShowCreate(false); setName(""); setTarget(""); setDeadline(""); setEmoji("🎯");
     toast.success("Goal created!");
   };
 
   const handleAddFunds = async (id: string) => {
-    const amount = parseFloat(addAmount);
-    if (!amount || amount <= 0) { toast.error("Enter a valid amount"); return; }
-    const result = await walletService.getWalletBalance();
-    if (!result.wallet || result.wallet.balance < amount) { toast.error("Insufficient wallet balance"); return; }
-    walletService.deductLocalBalance(amount);
-    const updated = addFundsToGoal(id, amount);
-    if (updated) {
-      setGoals(getGoals());
-      const pct = Math.round((updated.currentAmount / updated.targetAmount) * 100);
-      if (pct >= 100) toast.success(`🎉 Goal "${updated.name}" completed!`);
-      else toast.success(`Added ${amount.toLocaleString()} ETB to "${updated.name}"`);
-    }
+    toast.info('Savings transfers are unavailable. No money has been moved.');
     setAddFundsId(null); setAddAmount("");
   };
 
@@ -107,7 +97,7 @@ const SavingsGoals = () => {
                           Target: {g.targetAmount.toLocaleString()} ETB
                         </p>
                       </div>
-                      <button onClick={() => { deleteGoal(g.id); setGoals(getGoals()); }}
+                      <button onClick={() => { if (userId) { deleteGoal(userId, g.id); setGoals(getGoals(userId)); } }}
                         className="w-8 h-8 flex items-center justify-center">
                         <MoreVertical style={{ color: "hsl(var(--foreground) / 0.4)", width: 18, height: 18 }} />
                       </button>
@@ -133,10 +123,10 @@ const SavingsGoals = () => {
 
                     {/* Add Funds button */}
                     <motion.button whileTap={{ scale: 0.97 }}
-                      onClick={() => { setAddFundsId(g.id); setAddAmount(""); }}
+                      disabled
                       className="w-full py-3 rounded-full font-bold text-[14px] text-foreground"
                       style={{ background: P, boxShadow: "0 4px 14px hsl(var(--tertiary) / 0.4)" }}>
-                      Add Funds
+                      Transfers unavailable
                     </motion.button>
                   </motion.div>
                 );

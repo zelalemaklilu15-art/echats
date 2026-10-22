@@ -109,6 +109,7 @@ export function isAppLockEnabled(): boolean {
 const WALLET_LOCK_KEY = "echat_wallet_lock_enabled";
 
 import { supabase } from "@/integrations/supabase/client";
+import { getDeviceId } from "@/lib/walletSecurity";
 
 export function isWalletLockEnabled(): boolean {
   return localStorage.getItem(WALLET_LOCK_KEY) === "true";
@@ -116,7 +117,8 @@ export function isWalletLockEnabled(): boolean {
 
 export async function refreshWalletLockFlag(): Promise<boolean> {
   const { data, error } = await supabase.rpc("has_wallet_pin");
-  const enabled = !error && !!data;
+  if (error) throw error;
+  const enabled = !!data;
   localStorage.setItem(WALLET_LOCK_KEY, enabled ? "true" : "false");
   return enabled;
 }
@@ -141,7 +143,7 @@ export async function removeWalletLockAsync(): Promise<void> {
 export async function verifyWalletPinAsync(pin: string): Promise<boolean> {
   try {
     const { data, error } = await supabase.functions.invoke("wallet-verify-pin", {
-      body: { pin },
+      body: { pin, device_id: await getDeviceId() },
     });
     if (error) return false;
     return !!(data as any)?.ok;

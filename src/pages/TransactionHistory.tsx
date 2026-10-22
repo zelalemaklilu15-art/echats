@@ -76,8 +76,7 @@ const TransactionHistory = () => {
   const load = async (force = false) => {
     try {
       if (force) setRefreshing(true);
-      const d = await walletService.getWalletBalance(force);
-      setAll(d.transactions || []);
+      setAll(await walletService.getTransactionHistory());
     } catch { toast.error("Failed to load transactions"); }
     finally { setLoading(false); setRefreshing(false); }
   };

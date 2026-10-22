@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2, Shield, Zap, CreditCard, Landmar
 import { motion, AnimatePresence } from "framer-motion";
 import { walletService } from "@/lib/walletService";
 import { toast } from "sonner";
+import { newIdempotencyKey } from "@/lib/walletSecurity";
 
 /* ─── Design tokens ─── */
 const BG    = "hsl(var(--surface-lowest))";
@@ -13,7 +14,7 @@ const P     = "hsl(var(--tertiary))";
 
 /* ─── Payment methods ─── */
 const METHODS = [
-  { id: "telebirr",  label: "Telebirr",         sub: "Instant deposit",              Icon: Wallet,    iconBg: "hsl(var(--tertiary) / 0.25)",  iconColor: "hsl(var(--primary))" },
+  { id: "telebirr",  label: "Telebirr",         sub: "Pending confirmation",              Icon: Wallet,    iconBg: "hsl(var(--tertiary) / 0.25)",  iconColor: "hsl(var(--primary))" },
   { id: "cbebirr",   label: "CBEBirr",           sub: "Commercial Bank of Ethiopia",  Icon: Landmark,  iconBg: "hsl(var(--cosmic-cyan) / 0.15)",   iconColor: "hsl(var(--cosmic-cyan))" },
   { id: "awash",     label: "Awash Bank",        sub: "Secure bank transfer",         Icon: Banknote,  iconBg: "hsl(var(--cosmic-mint) / 0.15)",   iconColor: "hsl(var(--cosmic-mint))" },
   { id: "card",      label: "Credit/Debit Card", sub: "Visa, Mastercard, Amex",       Icon: CreditCard,iconBg: "hsl(var(--tertiary) / 0.15)",   iconColor: "hsl(var(--tertiary))" },
@@ -29,16 +30,18 @@ const AddMoney = () => {
   const [step,    setStep]    = useState<"main" | "confirm">("main");
   const [loading, setLoading] = useState(false);
 
+  const [requestKey] = useState(() => newIdempotencyKey("deposit"));
   const numeric = parseFloat(amount.replace(/,/g, "")) || 0;
-  const sel = METHODS.find(m => m.id === method)!;
+  const sel = METHODS.find(m => m.id === method) ?? METHODS[0];
 
   const fmt = (n: number) =>
     n.toLocaleString("en-ET", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const handleConfirm = async () => {
+    if (loading || !sel || numeric <= 0 || numeric > 10000) return;
     setLoading(true);
     try {
-      const result = await walletService.deposit(numeric, sel.label);
+      const result = await walletService.deposit(numeric, sel.label, requestKey);
       if (result.success && result.transaction) {
         navigate("/transaction-receipt", {
           state: {
@@ -169,7 +172,7 @@ const AddMoney = () => {
             {/* ── CONTINUE BUTTON ── */}
             <div className="px-5 pt-5">
               <motion.button whileTap={{ scale: 0.97 }}
-                disabled={numeric <= 0}
+                disabled={numeric <= 0 || numeric > 10000}
                 onClick={() => numeric > 0 && setStep("confirm")}
                 className="w-full py-4 rounded-full font-bold text-[16px] text-foreground flex items-center justify-center gap-2"
                 style={{
@@ -196,15 +199,15 @@ const AddMoney = () => {
                 <p className="text-[44px] font-black text-foreground leading-none">
                   {fmt(numeric)} <span className="text-[20px] font-bold" style={{ color: "hsl(var(--foreground) / 0.45)" }}>ETB</span>
                 </p>
-                <p className="text-[12px] mt-1.5" style={{ color: "hsl(var(--foreground) / 0.35)" }}>≈ ${(numeric / 57.5).toFixed(2)} USD</p>
+                <p className="text-[12px] mt-1.5" style={{ color: "hsl(var(--foreground) / 0.35)" }}>Awaiting verified payment confirmation</p>
               </div>
 
               {/* Detail rows */}
               {[
                 { label: "Payment Method", value: sel.label },
                 { label: "Transaction Fee", value: "Free" },
-                { label: "You Receive", value: `${fmt(numeric)} ETB` },
-                { label: "Processing Time", value: "Instant" },
+                { label: "Requested Amount", value: `${fmt(numeric)} ETB` },
+                { label: "Status", value: "Pending confirmation" },
               ].map((row, i, arr) => (
                 <div key={row.label} className="flex items-center justify-between px-5 py-3.5"
                   style={{ borderBottom: i < arr.length - 1 ? "1px solid hsl(var(--foreground) / 0.07)" : "none" }}>
@@ -217,7 +220,7 @@ const AddMoney = () => {
             <div className="flex items-center gap-2 rounded-2xl px-4 py-3 mb-5"
               style={{ background: "hsl(var(--cosmic-mint) / 0.07)", border: "1px solid hsl(var(--cosmic-mint) / 0.18)" }}>
               <Shield style={{ color: "hsl(var(--cosmic-mint))", width: 16, height: 16, flexShrink: 0 }} />
-              <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.5)" }}>Secured by 256-bit encryption · No hidden fees</p>
+              <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.5)" }}>Your balance is unchanged until payment is verified.</p>
             </div>
 
             <motion.button whileTap={{ scale: 0.97 }}
@@ -227,7 +230,7 @@ const AddMoney = () => {
               data-testid="button-confirm-add">
               {loading
                 ? <><Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} /> Processing…</>
-                : <><Check style={{ width: 18, height: 18 }} /> Add {numeric.toLocaleString()} ETB</>
+                : <><Check style={{ width: 18, height: 18 }} /> Request {numeric.toLocaleString()} ETB</>
               }
             </motion.button>
           </motion.div>

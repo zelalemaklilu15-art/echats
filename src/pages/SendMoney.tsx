@@ -8,6 +8,7 @@ import { walletService } from "@/lib/walletService";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { toast } from "sonner";
+import { getAccessProfiles, searchAccessProfiles } from "@/lib/profileAccess";
 import PinConfirmSheet from "@/components/wallet/PinConfirmSheet";
 import OtpSheet from "@/components/wallet/OtpSheet";
 import PinResetFlow from "@/components/wallet/PinResetFlow";
@@ -26,7 +27,7 @@ function groupAlpha(contacts: Contact[]): { letter: string; items: Contact[] }[]
   for (const c of contacts) {
     const l = (c.name || c.username)[0].toUpperCase();
     if (!map.has(l)) map.set(l, []);
-    map.get(l)!.push(c);
+    map.get(l)?.push(c);
   }
   return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([letter, items]) => ({ letter, items }));
 }
@@ -46,27 +47,25 @@ const SendMoney = () => {
   const [sending,  setSending]  = useState(false);
   const [recent,   setRecent]   = useState<Contact[]>([]);
   const [allContacts,setAll]    = useState<Contact[]>([]);
-  const [schedMode,setSchedMode]= useState(false);
-  const [schedDate,setSchedDate]= useState("");
-  const [schedTime,setSchedTime]= useState("");
 
   useEffect(() => {
-    walletService.getWalletBalance().then(d => {
+    walletService.getWalletBalance().then(async d => {
       if (d.wallet) setBalance(d.wallet.balance);
       const txns = d.transactions || [];
       const seen = new Map<string, Contact>();
       for (const t of txns) {
         if (t.type !== "transfer_out") continue;
         const m = t.metadata as Record<string, unknown>;
-        const id = String(m.recipient_id ?? "");
+        const id = String(m.recipient_user_id ?? m.recipient_id ?? "");
         const name = String(m.recipient_name ?? m.recipient_username ?? "");
         const username = String(m.recipient_username ?? "");
         if (!id || !name || seen.has(id)) continue;
         seen.set(id, { id, name, username });
         if (seen.size >= 6) break;
       }
-      setRecent([...seen.values()]);
-    });
+      const ids = [...new Set(txns.filter(t => t.type === "transfer_out").map(t => String(t.metadata?.recipient_user_id ?? t.metadata?.recipient_id ?? "")).filter(Boolean))].slice(0, 6);
+      setRecent((await getAccessProfiles(ids)).map(p => ({ ...p, name: p.name ?? "Hidden profile", username: p.username ?? "" })));
+    }).catch(() => toast.error("Could not load your wallet"));
   }, []);
 
   useEffect(() => {
@@ -79,11 +78,7 @@ const SendMoney = () => {
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const { data } = await supabase.rpc("search_users_public", { search_term: query });
-        setResults((data || []).map((u: any) => ({
-          id: u.id, name: u.name || u.username, username: u.username,
-          avatar_url: u.avatar_url, is_online: u.is_online, last_seen: u.last_seen,
-        })));
+        setResults((await searchAccessProfiles(query)).map(p => ({ ...p, name: p.name ?? "Hidden profile", username: p.username ?? "" })));
       } catch { toast.error("Search failed"); }
       finally { setSearching(false); }
     }, 350);
@@ -113,7 +108,7 @@ const SendMoney = () => {
   }, []);
 
   const handleSend = () => {
-    if (!selected || !canSend) return;
+    if (!selected || !canSend || sending) return;
     setPinError("");
     setPinOpen(true);
   };
@@ -136,7 +131,7 @@ const SendMoney = () => {
         setPinError(result.error);
       } else {
         setPinOpen(false); toast.error(result.error || "Failed to send money");
-        setTxKey(newIdempotencyKey("transfer"));
+        // Keep the operation key on ambiguous failures so retry cannot double-debit.
       }
     } catch { setPinOpen(false); toast.error("Failed. Please try again."); }
     finally { setSending(false); }
@@ -376,72 +371,21 @@ const SendMoney = () => {
                 ))}
               </div>
 
-              {/* Schedule toggle */}
-              <div className="rounded-2xl px-4 py-3.5 mb-4" style={{ background: CARD, border: "1px solid hsl(var(--foreground) / 0.08)" }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "hsl(var(--tertiary) / 0.2)" }}>
-                      <Clock style={{ color: P, width: 16, height: 16 }} />
-                    </div>
-                    <span className="text-[13px] font-semibold text-foreground">Schedule for later</span>
-                  </div>
-                  <button onClick={() => { setSchedMode(!schedMode); if (!schedMode) { const t = new Date(Date.now() + 86400000); setSchedDate(t.toISOString().split("T")[0]); setSchedTime("09:00"); } }}
-                    className="w-11 h-6 rounded-full relative transition-colors"
-                    style={{ background: schedMode ? P : "hsl(var(--foreground) / 0.15)" }}>
-                    <span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
-                      style={{ left: schedMode ? "22px" : "2px" }} />
-                  </button>
-                </div>
-                <AnimatePresence>
-                  {schedMode && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                      <div className="mt-3.5 grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wide mb-1.5" style={{ color: "hsl(var(--foreground) / 0.45)" }}>Date</p>
-                          <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)}
-                            min={new Date().toISOString().split("T")[0]}
-                            className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none text-foreground"
-                            style={{ background: "hsl(var(--foreground) / 0.08)", border: "1px solid hsl(var(--foreground) / 0.1)" }} />
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wide mb-1.5" style={{ color: "hsl(var(--foreground) / 0.45)" }}>Time</p>
-                          <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)}
-                            className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none text-foreground"
-                            style={{ background: "hsl(var(--foreground) / 0.08)", border: "1px solid hsl(var(--foreground) / 0.1)" }} />
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
               <div className="flex items-center gap-2 rounded-2xl px-4 py-3 mb-5"
                 style={{ background: "hsl(var(--foreground) / 0.04)", border: "1px solid hsl(var(--foreground) / 0.07)" }}>
                 <Shield style={{ color: "hsl(var(--foreground) / 0.4)", width: 16, height: 16, flexShrink: 0 }} />
                 <p className="text-[12px]" style={{ color: "hsl(var(--foreground) / 0.45)" }}>
-                  {schedMode ? "Payment will be processed automatically at the scheduled time" : "Once sent, this transaction cannot be reversed"}
+                  Once sent, this transaction cannot be reversed
                 </p>
               </div>
 
               <motion.button whileTap={{ scale: 0.97 }} disabled={sending}
-                onClick={() => {
-                  if (schedMode && schedDate && schedTime) {
-                    const scheduledAt = new Date(`${schedDate}T${schedTime}`);
-                    if (scheduledAt <= new Date()) { toast.error("Please choose a future date and time"); return; }
-                    const payments = JSON.parse(localStorage.getItem("echat_scheduled_payments") || "[]");
-                    payments.unshift({ id: `sp_${Date.now()}`, toUserId: selected?.id || "", toName: selected?.name || "", amount: numeric, note: note || undefined, scheduledAt: scheduledAt.toISOString(), status: "pending" });
-                    localStorage.setItem("echat_scheduled_payments", JSON.stringify(payments));
-                    toast.success(`Payment of ${numeric.toLocaleString()} ETB scheduled`);
-                    navigate("/scheduled-payments");
-                  } else { handleSend(); }
-                }}
+                onClick={handleSend}
                 className="w-full py-4 rounded-full font-bold text-[16px] text-foreground flex items-center justify-center gap-2"
                 style={{ background: P, boxShadow: "0 6px 24px hsl(var(--tertiary) / 0.45)", opacity: sending ? 0.7 : 1 }}
                 data-testid="button-confirm-send">
                 {sending
                   ? <><Loader2 style={{ width: 18, height: 18 }} className="animate-spin" /> Sending…</>
-                  : schedMode
-                  ? <><Calendar style={{ width: 18, height: 18 }} /> Schedule Payment</>
                   : `Send ${numeric.toLocaleString()} ETB`
                 }
               </motion.button>

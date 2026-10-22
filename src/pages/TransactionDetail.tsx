@@ -34,12 +34,7 @@ const TransactionDetail = () => {
     const load = async () => {
       if (!transactionId) { navigate("/wallet"); return; }
       try {
-        const cached = walletService.getCachedTransactions();
-        let tx = cached.find(t => t.id === transactionId);
-        if (!tx) {
-          const data = await walletService.getWalletBalance(true);
-          tx = data.transactions.find(t => t.id === transactionId);
-        }
+        const tx = await walletService.getTransaction(transactionId);
         if (tx) setTransaction(tx);
         else navigate("/transaction-history");
       } catch { navigate("/transaction-history"); }

@@ -112,17 +112,19 @@ export async function getStarsPurchaseHistory(): Promise<StarsPurchase[]> {
   }));
 }
 
-export async function buyStarsWithWallet(stars: number, bonus: number, price: number): Promise<boolean> {
+export async function buyStarsWithWallet(stars: number, bonus: number, price: number, pin: string, key: string): Promise<{ success: boolean; error?: string }> {
+  const { getDeviceId } = await import("@/lib/walletSecurity");
   const { data, error } = await (supabase as any).rpc("purchase_stars_with_wallet", {
     p_stars: stars,
     p_bonus: bonus,
     p_price: price,
-    p_idempotency_key: `${Date.now()}-${crypto.randomUUID()}`,
+    p_idempotency_key: key,
+    p_pin: pin,
+    p_device: await getDeviceId(),
   });
-  if (error) return false;
-  const row = Array.isArray(data) ? data[0] : data;
-  starsBalanceCache = Number(row?.balance ?? starsBalanceCache);
-  return !!row?.success;
+  if (error) return { success: false, error: "Could not complete purchase. Please retry." };
+  if (data?.success) starsBalanceCache = Number(data.balance ?? starsBalanceCache);
+  return { success: !!data?.success, error: data?.error };
 }
 
 export async function sendGift(

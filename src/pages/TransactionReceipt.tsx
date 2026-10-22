@@ -1,4 +1,4 @@
-import { ArrowLeft, Share2, Check, MoreVertical, Wallet } from "lucide-react";
+import { ArrowLeft, Share2, Check, Clock, AlertCircle, MoreVertical, Wallet } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
@@ -46,6 +46,9 @@ const TransactionReceipt = () => {
 
   const isSent     = tx.type === "sent";
   const isIn       = tx.type === "add_money";
+  const completed = tx.status === "completed";
+  const pending = tx.status === "pending";
+  const StatusIcon = completed ? Check : pending ? Clock : AlertCircle;
   const shortRef   = "TXN" + tx.transactionId.slice(-10).toUpperCase();
   const maskedWallet = `Wallet (**** ${tx.transactionId.slice(-4).toUpperCase()})`;
 
@@ -54,7 +57,7 @@ const TransactionReceipt = () => {
   });
 
   const handleShare = async () => {
-    const text = `Payment of ${formatETB(tx.amount)} ETB\nRef: ${shortRef}`;
+    const text = `${tx.status.toUpperCase()} · ${formatETB(tx.amount)} ETB\nRef: ${shortRef}`;
     if (navigator.share) {
       await navigator.share({ title: "Echat Receipt", text, url: window.location.href }).catch(() => {});
     } else {
@@ -117,7 +120,7 @@ const TransactionReceipt = () => {
             marginBottom: 14,
             boxShadow: "0 0 28px hsl(var(--cosmic-mint) / 0.18)",
           }}>
-            <Check style={{ color: "hsl(var(--cosmic-mint))", width: 28, height: 28, strokeWidth: 2.5 }} />
+            <StatusIcon className={completed ? "text-cosmic-mint" : pending ? "text-tertiary" : "text-destructive"} size={28} />
           </div>
 
           {/* PAYMENT SUCCESSFUL */}
@@ -125,7 +128,7 @@ const TransactionReceipt = () => {
             color: "hsl(var(--cosmic-mint))", fontWeight: 700, fontSize: 12,
             letterSpacing: "0.18em", textTransform: "uppercase",
             marginBottom: 18,
-          }}>Payment Successful</p>
+          }}>{completed ? "Payment Successful" : pending ? "Awaiting Confirmation" : "Payment " + tx.status}</p>
 
           {/* App branding */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 20 }}>
@@ -144,7 +147,7 @@ const TransactionReceipt = () => {
 
           {/* Amount label */}
           <p style={{ fontSize: 12, color: "hsl(var(--foreground) / 0.4)", marginBottom: 6 }}>
-            {isSent ? "Amount Sent" : isIn ? "Amount Added" : "Amount"}
+            {pending ? "Requested Amount" : isSent ? "Amount Sent" : isIn ? "Amount Added" : "Amount"}
           </p>
 
           {/* Big amount */}

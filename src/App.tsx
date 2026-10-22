@@ -90,6 +90,7 @@ const SavingsGoals = lazy(() => import("./pages/SavingsGoals"));
 const SoundSettings = lazy(() => import("./pages/SoundSettings"));
 const BroadcastList = lazy(() => import("./pages/BroadcastList"));
 const PaymentRequest = lazy(() => import("./pages/PaymentRequest"));
+const Pay = lazy(() => import("./pages/Pay"));
 const Stories = lazy(() => import("./pages/Stories"));
 const CloseFriends = lazy(() => import("./pages/CloseFriends"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
@@ -247,16 +248,16 @@ const AppRoutes = () => {
           <Route path="/new-message" element={guard(isAuthenticated, <NewMessage />)} />
           <Route path="/new-contact" element={guard(isAuthenticated, <NewContact />)} />
           <Route path="/wallet" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><Wallet /></WalletLockGate></WalletSecurityGate>)} />
-          <Route path="/scheduled-payments" element={guard(isAuthenticated, <ScheduledPayments />)} />
-          <Route path="/wallet/qr" element={guard(isAuthenticated, <WalletQR />)} />
+          <Route path="/scheduled-payments" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><ScheduledPayments /></WalletLockGate></WalletSecurityGate>)} />
+          <Route path="/wallet/qr" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><WalletQR /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/features" element={guard(isAuthenticated, <Features />)} />
-          <Route path="/add-money" element={guard(isAuthenticated, <AddMoney />)} />
+          <Route path="/add-money" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><AddMoney /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/send-money" element={guard(isAuthenticated, <WalletSecurityGate><SendMoney /></WalletSecurityGate>)} />
           <Route path="/airtime" element={guard(isAuthenticated, <WalletSecurityGate><Airtime /></WalletSecurityGate>)} />
-          <Route path="/request-money" element={guard(isAuthenticated, <RequestMoney />)} />
-          <Route path="/transaction-history" element={guard(isAuthenticated, <TransactionHistory />)} />
-          <Route path="/transaction-receipt" element={guard(isAuthenticated, <TransactionReceipt />)} />
-          <Route path="/transaction-detail/:transactionId" element={guard(isAuthenticated, <TransactionDetail />)} />
+          <Route path="/request-money" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><RequestMoney /></WalletLockGate></WalletSecurityGate>)} />
+          <Route path="/transaction-history" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><TransactionHistory /></WalletLockGate></WalletSecurityGate>)} />
+          <Route path="/transaction-receipt" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><TransactionReceipt /></WalletLockGate></WalletSecurityGate>)} />
+          <Route path="/transaction-detail/:transactionId" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><TransactionDetail /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/add-account" element={guard(isAuthenticated, <AddAccount />)} />
           <Route path="/channels" element={guard(isAuthenticated, <Channels />)} />
           <Route path="/channel/:id" element={guard(isAuthenticated, <ChannelView />)} />
@@ -286,10 +287,12 @@ const AppRoutes = () => {
           <Route path="/reminders" element={guard(isAuthenticated, <Reminders />)} />
           <Route path="/chat-stats/:chatId" element={guard(isAuthenticated, <ChatStats />)} />
           <Route path="/group-call/:roomId" element={guard(isAuthenticated, <GroupCall />, false)} />
-          <Route path="/savings-goals" element={guard(isAuthenticated, <SavingsGoals />)} />
+          <Route path="/savings-goals" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><SavingsGoals /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/sound-settings" element={guard(isAuthenticated, <SoundSettings />)} />
           <Route path="/broadcast" element={guard(isAuthenticated, <BroadcastList />)} />
-          <Route path="/payment-request" element={guard(isAuthenticated, <PaymentRequest />)} />
+          <Route path="/payment-request" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><PaymentRequest /></WalletLockGate></WalletSecurityGate>)} />
+          <Route path="/pay/request/:requestId" element={<Pay />} />
+          <Route path="/pay/:recipient/:amount?" element={<Pay />} />
           <Route path="/stories" element={guard(isAuthenticated, <Stories />)} />
           <Route path="/close-friends" element={guard(isAuthenticated, <CloseFriends />)} />
           <Route path="/.lovable/oauth/consent" element={<PageTransition><OAuthConsent /></PageTransition>} />

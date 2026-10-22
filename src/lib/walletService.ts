@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from "@/integrations/supabase/client";
+import { getDeviceId } from "@/lib/walletSecurity";
 
 export interface WalletData {
   id: string;
@@ -73,8 +74,20 @@ class WalletService {
   private cachedTransactions: WalletTransaction[] = [];
   private lastFetchTime: number = 0;
   private readonly CACHE_DURATION = 30000; // 30 seconds
+  private viewer: string | null = null;
+  private generation = 0;
+  private cachedStats = { monthly_received: 0, monthly_sent: 0 };
 
-  private constructor() {}
+  private constructor() {
+    supabase.auth.onAuthStateChange((_event, session) => this.setViewer(session?.user.id ?? null));
+  }
+
+  private setViewer(id: string | null) {
+    if (id === this.viewer) return;
+    this.viewer = id;
+    this.generation += 1;
+    this.invalidateCache();
+  }
 
   public static getInstance(): WalletService {
     if (!WalletService.instance) {
@@ -85,6 +98,7 @@ class WalletService {
 
   private async getAuthToken(): Promise<string> {
     const { data: { session } } = await supabase.auth.getSession();
+    this.setViewer(session?.user.id ?? null);
     if (!session?.access_token) {
       throw new Error('Not authenticated');
     }
@@ -92,6 +106,8 @@ class WalletService {
   }
 
   public async getWalletBalance(forceRefresh = false): Promise<WalletBalanceResponse> {
+    const token = await this.getAuthToken();
+    const generation = this.generation;
     const now = Date.now();
     
     // Return cached data if still valid
@@ -99,13 +115,11 @@ class WalletService {
       return {
         wallet: this.cachedWallet,
         transactions: this.cachedTransactions,
-        stats: this.calculateStats(this.cachedTransactions),
+        stats: this.cachedStats,
         needs_activation: this.cachedWallet.status !== 'active',
       };
     }
 
-    const token = await this.getAuthToken();
-    
     const response = await supabase.functions.invoke('wallet-balance', {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -117,39 +131,18 @@ class WalletService {
     }
 
     const data = response.data as WalletBalanceResponse;
+    if (generation !== this.generation) throw new Error('Account changed. Please retry.');
     
     // Cache the results
-    if (data.wallet) {
-      this.cachedWallet = data.wallet;
-      this.cachedTransactions = data.transactions;
-      this.lastFetchTime = now;
-    }
+    this.cachedWallet = data.wallet ?? null;
+    this.cachedTransactions = data.transactions ?? [];
+    this.cachedStats = data.stats ?? { monthly_received: 0, monthly_sent: 0 };
+    this.lastFetchTime = now;
 
     return data;
   }
 
-  private calculateStats(transactions: WalletTransaction[]): { monthly_received: number; monthly_sent: number } {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    const monthlyReceived = transactions
-      .filter(t => 
-        new Date(t.created_at) >= startOfMonth && 
-        (t.type === 'deposit' || t.type === 'transfer_in')
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const monthlySent = transactions
-      .filter(t => 
-        new Date(t.created_at) >= startOfMonth && 
-        t.type === 'transfer_out'
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return { monthly_received: monthlyReceived, monthly_sent: monthlySent };
-  }
-
-  public async activateWallet(deviceHash?: string): Promise<{ success: boolean; wallet?: WalletData; error?: string }> {
+  public async activateWallet(_deviceHash?: string): Promise<{ success: boolean; wallet?: WalletData; error?: string }> {
     const token = await this.getAuthToken();
     
     const response = await supabase.functions.invoke('wallet-activate', {
@@ -157,7 +150,7 @@ class WalletService {
         Authorization: `Bearer ${token}`,
       },
       body: {
-        device_hash: deviceHash || this.generateDeviceHash(),
+        device_id: await getDeviceId(),
         user_agent: navigator.userAgent,
       },
     });
@@ -168,13 +161,8 @@ class WalletService {
 
     const data = response.data;
     
-    if (data.wallet) {
-      this.cachedWallet = data.wallet;
-      this.lastFetchTime = Date.now();
-    }
-
     this.invalidateCache();
-    return { success: true, wallet: data.wallet };
+    return { success: !!data.success, wallet: data.wallet, error: data.error };
   }
 
   public async deposit(
@@ -191,6 +179,7 @@ class WalletService {
       body: {
         amount,
         method,
+        device_id: await getDeviceId(),
         idempotency_key: idempotencyKey || this.generateIdempotencyKey(),
       },
     });
@@ -222,6 +211,7 @@ class WalletService {
         amount,
         note,
         pin,
+        device_id: await getDeviceId(),
         payment_request_id: paymentRequestId,
         idempotency_key: idempotencyKey || this.generateIdempotencyKey(),
       },
@@ -242,9 +232,8 @@ class WalletService {
   }
 
   public deductLocalBalance(amount: number): void {
-    if (this.cachedWallet) {
-      this.cachedWallet = { ...this.cachedWallet, balance: Math.max(0, this.cachedWallet.balance - amount) };
-    }
+    // Financial balances may only change through committed server ledger entries.
+    this.invalidateCache();
   }
 
   public getCachedWallet(): WalletData | null {
@@ -257,30 +246,37 @@ class WalletService {
 
   public invalidateCache(): void {
     this.lastFetchTime = 0;
+    this.cachedWallet = null;
+    this.cachedTransactions = [];
+  }
+
+  public async getTransaction(id: string): Promise<WalletTransaction | null> {
+    await this.getAuthToken();
+    const generation = this.generation;
+    const { data, error } = await supabase.from('wallet_transactions').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (generation !== this.generation) throw new Error('Account changed');
+    return data as WalletTransaction | null;
+  }
+
+  public async getTransactionHistory(): Promise<WalletTransaction[]> {
+    await this.getAuthToken();
+    const generation = this.generation;
+    const rows: WalletTransaction[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data, error } = await supabase.from('wallet_transactions').select('*')
+        .order('created_at', { ascending: false }).order('id', { ascending: false }).range(offset, offset + 99);
+      if (error) throw error;
+      if (generation !== this.generation) throw new Error('Account changed');
+      rows.push(...(data ?? []) as WalletTransaction[]);
+      if ((data?.length ?? 0) < 100) return rows;
+    }
   }
 
   private generateIdempotencyKey(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   }
 
-  private generateDeviceHash(): string {
-    const data = [
-      navigator.userAgent,
-      navigator.language,
-      screen.width,
-      screen.height,
-      new Date().getTimezoneOffset(),
-    ].join('|');
-    
-    // Simple hash
-    let hash = 0;
-    for (let i = 0; i < data.length; i++) {
-      const char = data.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16);
-  }
 }
 
 export const walletService = WalletService.getInstance();

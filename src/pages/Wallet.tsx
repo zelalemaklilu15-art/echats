@@ -210,7 +210,7 @@ const Wallet = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <motion.button whileTap={{ scale: 0.88 }} onClick={() => setRefreshing(true) || load(true)}
+          <motion.button whileTap={{ scale: 0.88 }} onClick={() => { setRefreshing(true); void load(true); }}
             className="w-9 h-9 rounded-full flex items-center justify-center"
             style={{ background: "hsl(var(--foreground) / 0.06)", border: "1px solid hsl(var(--foreground) / 0.08)" }}>
             <motion.div animate={refreshing ? { rotate: 360 } : {}} transition={{ duration: 0.7, repeat: refreshing ? Infinity : 0, ease: "linear" }}>

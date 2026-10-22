@@ -7,6 +7,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { getProfile, type Profile } from "@/lib/supabaseService";
 import { toast } from "sonner";
+import { publicOrigin } from "@/lib/native";
+import { paymentLink } from "@/lib/paymentLinks";
 
 /* ─── tokens ─── */
 const BG   = "hsl(var(--surface-lowest))";
@@ -34,10 +36,9 @@ const WalletQR = () => {
   /* Masked wallet ID: **** **** XXXX using last 4 chars */
   const last4       = walletId.slice(-4).toUpperCase();
   const maskedId    = `**** **** ${last4}`;
-  const shortRef    = last4 || "8829";
-  const payLink     = `pay.wallet.me/r_${shortRef}`;
-  const deepLink    = `https://echat.app/pay/${username || walletId}`;
-  const qrValue     = `echat://pay/${walletId}`;
+  const deepLink    = paymentLink(publicOrigin(), username || walletId);
+  const payLink     = deepLink.replace(/^https?:\/\//, '');
+  const qrValue     = deepLink;
 
   const handleCopyId = async () => {
     await navigator.clipboard.writeText(walletId).catch(() => {});

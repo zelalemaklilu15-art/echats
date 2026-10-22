@@ -13,6 +13,8 @@ import {
   type StarsPurchasePackage,
 } from "@/lib/giftsService";
 import { walletService } from "@/lib/walletService";
+import { newIdempotencyKey } from "@/lib/walletSecurity";
+import WalletPurchaseConfirm from "@/components/wallet/WalletPurchaseConfirm";
 import { toast } from "sonner";
 
 /* ─── design tokens ─── */
@@ -42,6 +44,8 @@ export default function BuyStars() {
   const [walletBalance, setWalletBalance]= useState(() => walletService.getCachedBalance());
   const [selected,      setSelected]     = useState<StarsPurchasePackage | null>(null);
   const [purchasing,    setPurchasing]   = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
+  const [purchaseKey, setPurchaseKey] = useState("");
 
   useEffect(() => {
     refreshStarsBalance().then(setStarsBalance).catch(() => {});
@@ -51,27 +55,27 @@ export default function BuyStars() {
   }, []);
 
   const handleBuy = async (pkg: StarsPurchasePackage) => {
-    setSelected(pkg);
+    setSelected(pkg); setPurchaseKey(newIdempotencyKey("stars"));
   };
 
-  const handleConfirm = async () => {
-    if (!selected) return;
+  const handleConfirm = () => { if (selected) setPinOpen(true); };
+  const purchase = async (pin: string) => {
+    if (!selected) return { success: false, error: "Choose a package" };
     setPurchasing(true);
-    await new Promise(r => setTimeout(r, 900));
-    const ok = await buyStarsWithWallet(selected.stars, selected.bonus, selected.price);
-    if (ok) {
+    try { return await buyStarsWithWallet(selected.stars, selected.bonus, selected.price, pin, purchaseKey); }
+    finally { setPurchasing(false); }
+  };
+  const completed = async () => {
+    if (!selected) return;
+    {
       setStarsBalance(getStarsBalance());
       walletService.getWalletBalance(true).then(d => {
         if (d.wallet) setWalletBalance(d.wallet.balance);
       }).catch(() => {});
       toast.success(`${(selected.stars + selected.bonus).toLocaleString()} Stars added to your account!`);
-      setSelected(null);
+      setPinOpen(false); setSelected(null);
       navigate("/gifts");
-    } else {
-      toast.error("Insufficient wallet balance. Please top up your wallet.");
-      setSelected(null);
     }
-    setPurchasing(false);
   };
 
   return (
@@ -391,6 +395,9 @@ export default function BuyStars() {
           </>
         )}
       </AnimatePresence>
+      {selected && <WalletPurchaseConfirm open={pinOpen} onClose={() => setPinOpen(false)}
+        summary={`Pay ${formatETB(selected.price)} ETB for ${(selected.stars + selected.bonus).toLocaleString()} Stars`}
+        purchase={purchase} onDone={() => void completed()} />}
     </div>
   );
 }
