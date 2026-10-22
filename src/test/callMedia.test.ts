@@ -121,4 +121,25 @@ describe('call media lifecycle', () => {
     expect(stream?.getTracks().every(t => t.readyState === 'ended')).toBe(true);
     expect(peer?.close).toHaveBeenCalledTimes(1);
   });
+
+  for (const kind of ['audio', 'video'] as const) {
+    it(`keeps ${kind} stopped when a superseded on request resolves after off`, async () => {
+      const { result } = renderHook(() => useWebRTC());
+      await act(async () => {
+        const stream = await result.current.getUserMedia('video');
+        await result.current.createPeerConnection(vi.fn()); result.current.addLocalTracks(stream);
+      });
+      let resolve: (s: MediaStream) => void = () => {};
+      mocks.media.mockReturnValueOnce(new Promise<MediaStream>(yes => { resolve = yes; }));
+      const pending = (kind === 'audio' ? result.current.setMicrophoneEnabled(true) : result.current.setCameraEnabled(true)).catch(() => null);
+      await act(async () => {
+        if (kind === 'audio') await result.current.setMicrophoneEnabled(false);
+        else await result.current.setCameraEnabled(false);
+      });
+      const track = new Track(kind);
+      await act(async () => { resolve(asStream(new Stream([track]))); await pending; });
+      expect(track.readyState).toBe('ended');
+      expect(result.current.state.localStream?.getTracks().filter(t => t.kind === kind)).toHaveLength(0);
+    });
+  }
 });
