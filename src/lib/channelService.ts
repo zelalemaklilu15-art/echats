@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_ACCESS_EVENT } from '@/lib/profileAccess';
 export interface Channel {
   id: string;
   name: string;
@@ -69,6 +70,13 @@ function writeJson<T>(key: string, value: T): void {
 
 export const CHANNELS_SYNC_EVENT = 'echat:channels-sync';
 const MIGRATED_KEY = 'echat_channels_migrated_v1';
+const senderIdentity = new Map<string, { viewer: string; name: string; checkedAt: number }>();
+let identityViewer: string | null = null;
+supabase.auth.onAuthStateChange((_event, session) => {
+  identityViewer = session?.user.id ?? null;
+  senderIdentity.clear();
+});
+window.addEventListener(PROFILE_ACCESS_EVENT, () => senderIdentity.clear());
 const emit = () => window.dispatchEvent(new Event(CHANNELS_SYNC_EVENT));
 const db = supabase as any;
 const bg = (p: PromiseLike<{ error: any }>, what: string) =>
@@ -128,8 +136,12 @@ export function syncChannels(): Promise<void> {
 
 /** Pull the posts of one channel from the server. */
 export async function syncChannelMessages(channelId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
   const { data, error } = await db.rpc('get_channel_posts_safe', { p_channel_id: channelId });
   if (error) { console.error('[channels] posts sync failed', error.message); return; }
+  if (identityViewer !== user.id) return;
+  for (const row of data ?? []) senderIdentity.set(row.id, { viewer: user.id, name: row.sender_name, checkedAt: Date.now() });
   // Persistent posts contain content only, never viewer-specific personal identity.
   writeJson(channelMessagesKey(channelId), (data ?? []).map((r: any) => ({ ...rowToMessage(r), senderName: 'Hidden profile' })));
   emit();
@@ -215,7 +227,10 @@ export function getSubscriberCount(channelId: string): number {
 }
 
 export function getChannelMessages(channelId: string): ChannelMessage[] {
-  return readJson<ChannelMessage[]>(channelMessagesKey(channelId), []).map(m => ({ ...m, senderName: 'Hidden profile' }));
+  return readJson<ChannelMessage[]>(channelMessagesKey(channelId), []).map(m => {
+    const identity = senderIdentity.get(m.id);
+    return { ...m, senderName: identity?.viewer === identityViewer && Date.now() - identity.checkedAt < 15000 ? identity.name : 'Hidden profile' };
+  });
 }
 
 export function sendChannelMessage(

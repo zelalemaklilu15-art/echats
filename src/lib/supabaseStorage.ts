@@ -91,7 +91,7 @@ const uploadFile = async (
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(path, file, {
-      cacheControl: '3600',
+      cacheControl: bucket === 'avatars' ? '0' : '3600',
       upsert: true,
     });
 
@@ -104,6 +104,10 @@ const uploadFile = async (
     onProgress({ percentage: 100, bytesTransferred: file.size, totalBytes: file.size });
   }
 
+  if (bucket === 'avatars') return {
+    url: `avatars/${data.path}`, path: data.path, name: file.name, size: file.size, type: file.type,
+  };
+
   // Get signed URL (1 hour expiry) for private buckets
   const { data: urlData, error: urlError } = await supabase.storage
     .from(bucket)
@@ -114,7 +118,7 @@ const uploadFile = async (
   }
 
   return {
-    url: bucket === 'avatars' ? `avatars/${data.path}` : urlData.signedUrl,
+    url: urlData.signedUrl,
     path: data.path,
     name: file.name,
     size: file.size,

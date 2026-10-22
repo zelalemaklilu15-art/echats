@@ -82,6 +82,12 @@ class ChatStore {
   private messages: Map<string, Message[]> = new Map();
   private profiles: Map<string, PublicProfile> = new Map();
   private profileCheckedAt: Map<string, number> = new Map();
+  constructor() {
+    window.addEventListener(PROFILE_ACCESS_EVENT, () => {
+      this.profiles.clear();
+      this.profileCheckedAt.clear();
+    });
+  }
   
   // Subscription state
   private chatListChannel: RealtimeChannel | null = null;

@@ -34,7 +34,8 @@ export function avatarObjectPath(source: string): string | null {
 
 const avatarObjects = new Set<string>();
 let identityGeneration = 0;
-supabase.auth.onAuthStateChange(() => {
+supabase.auth.onAuthStateChange(event => {
+  if (event === 'TOKEN_REFRESHED') return;
   identityGeneration += 1;
   avatarObjects.forEach(url => URL.revokeObjectURL(url));
   avatarObjects.clear();
@@ -61,9 +62,10 @@ export async function getAccessProfiles(ids: string[]): Promise<AccessProfile[]>
   if (error) throw error;
   if (generation !== identityGeneration) return unique.map(hiddenProfile);
   const rows = (Array.isArray(data) ? data : []) as unknown as AccessProfile[];
-  return Promise.all(rows.map(async row => ({ ...row,
+  const resolved = await Promise.all(rows.map(async row => ({ ...row,
     avatar_url: row.profile_hidden ? null : await resolveProfileAvatar(row.avatar_url),
   })));
+  return generation === identityGeneration ? resolved : unique.map(hiddenProfile);
 }
 
 export async function getAccessProfile(id: string): Promise<AccessProfile | null> {
@@ -74,11 +76,9 @@ export async function searchAccessProfiles(term: string): Promise<AccessProfile[
   if (term.replace(/^@/, '').trim().length < 3) return [];
   const { data, error } = await supabase.rpc('search_users_public', { search_term: term });
   if (error) throw error;
-  return Promise.all((data ?? []).map(async row => {
-    // The guarded lookup determines visibility, not a magic display-name value.
-    const profile = await getAccessProfile(row.id);
-    return { ...(profile ?? hiddenProfile(row.id)), username: row.username };
-  }));
+  const profiles = await getAccessProfiles((data ?? []).map(row => row.id));
+  const byId = new Map(profiles.map(p => [p.id, p]));
+  return (data ?? []).map(row => ({ ...(byId.get(row.id) ?? hiddenProfile(row.id)), username: row.username }));
 }
 
 /** Saving a contact authorizes that person to see OUR identity, not theirs. */
