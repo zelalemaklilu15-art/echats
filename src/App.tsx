@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import PageTransition from "./components/PageTransition";
 import { usePresence } from "@/hooks/usePresence";
 import { useAppPushNotifications } from "@/hooks/useAppPushNotifications";
-import logoImage from "@/assets/echat-logo.jpg";
+import logoImage from "@/assets/echat-logo.png";
 import { CallProvider } from "@/contexts/CallContext";
 import { CallOverlay } from "@/components/call/CallOverlay";
 import { DevHealthBanner } from "@/components/dev/DevHealthBanner";

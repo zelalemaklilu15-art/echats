@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import logoImage from "@/assets/echat-logo.jpg";
+import logoImage from "@/assets/echat-logo.png";
 
 const Splash = () => {
   const navigate = useNavigate();
