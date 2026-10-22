@@ -11,3 +11,12 @@
 - [ ] Restyle all routed page families and feature-specific components.
 - [ ] Verify mobile layouts, routes, interactions, typecheck, tests, and production build.
 - [ ] Report any Android SDK-only checks that still require a local device build.
+## A-Z audit (step by step)
+- [x] 1. General health: tests, errors (presence offline-on-leave fixed, denied-notification noise quieted)
+- [ ] 2. Sign-in & account
+- [ ] 3. Chat
+- [ ] 4. Calls
+- [ ] 5. Wallet
+- [ ] 6. eTok, Stories, Channels
+- [ ] 7. Notifications & privacy
+- [ ] 8. Design & mobile
