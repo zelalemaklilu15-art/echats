@@ -49,6 +49,7 @@ const TransactionReceipt = () => {
   const completed = tx.status === "completed";
   const pending = tx.status === "pending";
   const StatusIcon = completed ? Check : pending ? Clock : AlertCircle;
+  const statusToken = completed ? "--cosmic-mint" : pending ? "--tertiary" : "--destructive";
   const shortRef   = "TXN" + tx.transactionId.slice(-10).toUpperCase();
   const maskedWallet = `Wallet (**** ${tx.transactionId.slice(-4).toUpperCase()})`;
 
@@ -114,18 +115,18 @@ const TransactionReceipt = () => {
           {/* Green checkmark circle */}
           <div style={{
             width: 64, height: 64, borderRadius: "50%",
-            background: "hsl(var(--cosmic-mint) / 0.18)",
-            border: "2px solid hsl(var(--cosmic-mint) / 0.35)",
+            background: `hsl(var(${statusToken}) / 0.18)`,
+            border: `2px solid hsl(var(${statusToken}) / 0.35)`,
             display: "flex", alignItems: "center", justifyContent: "center",
             marginBottom: 14,
-            boxShadow: "0 0 28px hsl(var(--cosmic-mint) / 0.18)",
+            boxShadow: `0 0 28px hsl(var(${statusToken}) / 0.18)`,
           }}>
             <StatusIcon className={completed ? "text-cosmic-mint" : pending ? "text-tertiary" : "text-destructive"} size={28} />
           </div>
 
           {/* PAYMENT SUCCESSFUL */}
           <p style={{
-            color: "hsl(var(--cosmic-mint))", fontWeight: 700, fontSize: 12,
+            color: `hsl(var(${statusToken}))`, fontWeight: 700, fontSize: 12,
             letterSpacing: "0.18em", textTransform: "uppercase",
             marginBottom: 18,
           }}>{completed ? "Payment Successful" : pending ? "Awaiting Confirmation" : "Payment " + tx.status}</p>

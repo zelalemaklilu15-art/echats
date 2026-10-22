@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { isUserOnline } from "@/lib/formatLastSeen";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Search, Loader2, X, Check, AlertCircle, QrCode, Home, CreditCard, History, User, Clock, Shield, Send as SendIcon, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -95,7 +95,8 @@ const SendMoney = () => {
   const [resetOpen, setResetOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [pendingPin, setPendingPin] = useState("");
-  const [txKey, setTxKey] = useState(() => newIdempotencyKey("transfer"));
+  const operations = useRef(new Map<string, string>());
+  const submitting = useRef(false);
   const location = useLocation();
   const prefill = (location.state as any)?.prefill;
   const requestId: string | undefined = prefill?.requestId;
@@ -114,9 +115,13 @@ const SendMoney = () => {
   };
 
   const doTransfer = async (pin: string) => {
-    if (!selected) return;
+    if (!selected || submitting.current) return;
+    submitting.current = true;
     setSending(true); setPinError("");
     try {
+      const payload = JSON.stringify([selected.id, numeric, note, requestId]);
+      const txKey = operations.current.get(payload) ?? newIdempotencyKey("transfer");
+      operations.current.set(payload, txKey);
       const result = await walletService.transfer(selected.id, numeric, note || undefined, txKey, pin, requestId);
       if (result.success && result.transaction) {
         setPinOpen(false);
@@ -134,7 +139,7 @@ const SendMoney = () => {
         // Keep the operation key on ambiguous failures so retry cannot double-debit.
       }
     } catch { setPinOpen(false); toast.error("Failed. Please try again."); }
-    finally { setSending(false); }
+    finally { submitting.current = false; setSending(false); }
   };
 
   const back = () => {
