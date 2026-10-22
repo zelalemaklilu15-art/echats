@@ -50,6 +50,13 @@
       "when": 1792648104157,
       "tag": "0006_strict_profile_access",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792648302019,
+      "tag": "0007_profile_identity_safe_delivery",
+      "breakpoints": true
     }
   ]
 }

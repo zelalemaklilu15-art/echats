@@ -1078,6 +1078,7 @@ export type Database = {
       etok_sounds: {
         Row: {
           audio_url: string | null
+          author_id: string | null
           author_name: string
           cover_emoji: string
           created_at: string
@@ -1089,6 +1090,7 @@ export type Database = {
         }
         Insert: {
           audio_url?: string | null
+          author_id?: string | null
           author_name: string
           cover_emoji?: string
           created_at?: string
@@ -1100,6 +1102,7 @@ export type Database = {
         }
         Update: {
           audio_url?: string | null
+          author_id?: string | null
           author_name?: string
           cover_emoji?: string
           created_at?: string
@@ -2257,6 +2260,7 @@ export type Database = {
       }
       get_or_create_etok_coins: { Args: never; Returns: number }
       get_profile_access_state: { Args: { p_subject: string }; Returns: string }
+      get_profiles_safe: { Args: { p_ids: string[] }; Returns: Json }
       get_public_profile: {
         Args: { profile_id: string }
         Returns: {
