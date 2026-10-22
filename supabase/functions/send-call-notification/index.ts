@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     const callTypeText = callType === 'video' ? 'Video' : 'Voice';
     const result = await sendPushToUser(receiverId, {
       title: `Incoming ${callTypeText} Call`,
-      body: `${callerName} is calling you`,
+      body: callerName === 'Hidden profile' ? 'Incoming call' : `${callerName} is calling you`,
       tag: 'incoming-call',
       highPriority: true,
       url: '/',

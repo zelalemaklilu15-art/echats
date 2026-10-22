@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
         const senderName = await permittedName(memberId);
         const res = await sendPushToUser(memberId, {
           title: group?.name ? `${group.name}` : 'New group message',
-          body: `${senderName}: ${preview || 'sent a message'}`,
+          body: senderName === 'Hidden profile' ? 'New group message' : `${senderName}: ${preview || 'sent a message'}`,
           tag: `group-${body.groupId}`,
           url: body.url ?? `/group/${body.groupId}`,
           data: { type: 'group_message', groupId: body.groupId, senderId },
@@ -141,9 +141,11 @@ Deno.serve(async (req) => {
       payment_request: `💸 Payment request from ${senderName}`,
     };
 
+    const hidden = senderName === 'Hidden profile';
+    const generic: Record<string, string> = { direct_message: 'New message', gift: 'New gift', story: 'New story', payment_request: 'Payment request' };
     const result = await sendPushToUser(receiverId, {
-      title: titles[kind as Exclude<Kind, 'group_message'>],
-      body: preview || 'Open Echat to see more',
+      title: hidden ? 'Echat' : titles[kind as Exclude<Kind, 'group_message'>],
+      body: hidden ? generic[kind] : (preview || 'Open Echat to see more'),
       tag: `${kind}-${senderId}`,
       url: body.url ?? '/',
       data: { type: kind, senderId },
