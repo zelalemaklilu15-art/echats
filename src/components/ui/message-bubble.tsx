@@ -20,6 +20,8 @@ import { MessageReactions } from "@/components/chat/MessageReactions";
 import { addReaction } from "@/lib/reactionService";
 import { translateMessage, getTranslation, LANGUAGES, getPreferredLanguage, setPreferredLanguage } from "@/lib/translationService";
 import LocationCard from "@/components/chat/LocationCard";
+import { resolveFeatureMedia } from '@/lib/featureMedia';
+import { useViewerEpoch } from '@/hooks/useViewerEpoch';
 
 const SPEEDS = [1, 1.5, 2] as const;
 
@@ -228,6 +230,17 @@ export function MessageBubble({
   const [showLangPicker, setShowLangPicker] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const viewerEpoch = useViewerEpoch();
+  const [resolvedMedia, setResolvedMedia] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setResolvedMedia(null); setMediaError(false); setImageLoaded(false);
+    if (mediaUrl) void resolveFeatureMedia(mediaUrl, 'chat-media')
+      .then(url => { if (active) { setResolvedMedia(url); setMediaError(!url); } })
+      .catch(() => { if (active) setMediaError(true); });
+    return () => { active = false; };
+  }, [mediaUrl, viewerEpoch]);
 
   useEffect(() => {
     if (messageId) {
@@ -339,6 +352,7 @@ export function MessageBubble({
   };
 
   const renderContent = () => {
+    if (type !== 'text' && mediaError) return <p role="alert" className="text-sm text-muted-foreground">Attachment unavailable</p>;
     switch (type) {
       case "image":
         return (
@@ -349,21 +363,23 @@ export function MessageBubble({
               </div>
             )}
             <img
-              src={mediaUrl}
+              src={resolvedMedia ?? undefined}
               alt="Shared image"
               className={cn(
                 "max-w-48 rounded-lg cursor-pointer hover:opacity-90 transition-opacity",
                 !imageLoaded && "hidden"
               )}
               onLoad={() => setImageLoaded(true)}
-              onClick={() => !showContextMenu && mediaUrl && window.open(mediaUrl, '_blank')}
+              onError={() => setMediaError(true)}
+              onClick={() => !showContextMenu && resolvedMedia && window.open(resolvedMedia, '_blank')}
             />
           </div>
         );
       case "file":
         return (
           <a
-            href={mediaUrl}
+            href={resolvedMedia ?? undefined}
+            download={fileName}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center space-x-2 p-2 bg-background/10 rounded-lg hover:bg-background/20 transition-colors"
@@ -377,7 +393,7 @@ export function MessageBubble({
           </a>
         );
       case "voice":
-        return <VoicePlayer mediaUrl={mediaUrl || ""} isOwn={isOwn} />;
+        return resolvedMedia ? <VoicePlayer mediaUrl={resolvedMedia} isOwn={isOwn} /> : <Loader2 className="h-5 w-5 animate-spin" />;
       default: {
         const locationMatch = message.match(/\[location:(-?\d+\.?\d*),(-?\d+\.?\d*)\]/);
         if (locationMatch) {

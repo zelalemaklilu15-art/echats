@@ -38,7 +38,7 @@ export interface StoryGroup {
 let generation = 0;
 window.addEventListener(PROFILE_ACCESS_EVENT, () => { generation += 1; });
 export async function hydrateStories(rows: Story[]): Promise<Story[]> {
-  return Promise.all(rows.map(async row => ({ ...row, media_url: await resolveFeatureMedia(row.media_path ? `chat-media/${row.media_path}` : row.media_url, 'chat-media') })));
+  return Promise.all(rows.map(async row => ({ ...row, media_url: await resolveFeatureMedia(row.media_path ? `chat-media/${row.media_path}` : row.media_url, 'chat-media', new Date(row.expires_at).getTime()) })));
 }
 export async function getActiveStories(): Promise<Story[]> {
   const started = generation;

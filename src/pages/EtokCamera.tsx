@@ -135,7 +135,7 @@ const EtokCamera = () => {
   };
 
   const [sounds, setSounds] = useState<EtokSound[]>([]);
-  useEffect(() => { fetchAllSounds().then(setSounds); }, []);
+  useEffect(() => { let active = true; void fetchAllSounds().then(sounds => { if (active) setSounds(sounds); }).catch(() => { if (active) toast.error('Could not load sounds'); }); return () => { active = false; }; }, []);
 
   const startCamera = useCallback(async () => {
     const generation = ++cameraGeneration.current;

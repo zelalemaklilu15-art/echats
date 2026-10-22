@@ -113,6 +113,20 @@
       "when": 1792665959963,
       "tag": "0015_stage6_legacy_policy_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792666968555,
+      "tag": "0016_stage6_attachment_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792667122911,
+      "tag": "0017_stage6_video_insert_readback",
+      "breakpoints": true
     }
   ]
 }

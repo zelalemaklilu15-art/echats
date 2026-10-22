@@ -23,7 +23,7 @@ export function useEtokLiveBroadcast({ streamId, userId, isHost, hostId }: Broad
       if (isHost) {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 720 },height: { ideal: 1280 },facingMode: 'user' },audio: true });
         if (!active) { stream.getTracks().forEach(t => t.stop()); return null; }
-        local = stream; attach(stream); setIsConnected(true);
+        local = stream; attach(stream);
       }
       return iceServers;
     })();
@@ -37,7 +37,15 @@ export function useEtokLiveBroadcast({ streamId, userId, isHost, hostId }: Broad
       peers.get(id)?.close();
       const pc = new RTCPeerConnection({ iceServers }); peers.set(id,pc);
       pc.onicecandidate = event => { if (active && peers.get(id) === pc && event.candidate) void send(id,'ice',event.candidate.toJSON()).catch(report); };
-      pc.onconnectionstatechange = () => { if (!active || peers.get(id) !== pc) return; if (pc.connectionState === 'failed') { setIsConnected(false); report(); } };
+      pc.onconnectionstatechange = () => {
+        if (!active || peers.get(id) !== pc) return;
+        if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          const failed = pc.connectionState === 'failed';
+          peers.delete(id); candidates.delete(id); pc.close();
+          if (!isHost) setIsConnected(false);
+          if (failed) report();
+        }
+      };
       return pc;
     };
     const unsubscribe = subscribeToWebRTCSignals(userId, signal => {
@@ -65,7 +73,7 @@ export function useEtokLiveBroadcast({ streamId, userId, isHost, hostId }: Broad
         } else if (!isHost && signal.signalType === 'offer') {
           const pc = createPeer(id,iceServers);
           const remote = new MediaStream(); attach(remote);
-          pc.ontrack = event => { if (!active || peers.get(id) !== pc) return; remote.addTrack(event.track); attach(remote); setIsConnected(true); };
+          pc.ontrack = event => { if (!active || peers.get(id) !== pc) return; remote.addTrack(event.track); attach(remote); };
           await pc.setRemoteDescription(signal.payload); if (!active || peers.get(id) !== pc) return;
           await flush(id,pc);
           const answer = await pc.createAnswer(); if (!active || peers.get(id) !== pc) return;
@@ -81,5 +89,6 @@ export function useEtokLiveBroadcast({ streamId, userId, isHost, hostId }: Broad
       if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [streamId,userId,isHost,hostId]);
-  return { videoRef,error,isConnected };
+  const onPlaying = () => { if (videoRef.current?.srcObject && videoRef.current.readyState >= 2) setIsConnected(true); };
+  return { videoRef,error,isConnected,onPlaying };
 }

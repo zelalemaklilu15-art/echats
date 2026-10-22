@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getAccessProfile, PROFILE_ACCESS_EVENT } from '@/lib/profileAccess';
 import type { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import { shouldSendReadReceipts, shouldShowTyping } from '@/lib/ghostModeService';
+import { persistentMediaReference } from '@/lib/featureMedia';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -120,6 +121,12 @@ class ChatStore {
   async initialize(userId: string): Promise<boolean> {
     const isSameUser = this.currentUserId === userId;
     if (!isSameUser) { this.profiles.clear(); this.profileCheckedAt.clear(); }
+    // Old unscoped caches may contain expiring bearer URLs; durable messages remain on the server.
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('echat_cache_msgs_')) localStorage.removeItem(key);
+      }
+    } catch {}
 
     // If we're already initialized for this user and have an active subscription + data,
     // avoid doing work. (Important: if we previously failed and chats are still empty,
@@ -317,15 +324,19 @@ class ChatStore {
   // =============================================
 
   async loadMessages(chatId: string, forceRefresh = false, limit = 50, offset = 0): Promise<Message[]> {
+    const viewer = this.currentUserId;
+    if (!viewer) return [];
+    const storageKey = `echat_messages:${viewer}:${chatId}`;
     // Return cached if available and not forcing refresh and not paginating
     if (!forceRefresh && offset === 0 && this.messages.has(chatId)) {
       return this.messages.get(chatId)!;
     }
 
     const cachedFallback = (): Message[] => {
+      if (viewer !== this.currentUserId) return [];
       if (this.messages.has(chatId)) return this.messages.get(chatId)!;
       try {
-        const stored = localStorage.getItem(`echat_cache_msgs_${chatId}`);
+        const stored = localStorage.getItem(storageKey);
         if (stored) return JSON.parse(stored) as Message[];
       } catch {}
       return [];
@@ -341,6 +352,7 @@ class ChatStore {
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1);
 
+        if (viewer !== this.currentUserId) return [];
         if (error) {
           if (isAbortError(error)) {
             if (attempt < MAX_ABORT_RETRIES) {
@@ -368,7 +380,9 @@ class ChatStore {
           this.messages.set(chatId, merged);
         } else {
           this.messages.set(chatId, messages);
-          try { localStorage.setItem(`echat_cache_msgs_${chatId}`, JSON.stringify(messages.slice(-100))); } catch {}
+          try { localStorage.setItem(storageKey, JSON.stringify(messages.slice(-100).map(message => ({
+            ...message, media_url: persistentMediaReference(message.media_url, 'chat-media'),
+          })))); } catch {}
         }
         
         this.lastSyncTimes.messages = new Date();

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import { resolveProfileAvatar } from '@/lib/profileAccess';
+import { resolveFeatureMedia } from '@/lib/featureMedia';
 
 export interface UploadResult {
   url: string;
@@ -105,8 +106,8 @@ const uploadFile = async (
     onProgress({ percentage: 100, bytesTransferred: file.size, totalBytes: file.size });
   }
 
-  if (bucket === 'avatars') return {
-    url: `avatars/${data.path}`, path: data.path, name: file.name, size: file.size, type: file.type,
+  if (bucket === 'avatars' || bucket === 'chat-media') return {
+    url: `${bucket}/${data.path}`, path: data.path, name: file.name, size: file.size, type: file.type,
   };
 
   // Get signed URL (1 hour expiry) for private buckets
@@ -141,6 +142,11 @@ export const getFileUrl = async (bucket: string, path: string): Promise<string> 
   if (bucket === 'avatars') {
     const url = await resolveProfileAvatar(`avatars/${path}`);
     if (!url) throw new Error('Profile photo unavailable');
+    return url;
+  }
+  if (bucket === 'chat-media') {
+    const url = await resolveFeatureMedia(`chat-media/${path}`, bucket);
+    if (!url) throw new Error('Attachment unavailable');
     return url;
   }
   const { data, error } = await supabase.storage

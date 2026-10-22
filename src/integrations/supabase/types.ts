@@ -2350,6 +2350,7 @@ export type Database = {
             }[]
           }
       can_comment_etok: { Args: { p_id: string }; Returns: boolean }
+      can_read_chat_attachment: { Args: { p_name: string }; Returns: boolean }
       can_read_etok_media: { Args: { p_name: string }; Returns: boolean }
       can_read_profile: { Args: { p_subject: string }; Returns: boolean }
       can_read_story_media: { Args: { p_name: string }; Returns: boolean }
@@ -2359,6 +2360,7 @@ export type Database = {
       }
       can_view_etok_video: { Args: { p_id: string }; Returns: boolean }
       can_view_story: { Args: { p_id: string }; Returns: boolean }
+      chat_attachment_path: { Args: { p_source: string }; Returns: string }
       check_wallet_device: { Args: { p_device_id: string }; Returns: string }
       consume_ai_quota: {
         Args: { p_user_id: string }
@@ -2377,6 +2379,7 @@ export type Database = {
           success: boolean
         }[]
       }
+      decode_attachment_path: { Args: { p_path: string }; Returns: string }
       etok_are_friends: {
         Args: { p_owner: string; p_viewer: string }
         Returns: boolean

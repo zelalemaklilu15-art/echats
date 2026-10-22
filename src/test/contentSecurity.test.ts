@@ -21,12 +21,15 @@ beforeAll(async()=>{
  await db.exec(readFileSync('drizzle/migrations/0013_stage6_content_authorization.sql','utf8'));
  await db.exec(readFileSync('drizzle/migrations/0014_stage6_media_and_live_guards.sql','utf8'));
  await db.exec(readFileSync('drizzle/migrations/0015_stage6_legacy_policy_cleanup.sql','utf8'));
+ await db.exec(readFileSync('drizzle/migrations/0016_stage6_attachment_access.sql','utf8'));
+ await db.exec(readFileSync('drizzle/migrations/0017_stage6_video_insert_readback.sql','utf8'));
 },30000);
 beforeEach(async()=>{
  await db.exec(`RESET ROLE;SELECT set_config('request.jwt.claim.sub','',false);
  DELETE FROM public.etok_videos;DELETE FROM public.etok_follows;DELETE FROM public.etok_blocked_users;DELETE FROM public.etok_privacy_settings;
  DELETE FROM public.user_stories;DELETE FROM public.story_close_friends;DELETE FROM public.profile_contacts;DELETE FROM storage.objects;
  DELETE FROM public.etok_live_streams;DELETE FROM public.channels;
+ DELETE FROM public.messages; DELETE FROM public.group_messages; DELETE FROM public.group_members;
  INSERT INTO public.etok_videos(id,author_id,video_url,description,hashtags) VALUES('${V}','${A}','etok-videos/${A}/v.mp4','test',ARRAY['coffee']),('${W}','${A}','etok-videos/${A}/w.mp4','other',ARRAY['other']);
  INSERT INTO public.user_stories(id,user_id,content) VALUES('${S}','${A}','{"text":"hello","privacy":"contacts"}');
  INSERT INTO public.etok_live_streams(id,host_id,title) VALUES('${L}','${A}','test');
@@ -36,6 +39,30 @@ beforeEach(async()=>{
 });
 afterAll(async()=>{await db?.close();});
 describe('Stage 6 actual database rules',()=>{
+ it('a private video INSERT returns the new row only to its author',async()=>{
+   const inserted=(await asUser(B,`INSERT INTO public.etok_videos(author_id,video_url,privacy) VALUES('${B}','etok-videos/${B}/new.webm','only_me') RETURNING id,author_id,privacy`)).rows as {id:string;author_id:string;privacy:string}[];
+   expect(inserted).toHaveLength(1);expect(inserted[0].author_id).toBe(B);expect(inserted[0].privacy).toBe('only_me');
+   expect(await visible(C,'etok_videos',inserted[0].id)).toBe(0);
+ });
+ it('chat recipient can read the exact referenced attachment, not an unreferenced sibling or stranger file',async()=>{
+   await db.exec(`INSERT INTO storage.objects VALUES('chat-media','${A}/chat/photo.jpg'),('chat-media','${A}/chat/private.jpg');INSERT INTO public.messages(sender_id,receiver_id,media_url) VALUES('${A}','${B}','chat-media/${A}/chat/photo.jpg')`);
+   expect((await asUser(B,`SELECT name FROM storage.objects WHERE bucket_id='chat-media'`)).rows).toEqual([{name:`${A}/chat/photo.jpg`}]);
+   expect((await asUser(C,`SELECT name FROM storage.objects WHERE bucket_id='chat-media'`)).rows).toEqual([]);
+ });
+ it('expired signed attachment references and encoded filenames resolve to the exact stored object',async()=>{
+   await db.exec(`INSERT INTO storage.objects VALUES('chat-media','${A}/chat/my file.jpg');INSERT INTO public.messages(sender_id,receiver_id,media_url) VALUES('${A}','${B}','https://example.test/storage/v1/object/sign/chat-media/${A}/chat/my%20file.jpg?token=expired')`);
+   expect((await asUser(B,`SELECT name FROM storage.objects WHERE bucket_id='chat-media'`)).rows).toEqual([{name:`${A}/chat/my file.jpg`}]);
+ });
+ it('group attachment access ends when a viewer leaves the group',async()=>{
+   await db.exec(`INSERT INTO storage.objects VALUES('chat-media','${A}/group/photo.jpg');INSERT INTO public.group_messages(group_id,sender_id,media_url) VALUES('${L}','${A}','chat-media/${A}/group/photo.jpg');INSERT INTO public.group_members VALUES('${L}','${B}')`);
+   expect((await asUser(B,`SELECT name FROM storage.objects WHERE bucket_id='chat-media'`)).rows).toHaveLength(1);
+   await db.exec(`DELETE FROM public.group_members WHERE user_id='${B}'`);
+   expect((await asUser(B,`SELECT name FROM storage.objects WHERE bucket_id='chat-media'`)).rows).toHaveLength(0);
+ });
+ it('forwarded Story media never becomes an unrestricted chat attachment',async()=>{
+   await db.exec(`UPDATE public.user_stories SET media_path='stories/${A}/s.jpg' WHERE id='${S}';INSERT INTO public.messages(sender_id,receiver_id,media_url) VALUES('${A}','${B}','chat-media/stories/${A}/s.jpg')`);
+   expect((await asUser(B,`SELECT name FROM storage.objects WHERE bucket_id='chat-media'`)).rows).toHaveLength(0);
+ });
  it('only-me video blocks metadata and managed media',async()=>{
   await db.exec(`UPDATE public.etok_videos SET privacy='only_me' WHERE id='${V}'`);
   expect(await visible(B,'etok_videos',V)).toBe(0);expect(await visible(A,'etok_videos',V)).toBe(1);
