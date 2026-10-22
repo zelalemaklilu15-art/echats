@@ -86,6 +86,8 @@ const CtrlBtn = ({
       whileTap={{ scale: 0.86 }}
       onClick={onPress}
       disabled={disabled}
+      aria-label={label}
+      title={label}
       className={cn(
         "rounded-full flex items-center justify-center transition-all select-none",
         large ? "w-[70px] h-[70px]" : "w-[58px] h-[58px]",
