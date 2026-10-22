@@ -109,6 +109,7 @@ export const useWebRTC = () => {
   const cameraEnabledRef = useRef(true);
   const microphoneEnabledRef = useRef(true);
   const mediaOperationRef = useRef({ audio: 0, video: 0 });
+  const pendingCaptureRef = useRef<{ audio: MediaStream | null; video: MediaStream | null }>({ audio: null, video: null });
   const replacementQueueRef = useRef<{ audio: Promise<void>; video: Promise<void> }>({ audio: Promise.resolve(), video: Promise.resolve() });
 
   const [state, setState] = useState<WebRTCState>({
@@ -454,6 +455,8 @@ export const useWebRTC = () => {
 
   // ---- Track replacement helpers ---------------------------------------
   const beginMediaOperation = useCallback((kind: 'audio' | 'video') => {
+    pendingCaptureRef.current[kind]?.getTracks().forEach(track => track.stop());
+    pendingCaptureRef.current[kind] = null;
     const generation = generationRef.current;
     const operation = ++mediaOperationRef.current[kind];
     return () => generation === generationRef.current && operation === mediaOperationRef.current[kind];
@@ -499,6 +502,7 @@ export const useWebRTC = () => {
   const commitCapturedTrack = useCallback(async (kind: 'audio' | 'video', stream: MediaStream, isCurrent: () => boolean) => {
     try {
       if (!isCurrent()) throw new DOMException('Media request superseded', 'AbortError');
+      pendingCaptureRef.current[kind] = stream;
       const track = kind === 'audio' ? stream.getAudioTracks()[0] : stream.getVideoTracks()[0];
       if (!track) throw new DOMException('No capture track available', 'NotFoundError');
       await replaceOutgoingTrack(kind, track, isCurrent);
@@ -508,6 +512,8 @@ export const useWebRTC = () => {
     } catch (error) {
       stream.getTracks().forEach(track => track.stop());
       throw error;
+    } finally {
+      if (pendingCaptureRef.current[kind] === stream) pendingCaptureRef.current[kind] = null;
     }
   }, [replaceOutgoingTrack, swapLocalTrack]);
 
@@ -615,6 +621,7 @@ export const useWebRTC = () => {
 
   // ---- Screen sharing ---------------------------------------------------
   const stopScreenShare = useCallback(async () => {
+    const isCurrent = beginMediaOperation('video');
     const screenTrack = screenTrackRef.current;
     if (screenTrack) {
       screenTrack.onended = null;
@@ -635,36 +642,44 @@ export const useWebRTC = () => {
       }
     }
 
-    if (cameraTrack) cameraTrack.enabled = cameraEnabledRef.current;
-    await replaceOutgoingTrack('video', cameraTrack);
-    swapLocalTrack('video', cameraTrack);
-    setIsScreenSharing(false);
-  }, [acquireMedia, replaceOutgoingTrack, swapLocalTrack]);
+    if (!isCurrent()) { cameraTrack?.stop(); return; }
+    if (cameraTrack && cameraEnabledRef.current) {
+      cameraTrack.enabled = true;
+      await commitCapturedTrack('video', new MediaStream([cameraTrack]), isCurrent);
+    } else {
+      cameraTrack?.stop();
+      await replaceOutgoingTrack('video', null, isCurrent);
+      if (isCurrent()) swapLocalTrack('video', null);
+    }
+    if (isCurrent()) setIsScreenSharing(false);
+  }, [acquireMedia, beginMediaOperation, commitCapturedTrack, replaceOutgoingTrack, swapLocalTrack]);
 
   const startScreenShare = useCallback(async () => {
-    const generation = generationRef.current;
+    const isCurrent = beginMediaOperation('video');
     const display = await navigator.mediaDevices.getDisplayMedia({
       video: { frameRate: { ideal: 30 }, width: { ideal: 1920 }, height: { ideal: 1080 } },
       audio: false,
     });
-    if (generation !== generationRef.current) {
+    if (!isCurrent()) {
       display.getTracks().forEach(track => track.stop());
       throw new DOMException('Call cancelled', 'AbortError');
     }
     const track = display.getVideoTracks()[0];
+    if (!track) { display.getTracks().forEach(t => t.stop()); return; }
     screenTrackRef.current = track;
     cameraTrackBeforeShareRef.current = localStreamRef.current?.getVideoTracks()[0] ?? null;
     // Pause (not stop) the camera so it can be restored instantly.
     cameraTrackBeforeShareRef.current && (cameraTrackBeforeShareRef.current.enabled = false);
 
-    await replaceOutgoingTrack('video', track);
+    await replaceOutgoingTrack('video', track, isCurrent);
+    if (!isCurrent()) { track.stop(); return; }
     swapLocalTrack('video', track);
     setIsScreenSharing(true);
 
     track.onended = () => {
       stopScreenShare();
     };
-  }, [replaceOutgoingTrack, swapLocalTrack, stopScreenShare]);
+  }, [beginMediaOperation, replaceOutgoingTrack, swapLocalTrack, stopScreenShare]);
 
   const toggleScreenShare = useCallback(async () => {
     if (isScreenSharing) await stopScreenShare();
@@ -676,6 +691,9 @@ export const useWebRTC = () => {
     generationRef.current += 1;
     mediaOperationRef.current.audio += 1;
     mediaOperationRef.current.video += 1;
+    pendingCaptureRef.current.audio?.getTracks().forEach(track => track.stop());
+    pendingCaptureRef.current.video?.getTracks().forEach(track => track.stop());
+    pendingCaptureRef.current = { audio: null, video: null };
     replacementQueueRef.current = { audio: Promise.resolve(), video: Promise.resolve() };
     stopStatsMonitor();
 

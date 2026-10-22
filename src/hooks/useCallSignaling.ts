@@ -87,36 +87,44 @@ export const useCallSignaling = (userId: string | null) => {
 
   // ---- Inbound (listening) channel -------------------------------------
   const createChannel = useCallback((uid: string) => {
+    const generation = generationRef.current;
+    const isCurrent = () => generation === generationRef.current && activeUserRef.current === uid && subscribedUserRef.current === uid;
     const channel = supabase.channel(`calls:${uid}`, {
       config: { broadcast: { self: false, ack: true } },
     });
 
     channel
       .on('broadcast', { event: 'call_offer' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Received call offer');
         callbacksRef.current.onIncomingCall?.(payload as CallOffer);
       })
       .on('broadcast', { event: 'call_answer' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Received call answer');
         callbacksRef.current.onCallAnswer?.(payload as CallAnswer);
       })
       .on('broadcast', { event: 'ice_candidate' }, ({ payload }) => {
+        if (!isCurrent()) return;
         callbacksRef.current.onIceCandidate?.(payload as IceCandidate);
       })
       .on('broadcast', { event: 'call_offer_ack' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Offer acknowledged');
         callbacksRef.current.onOfferAck?.((payload as { roomId: string })?.roomId);
       })
       .on('broadcast', { event: 'call_state' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Received call state:', (payload as CallStateEvent)?.type);
         callbacksRef.current.onCallStateChange?.(payload as CallStateEvent);
       })
       .subscribe((status) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Inbound channel status:', status);
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = setTimeout(() => {
-            if (subscribedUserRef.current !== uid) return;
+            if (!isCurrent()) return;
             console.log('[Signaling] Reconnecting inbound channel...');
             if (channelRef.current) {
               supabase.removeChannel(channelRef.current);

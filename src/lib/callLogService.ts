@@ -170,12 +170,8 @@ class CallLogService {
   // Subscribe to new call logs for the current user
   subscribeToCallLogs(
     userId: string,
-    onNewLog: (log: CallLog) => void
+    onChange: () => void
   ): () => void {
-    const emit = (payload: { new: unknown }) => {
-      const log = payload.new as CallLog;
-      onNewLog({ ...log, call_type: log.call_type as CallType, status: log.status as CallLog['status'] });
-    };
     const channel = supabase
       .channel(`call_logs:${userId}`)
       .on(
@@ -186,17 +182,17 @@ class CallLogService {
           table: 'call_logs',
           filter: `receiver_id=eq.${userId}`,
         },
-        emit,
+        onChange,
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'call_logs', filter: `caller_id=eq.${userId}` },
-        emit,
+        onChange,
       )
       .subscribe();
 
     // A mounted history must also re-resolve identities after authorization changes.
-    const refresh = () => onNewLog({} as CallLog);
+    const refresh = () => onChange();
     window.addEventListener(PROFILE_ACCESS_EVENT, refresh);
     window.addEventListener('focus', refresh);
 
