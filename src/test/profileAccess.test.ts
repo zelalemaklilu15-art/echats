@@ -62,11 +62,12 @@ beforeAll(async () => {
   await db.exec(readFileSync('drizzle/migrations/0006_strict_profile_access.sql', 'utf8'));
   await db.exec(readFileSync('drizzle/migrations/0007_profile_identity_safe_delivery.sql', 'utf8'));
   await db.exec(readFileSync('drizzle/migrations/0008_profile_snapshot_grants.sql', 'utf8'));
+  await db.exec(readFileSync('drizzle/migrations/0009_notification_privacy.sql', 'utf8'));
 }, 30000);
 
 beforeEach(async () => {
   await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claim.sub','',false);
-    DELETE FROM public.profile_contacts; DELETE FROM public.messages; DELETE FROM public.chats;
+    DELETE FROM public.profile_contacts; DELETE FROM public.notification_privacy; DELETE FROM public.messages; DELETE FROM public.chats;
     DELETE FROM public.call_logs; DELETE FROM public.profiles; DELETE FROM storage.objects; DELETE FROM public.channel_posts;
     INSERT INTO public.profiles(id,username,name,avatar_url,bio,phone) VALUES
       ('${A}','alice','Alice','avatars/${A}/avatar.jpg','A bio','private'),
@@ -164,5 +165,34 @@ describe('strict profile RLS (actual migration SQL)', () => {
     await asUser(B, `INSERT INTO public.profile_contacts(owner_id,contact_user_id) VALUES('${B}','${A}')`);
     expect((await asUser(A, `SELECT name FROM storage.objects WHERE bucket_id='avatars'`)).rows).toEqual([{ name: `${B}/avatar.jpg` }]);
     await expect(asUser(A, 'SELECT phone FROM public.profiles')).rejects.toThrow();
+  });
+});
+describe('notification privacy (Everyone / Contacts / Nobody)', () => {
+  const nameFor = async (viewer: string, subject: string) =>
+    ((await db.query(`SELECT public.notification_profile_name('${viewer}','${subject}') AS n`)).rows[0] as { n: string }).n;
+  const reciprocal = async () => {
+    await asUser(A, `INSERT INTO public.messages(chat_id,sender_id,receiver_id,content) VALUES('${CHAT}','${A}','${B}','Hi')`);
+    await asUser(B, `INSERT INTO public.messages(chat_id,sender_id,receiver_id,content) VALUES('${CHAT}','${B}','${A}','Hi')`);
+  };
+  it('Everyone shows the name to someone allowed to see the profile', async () => {
+    await reciprocal();
+    await asUser(B, `INSERT INTO public.notification_privacy(user_id,show_identity) VALUES('${B}','everyone')`);
+    expect(await nameFor(A, B)).toBe('Bob');
+  });
+  it('Contacts (default) hides the name from a chat partner who is not a saved contact', async () => {
+    await reciprocal();
+    expect(await nameFor(A, B)).toBe('Hidden profile');
+  });
+  it('Contacts shows the name to a saved contact', async () => {
+    await asUser(B, `INSERT INTO public.profile_contacts(owner_id,contact_user_id) VALUES('${B}','${A}')`);
+    expect(await nameFor(A, B)).toBe('Bob');
+  });
+  it('Nobody hides the name even from saved contacts', async () => {
+    await asUser(B, `INSERT INTO public.profile_contacts(owner_id,contact_user_id) VALUES('${B}','${A}')`);
+    await asUser(B, `INSERT INTO public.notification_privacy(user_id,show_identity) VALUES('${B}','nobody')`);
+    expect(await nameFor(A, B)).toBe('Hidden profile');
+  });
+  it('a user cannot set another user\'s notification privacy', async () => {
+    await expect(asUser(A, `INSERT INTO public.notification_privacy(user_id,show_identity) VALUES('${B}','everyone')`)).rejects.toThrow();
   });
 });
