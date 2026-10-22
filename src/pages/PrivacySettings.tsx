@@ -183,7 +183,6 @@ const PrivacySettings = () => {
   useEffect(() => { loadBlockedProfiles(); }, []);
 
   // Who sees my name in their lock-screen notifications (stored on the account).
-  const { user } = useAuth();
   const [notifIdentity, setNotifIdentity] = useState<string>("contacts");
   useEffect(() => {
     if (!user?.id) return;
