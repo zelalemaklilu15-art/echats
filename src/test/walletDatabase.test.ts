@@ -22,6 +22,9 @@ beforeAll(async()=>{
  CREATE TABLE wallet_trusted_devices(user_id uuid,device_id text,PRIMARY KEY(user_id,device_id));
  CREATE TABLE payment_requests(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),payer_id uuid,requester_id uuid,amount numeric,status text DEFAULT 'pending',paid_transaction_id uuid);
  CREATE TABLE wallet_terms_acceptance(user_id uuid UNIQUE,terms_version text,ip_address text,user_agent text);
+ CREATE TABLE stars_balances(user_id uuid PRIMARY KEY,balance integer,updated_at timestamptz DEFAULT now());
+ CREATE TABLE stars_purchases(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,stars integer,bonus_stars integer,price numeric,wallet_transaction_id uuid);
+ CREATE TABLE ai_premium_subscriptions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,plan text,paid_with text,amount numeric,expires_at timestamptz);
  CREATE TABLE airtime_topups(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,phone text,amount numeric,status text,wallet_transaction_id uuid,idempotency_key text UNIQUE);
  -- Crypto is stubbed ONLY in this disposable database; production uses existing bcrypt.
  CREATE FUNCTION crypt(text,text) RETURNS text LANGUAGE sql AS $$ SELECT $1 $$;
@@ -39,11 +42,15 @@ beforeAll(async()=>{
  CREATE FUNCTION prevent_transaction_modification() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.status IN('completed','failed','reversed') THEN RAISE EXCEPTION 'Immutable transaction'; END IF; RETURN NEW; END $$;
  CREATE TRIGGER immutable BEFORE UPDATE ON wallet_transactions FOR EACH ROW EXECUTE FUNCTION prevent_transaction_modification();`);
  await db.exec(readFileSync('supabase/migrations/20261022095300_wallet_audit.sql','utf8'));
+ const oldStars=readFileSync('supabase/migrations/20260607034822_5b9e578a-160d-4077-b6e1-edd26e15105e.sql','utf8');
+ await db.exec(oldStars.slice(oldStars.indexOf('CREATE OR REPLACE FUNCTION public.purchase_stars_with_wallet')));
+ await db.exec(readFileSync('drizzle/migrations/0011_wallet_purchase_security.sql','utf8'));
 },30000);
 beforeEach(async()=>{
  await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claim.sub','${A}',false); SELECT set_config('test.otp','false',false);
  DROP TRIGGER IF EXISTS fail_credit ON wallet_transactions;
  DELETE FROM wallet_transactions; DELETE FROM payment_requests; DELETE FROM airtime_topups; DELETE FROM wallets; DELETE FROM wallet_pin_failures; DELETE FROM wallet_trusted_devices; DELETE FROM wallet_terms_acceptance;
+ DELETE FROM stars_balances; DELETE FROM stars_purchases; DELETE FROM ai_premium_subscriptions;
  INSERT INTO wallets(user_id,balance,status,pin_hash) VALUES('${A}',10000,'active','123456'),('${B}',1000,'active','1234');
  INSERT INTO wallet_trusted_devices VALUES('${A}','device-a');`);
 });
@@ -69,4 +76,14 @@ describe('actual wallet audit SQL',()=>{
  it.each([4.99,1000.01])('rejects airtime outside 5–1000 ETB: %s',async amount=>{expect((await db.query(`SELECT * FROM airtime_topup('0911223344',${amount},'123456','airtime-key-1','device-a')`)).rows[0]).toMatchObject({success:false});});
  it('keeps pending deposits uncredited and credits settlement once',async()=>{const r=await call(`wallet_deposit_request(100,'Telebirr','deposit-key-1','device-a')`);expect(r.pending).toBe(true);expect(await balances()).toEqual([10000,1000]);await db.exec(`UPDATE wallet_transactions SET status='completed' WHERE id='${r.transaction.id}'`);expect(await balances()).toEqual([10100,1000]);await expect(db.exec(`UPDATE wallet_transactions SET status='completed' WHERE id='${r.transaction.id}'`)).rejects.toThrow();expect(await balances()).toEqual([10100,1000]);});
  it('never reads another account wallet by ID',async()=>{expect((await db.query(`SELECT * FROM get_user_wallet('${B}')`)).rows).toEqual([]);const id=(await db.query<{id:string}>(`SELECT id FROM wallets WHERE user_id='${B}'`)).rows[0].id;expect(await call(`get_wallet_balance('${id}')`)).toBeNull();});
+ it('requires a PIN for Stars wallet purchases',async()=>{expect((await call(`purchase_stars_with_wallet(100,0,120,'stars-key-01',NULL,'device-a')`)).success).toBe(false);expect(await balances()).toEqual([10000,1000]);expect((await call(`purchase_stars_with_wallet(100,0,120,'stars-key-01','123456','device-a')`)).success).toBe(true);expect(await balances()).toEqual([9880,1000]);});
+ it('requires a trusted device for Stars purchases',async()=>{expect((await call(`purchase_stars_with_wallet(100,0,120,'stars-key-01','123456','unknown-device')`)).error).toBe('STEP_UP_REQUIRED');expect(await balances()).toEqual([10000,1000]);});
+ it('rejects direct legacy Stars purchase calls without PIN',async()=>{await db.exec('SET ROLE authenticated');await expect(db.query(`SELECT * FROM purchase_stars_with_wallet(100,0,120,'legacy-key-01')`)).rejects.toThrow('permission denied');});
+ it('Stars retry credits once and rejects changed package',async()=>{const sql=`purchase_stars_with_wallet(100,0,120,'stars-key-01','123456','device-a')`;expect((await call(sql)).success).toBe(true);expect((await call(sql)).duplicate).toBe(true);expect((await call(`purchase_stars_with_wallet(500,0,550,'stars-key-01','123456','device-a')`)).success).toBe(false);expect(await balances()).toEqual([9880,1000]);expect((await db.query(`SELECT balance FROM stars_balances`)).rows).toEqual([{balance:200}]);});
+ it('Stars retry still succeeds after spending available wallet balance',async()=>{await db.exec(`UPDATE wallets SET balance=120 WHERE user_id='${A}'`);const sql=`purchase_stars_with_wallet(100,0,120,'stars-key-01','123456','device-a')`;await call(sql);expect((await call(sql)).duplicate).toBe(true);expect(await balances()).toEqual([0,1000]);});
+ it('requires PIN for AI wallet purchase, while allowing Stars payment without wallet PIN',async()=>{expect((await call(`purchase_ai_premium_secure('day','wallet','premium-key1',NULL,'device-a')`)).success).toBe(false);expect((await call(`purchase_ai_premium_secure('day','wallet','premium-key1','123456','device-a')`)).success).toBe(true);expect(await balances()).toEqual([9990,1000]);expect((await call(`purchase_ai_premium_secure('day','stars','premium-key2')`)).success).toBe(true);expect(await balances()).toEqual([9990,1000]);expect((await db.query(`SELECT balance FROM stars_balances`)).rows).toEqual([{balance:50}]);});
+ it('legacy AI wallet calls cannot debit without PIN',async()=>{expect((await db.query(`SELECT * FROM purchase_ai_premium('day','wallet')`)).rows[0]).toMatchObject({success:false});expect(await balances()).toEqual([10000,1000]);});
+ it('AI retry extends subscription once and rejects changed plan',async()=>{const sql=`purchase_ai_premium_secure('day','wallet','premium-key1','123456','device-a')`;const r=await call(sql);const again=await call(sql);expect(again.duplicate).toBe(true);expect(again.expires_at).toBe(r.expires_at);expect((await call(`purchase_ai_premium_secure('month','wallet','premium-key1','123456','device-a')`)).success).toBe(false);expect((await db.query(`SELECT id FROM ai_premium_subscriptions`)).rows).toHaveLength(1);expect(await balances()).toEqual([9990,1000]);});
+ it('all purchase failures share the five-attempt fifteen-minute PIN lock',async()=>{for(let i=0;i<5;i++) await call(`purchase_stars_with_wallet(100,0,120,'stars-key-01','0000','device-a')`);expect((await call(`purchase_ai_premium_secure('day','wallet','premium-key1','123456','device-a')`)).success).toBe(false);expect((await transfer()).success).toBe(false);expect(await balances()).toEqual([10000,1000]);});
+ it('purchase RPCs cannot exceed configured daily wallet limit',async()=>{await db.exec(`UPDATE wallets SET daily_limit=100 WHERE user_id='${A}'`);expect((await call(`purchase_stars_with_wallet(100,0,120,'stars-key-01','123456','device-a')`)).error).toBe('Daily wallet limit exceeded');expect(await balances()).toEqual([10000,1000]);});
 });
