@@ -805,6 +805,14 @@ export function StoryViewerComponent({
   const caption = parsed.caption || (parsed.text === undefined && story?.content && !story.content.startsWith("{") ? story.content : undefined);
 
   useEffect(() => {
+    if (!story || isOwn) return;
+    const remaining = new Date(story.expires_at).getTime() - Date.now();
+    if (remaining <= 0) { onClose(); return; }
+    const timer = window.setTimeout(onClose, remaining);
+    return () => window.clearTimeout(timer);
+  }, [story?.id, story?.expires_at, isOwn, onClose]);
+
+  useEffect(() => {
     if (story && !viewedIds.has(story.id)) {
       if (!isStealthMode()) {
         if (!isOwn) void viewStory(story.id).catch(() => {});

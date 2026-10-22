@@ -87,6 +87,7 @@ const EtokLive = () => {
   }, [currentUserId]);
   useEffect(() => {
     let active = true;
+    let joined = false;
     if (!streamId || !currentUserId) return;
     setCurrentStream(undefined); setComments([]);
     void (async () => {
@@ -94,13 +95,15 @@ const EtokLive = () => {
         const stream = await fetchLiveById(streamId);
         if (!active) return;
         if (!stream?.isLive) throw new Error('Live stream unavailable');
-        if (stream.hostId !== currentUserId) await joinLiveAsync(streamId,currentUserId);
+        if (stream.hostId !== currentUserId) { await joinLiveAsync(streamId,currentUserId); joined = true; }
         if (!active) { if (stream.hostId !== currentUserId) await leaveLiveAsync(streamId,currentUserId); return; }
         setCurrentStream(stream);
+        setCaptureStopped(false);
+        sessionRef.current = stream;
         const data = await fetchLiveComments(streamId); if (active) setComments(data);
       } catch { if (active) toast.error('Could not join this live stream'); }
     })();
-    return () => { active = false; void leaveLiveAsync(streamId,currentUserId).catch(() => {}); };
+    return () => { active = false; if (joined) void leaveLiveAsync(streamId,currentUserId).catch(() => {}); };
   }, [streamId,currentUserId]);
   useEffect(() => {
     if (!currentStream || currentStream.hostId !== currentUserId || !currentStream.isLive) return;
@@ -111,9 +114,12 @@ const EtokLive = () => {
   }, [currentStream?.id,currentUserId]);
   const exitLive = async () => {
     const stream = currentStream;
-    setCurrentStream(undefined); setComments([]); setIsHosting(false); setMyStream(null);
+    if (!stream || closing) return;
+    setClosing(true); setCaptureStopped(true);
     try { if (stream?.hostId === currentUserId) await endLiveAsync(stream.id); else if (stream) await leaveLiveAsync(stream.id,currentUserId); }
-    catch { toast.error('Could not confirm live closure. It will expire if disconnected.'); }
+    catch { toast.error('Could not confirm live closure. Tap End or Leave to retry.'); setClosing(false); return; }
+    sessionRef.current = null;
+    setCurrentStream(undefined); setComments([]); setIsHosting(false); setMyStream(null); setClosing(false);
     navigate('/etok/live');
     void fetchActiveLives().then(setActiveLives).catch(() => toast.error('Could not refresh live streams'));
   };
@@ -169,6 +175,8 @@ const EtokLive = () => {
     const stream = await startLiveAsync(currentUserId, liveTitle, liveCategory);
     if (!stream) { toast.error("Failed to start live"); return; }
     setMyStream(stream);
+    setCaptureStopped(false);
+    sessionRef.current = stream;
     setCurrentStream(stream);
     setIsHosting(true);
     setShowStartDialog(false);
@@ -180,8 +188,10 @@ const EtokLive = () => {
 
   /* ─── WATCHING A LIVE STREAM ─── */
   const isHostOfCurrent = !!currentStream && currentStream.hostId === currentUserId;
-  const { videoRef, error: broadcastError, isConnected: broadcastConnected } = useEtokLiveBroadcast({
-    streamId: currentStream?.isLive ? currentStream.id : undefined,
+  const [closing, setClosing] = useState(false);
+  const [captureStopped, setCaptureStopped] = useState(false);
+  const { videoRef, error: broadcastError, isConnected: broadcastConnected, onPlaying } = useEtokLiveBroadcast({
+    streamId: currentStream?.isLive && !captureStopped ? currentStream.id : undefined,
     userId: currentUserId,
     isHost: isHostOfCurrent,
     hostId: currentStream?.hostId,
@@ -196,6 +206,7 @@ const EtokLive = () => {
         {/* Live video stream */}
         <video
           ref={videoRef}
+          onPlaying={onPlaying}
           autoPlay
           playsInline
           muted={isHost}
@@ -208,7 +219,7 @@ const EtokLive = () => {
               {currentStream.thumbnailEmoji}
             </motion.span>
             <div className="absolute bottom-1/3 text-white/80 text-sm font-semibold">
-              {broadcastError ? `⚠️ ${broadcastError}` : isHost ? "Starting camera..." : "Connecting to host..."}
+              {captureStopped ? (closing ? 'Closing live stream…' : 'Tap End or Leave to retry closure') : broadcastError ? `⚠️ ${broadcastError}` : isHost ? "Starting camera..." : "Connecting to host..."}
             </div>
           </div>
         )}
@@ -231,9 +242,9 @@ const EtokLive = () => {
 
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-12 pb-3">
-          <button aria-label="Leave live stream" onClick={() => void exitLive()}>
+          <Button variant="ghost" size="icon" disabled={closing} aria-label="Leave live stream" onClick={() => void exitLive()}>
             <ArrowLeft className="h-6 w-6 text-white drop-shadow" />
-          </button>
+          </Button>
           <div className="flex items-center gap-2">
             {/* Host info */}
             <div className="flex items-center gap-2 bg-black/40 rounded-full pl-1 pr-3 py-1">
@@ -290,10 +301,10 @@ const EtokLive = () => {
         <div className="absolute right-3 bottom-32 z-10 flex flex-col gap-5 items-center">
           {isHost ? (
             <>
-              <button aria-label="End live stream" onClick={() => void exitLive()} className="flex flex-col items-center gap-1">
+              <Button variant="ghost" disabled={closing} aria-label="End live stream" onClick={() => void exitLive()} className="h-auto flex flex-col items-center gap-1">
                 <div className="w-11 h-11 rounded-full bg-red-600 flex items-center justify-center"><X className="h-5 w-5 text-white" /></div>
                 <span className="text-white text-[10px]">End</span>
-              </button>
+              </Button>
               <button
                 onClick={() => toast.info("Multi-guest LIVE is coming soon")}
                 className="flex flex-col items-center gap-1"

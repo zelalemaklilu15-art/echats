@@ -34,8 +34,12 @@ export function avatarObjectPath(source: string): string | null {
 
 const avatarObjects = new Set<string>();
 let identityGeneration = 0;
-supabase.auth.onAuthStateChange(event => {
+let identityViewer: string | null | undefined;
+supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED') return;
+  const viewer = session?.user?.id ?? null;
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && viewer === identityViewer) return;
+  identityViewer = viewer;
   identityGeneration += 1;
   avatarObjects.forEach(url => URL.revokeObjectURL(url));
   avatarObjects.clear();

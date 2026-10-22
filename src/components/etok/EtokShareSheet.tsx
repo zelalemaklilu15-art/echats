@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, Link, Download, QrCode, MessageCircle, Bookmark, BookmarkCheck } from "lucide-react";
 import { motion } from "framer-motion";
@@ -33,7 +33,16 @@ export function EtokShareSheet({ video, currentUserId, onClose }: EtokShareSheet
 
   const link = `${window.location.origin}/etok?video=${encodeURIComponent(video.id)}`;
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (currentUserId) isVideoSaved(currentUserId, video.id).then(setSaved).catch(() => {}); }, [currentUserId, video.id]);
+  const version = useRef(0);
+  const saveLock = useRef(false);
+  useEffect(() => {
+    const started = ++version.current;
+    setSaved(false);
+    if (currentUserId) void isVideoSaved(currentUserId, video.id)
+      .then(value => { if (started === version.current) setSaved(value); })
+      .catch(() => {});
+    return () => { version.current += 1; };
+  }, [currentUserId, video.id]);
 
   const handleCopy = async () => {
     try { await navigator.clipboard.writeText(link); setCopied(true); toast.success('Link copied'); void recordVideoInteractionAsync(video.id, 'share').catch(() => {}); }
@@ -43,11 +52,13 @@ export function EtokShareSheet({ video, currentUserId, onClose }: EtokShareSheet
     if (await shareContent({ title: 'Watch this on eTok', url: link })) void recordVideoInteractionAsync(video.id, 'share').catch(() => {});
   };
   const handleSave = async () => {
-    if (!currentUserId || busy) return;
-    setBusy(true);
-    try { await setVideoSaved(currentUserId, video.id, !saved); setSaved(!saved); }
+    if (!currentUserId || saveLock.current) return;
+    const started = ++version.current;
+    const next = !saved;
+    saveLock.current = true; setBusy(true);
+    try { await setVideoSaved(currentUserId, video.id, next); if (started === version.current) setSaved(next); }
     catch { toast.error('Could not save favorite'); }
-    finally { setBusy(false); }
+    finally { saveLock.current = false; if (started === version.current) setBusy(false); }
   };
   const download = async () => {
     if (!video.allowDownload || !video.videoUrl) return;

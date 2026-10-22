@@ -26,9 +26,10 @@
   - [ ] Real deposit settlement needs a payment provider; airtime remains pending as requested.
   - [x] Answer credit-cost concern; Stage 6 scope subsequently expanded at the user's explicit request.
 - [ ] 6. eTok, Stories, Channels
-  - [ ] 6a. Deep eTok audit: feed, likes, comments/replies, upload, profile/search and live.
-  - [ ] 6b. Deep Stories audit: publishing, viewing, expiry, privacy and identity handling.
-  - [ ] 6c. Deep Channels audit: permissions, posting, subscriptions, synchronization and identity handling.
-  - [ ] 6d. Regression tests and signed-in end-to-end verification; retain explicit physical-device blockers.
+  - [x] 6a. eTok fixes: server-owned counters, comment/reply validation, safe search, authenticated private uploads, favorite races and Live shutdown/reconnection.
+  - [x] 6b. Stories fixes: server-enforced audiences/expiry, durable close-friends/polls, private media, owner viewing and viewer identity handling; signed-in create/view/delete verified.
+  - [x] 6c. Channels fixes: owner-only posting/attribution, private subscription checks, newest-post pagination and synchronized viewer caches; signed-in create/post/reload/delete verified.
+  - [x] 6d. Regression tests and signed-in checks: private eTok upload/reload/playback, comments/replies, favorite/QR, Story publish/view/delete and Channel reload persistence; Live capture/playback/end confirmed in stored state. Audit artifacts cleaned; private media buckets/policies verified.
+  - [ ] 6e. Real host-to-viewer Live audio/video and reconnect on two physical phones; blocked by access to user-held devices. Browser capture used simulated camera/microphone, not two-phone delivery.
 - [ ] 7. Notifications & privacy
 - [ ] 8. Design & mobile

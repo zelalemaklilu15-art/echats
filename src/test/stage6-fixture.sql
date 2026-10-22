@@ -5,8 +5,13 @@ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(
 CREATE TABLE public.profiles(id uuid PRIMARY KEY,username text,name text);
 CREATE TABLE public.profile_contacts(owner_id uuid,contact_user_id uuid,PRIMARY KEY(owner_id,contact_user_id));
 CREATE TABLE storage.objects(bucket_id text,name text);
+CREATE TABLE public.messages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),sender_id uuid,receiver_id uuid,media_url text);
+CREATE TABLE public.group_messages(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),group_id uuid,sender_id uuid,media_url text);
+CREATE TABLE public.group_members(group_id uuid,user_id uuid);
+CREATE FUNCTION public.is_group_member(uuid,uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT EXISTS(SELECT 1 FROM public.group_members WHERE group_id=$1 AND user_id=$2) $$;
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON storage.objects TO authenticated;
+CREATE POLICY chat_media_select_own ON storage.objects FOR SELECT TO authenticated USING(bucket_id='chat-media' AND split_part(name,'/',1)=auth.uid()::text);
 CREATE FUNCTION public.can_read_profile(uuid) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT $1=auth.uid() $$;
 CREATE TABLE public.user_stories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

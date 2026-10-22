@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS etok_videos_select ON public.etok_videos;
+CREATE POLICY etok_videos_select ON public.etok_videos FOR SELECT TO authenticated USING(author_id=auth.uid() OR public.can_view_etok_video(id));
