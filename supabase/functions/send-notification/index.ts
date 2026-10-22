@@ -60,12 +60,10 @@ Deno.serve(async (req) => {
     const preview = (body.preview ?? '').toString().slice(0, MAX_PREVIEW);
     const supabase = adminClient();
 
-    const { data: senderProfile } = await supabase
-      .from('profiles')
-      .select('name, username')
-      .eq('id', senderId)
-      .maybeSingle();
-    const senderName = senderProfile?.name || senderProfile?.username || 'Someone';
+    const permittedName = async (viewer: string) => {
+      const { data } = await supabase.rpc('notification_profile_name', { p_viewer: viewer, p_subject: senderId });
+      return typeof data === 'string' ? data : 'Hidden profile';
+    };
 
     // ---- Group broadcast ----
     if (kind === 'group_message') {
@@ -94,6 +92,7 @@ Deno.serve(async (req) => {
 
       let sent = 0;
       for (const memberId of members.filter((m) => m !== senderId)) {
+        const senderName = await permittedName(memberId);
         const res = await sendPushToUser(memberId, {
           title: group?.name ? `${group.name}` : 'New group message',
           body: `${senderName}: ${preview || 'sent a message'}`,
@@ -134,6 +133,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    const senderName = await permittedName(receiverId);
     const titles: Record<Exclude<Kind, 'group_message'>, string> = {
       direct_message: senderName,
       gift: `🎁 Gift from ${senderName}`,

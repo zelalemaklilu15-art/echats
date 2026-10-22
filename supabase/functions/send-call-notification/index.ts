@@ -55,12 +55,16 @@ Deno.serve(async (req) => {
 
     // Resolve the caller name server-side to prevent impersonation.
     const supabase = adminClient();
-    const { data: callerProfile } = await supabase
-      .from('profiles')
-      .select('name, username')
-      .eq('id', callerUserId)
+    const { data: call } = await supabase
+      .from('call_logs').select('id').eq('room_id', roomId)
+      .eq('caller_id', callerUserId).eq('receiver_id', receiverId)
+      .is('ended_at', null).gt('created_at', new Date(Date.now() - 120_000).toISOString())
       .maybeSingle();
-    const callerName = callerProfile?.name || callerProfile?.username || 'Someone';
+    if (!call) return new Response(JSON.stringify({ success: false, error: 'Call not found' }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    const { data: permittedName } = await supabase.rpc('notification_profile_name', { p_viewer: receiverId, p_subject: callerUserId });
+    const callerName = typeof permittedName === 'string' ? permittedName : 'Hidden profile';
 
     const callTypeText = callType === 'video' ? 'Video' : 'Voice';
     const result = await sendPushToUser(receiverId, {

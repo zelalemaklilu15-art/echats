@@ -400,17 +400,16 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         });
 
         // History + device ring happen immediately, independent of signalling.
-        callLogService
+        const callLogId = await callLogService
           .createCallLog({ callerId: userId, receiverId: peerId, callType, roomId })
-          .then((callLogId) => {
-            callLogIdRef.current = callLogId;
-            setActiveCallSafe((prev) => (prev ? { ...prev, callLogId: callLogId || undefined } : prev));
-          })
-          .catch((e) => console.warn('[CallManager] Call log failed:', e));
+          .catch(() => null);
+        if (activeCallRef.current?.roomId !== roomId) return;
+        callLogIdRef.current = callLogId;
+        setActiveCallSafe(prev => prev?.roomId === roomId ? { ...prev, callLogId: callLogId || undefined } : prev);
 
         supabase.functions
           .invoke('send-call-notification', {
-            body: { receiverId: peerId, callerName: userName, callType, roomId },
+            body: { receiverId: peerId, callType, roomId },
           })
           .catch(() => {});
 
