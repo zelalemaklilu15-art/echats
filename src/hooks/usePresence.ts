@@ -80,6 +80,7 @@ export function usePresence(userId: string | undefined) {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       if (heartbeat) window.clearInterval(heartbeat);
+      setPresence(userId, false);
     };
   }, [userId]);
 }

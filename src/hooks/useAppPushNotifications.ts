@@ -23,7 +23,9 @@ export function useAppPushNotifications(userId: string | null) {
       // Never prompt automatically — permission is requested from a button
       // in Notification settings. Here we only refresh an already-granted token.
       const result = await registerDeviceForPush(userId);
-      if (result.status !== 'registered' && result.status !== 'permission-default') {
+      if (result.status === 'denied') {
+        console.info('[FCM] Notifications blocked by the user; skipping registration.');
+      } else if (result.status !== 'registered' && result.status !== 'permission-default') {
         console.error('[FCM] Background token registration failed:', {
           status: result.status,
           stage: result.stage,
