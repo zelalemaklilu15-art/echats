@@ -72,6 +72,9 @@ export const useCallSignaling = (userId: string | null) => {
   const subscribedUserRef = useRef<string | null>(null);
   const callbacksRef = useRef<SignalingCallbacks>({});
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRef = useRef(0);
+  const activeUserRef = useRef(userId);
+  const cancelledRoomsRef = useRef(new Set<string>());
   // Persistent outgoing channels per peer: peerId -> { channel, ready }
   const peerChannelsRef = useRef<
     Map<string, { channel: RealtimeChannel; ready: Promise<boolean> }>
@@ -84,36 +87,44 @@ export const useCallSignaling = (userId: string | null) => {
 
   // ---- Inbound (listening) channel -------------------------------------
   const createChannel = useCallback((uid: string) => {
+    const generation = generationRef.current;
+    const isCurrent = () => generation === generationRef.current && activeUserRef.current === uid && subscribedUserRef.current === uid;
     const channel = supabase.channel(`calls:${uid}`, {
       config: { broadcast: { self: false, ack: true } },
     });
 
     channel
       .on('broadcast', { event: 'call_offer' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Received call offer');
         callbacksRef.current.onIncomingCall?.(payload as CallOffer);
       })
       .on('broadcast', { event: 'call_answer' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Received call answer');
         callbacksRef.current.onCallAnswer?.(payload as CallAnswer);
       })
       .on('broadcast', { event: 'ice_candidate' }, ({ payload }) => {
+        if (!isCurrent()) return;
         callbacksRef.current.onIceCandidate?.(payload as IceCandidate);
       })
       .on('broadcast', { event: 'call_offer_ack' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Offer acknowledged');
         callbacksRef.current.onOfferAck?.((payload as { roomId: string })?.roomId);
       })
       .on('broadcast', { event: 'call_state' }, ({ payload }) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Received call state:', (payload as CallStateEvent)?.type);
         callbacksRef.current.onCallStateChange?.(payload as CallStateEvent);
       })
       .subscribe((status) => {
+        if (!isCurrent()) return;
         console.log('[Signaling] Inbound channel status:', status);
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
           reconnectTimerRef.current = setTimeout(() => {
-            if (subscribedUserRef.current !== uid) return;
+            if (!isCurrent()) return;
             console.log('[Signaling] Reconnecting inbound channel...');
             if (channelRef.current) {
               supabase.removeChannel(channelRef.current);
@@ -192,24 +203,32 @@ export const useCallSignaling = (userId: string | null) => {
   // stalled socket can never leave the UI hanging on "Calling...".
   const sendToPeer = useCallback(
     async (peerId: string, event: string, payload: unknown): Promise<boolean> => {
+      const generation = generationRef.current;
+      const roomId = (payload as { roomId?: string })?.roomId;
+      const isCurrent = () => generation === generationRef.current && activeUserRef.current === userId && Boolean(userId)
+        && (event === 'call_state' || !roomId || !cancelledRoomsRef.current.has(roomId));
+      if (!isCurrent()) return false;
       for (let attempt = 0; attempt < 2; attempt++) {
+        if (!isCurrent()) return false;
         const entry = getPeerChannel(peerId);
         const ok = await entry.ready;
+        if (!isCurrent()) return false;
         if (ok) {
           const res = await withTimeout(
             Promise.resolve(entry.channel.send({ type: 'broadcast', event, payload })) as Promise<unknown>,
             SEND_TIMEOUT_MS,
             'timed_out',
           );
+          if (!isCurrent()) return false;
           if (res === 'ok' || res === undefined) return true;
           console.warn('[Signaling] send result:', res);
         }
-        await dropPeerChannel(peerId);
+        if (peerChannelsRef.current.get(peerId) === entry) await dropPeerChannel(peerId);
       }
       console.error('[Signaling] Failed to deliver', event, 'to', peerId);
       return false;
     },
-    [getPeerChannel, dropPeerChannel],
+    [getPeerChannel, dropPeerChannel, userId],
   );
 
   const sendOfferAck = useCallback(
@@ -280,7 +299,18 @@ export const useCallSignaling = (userId: string | null) => {
   // channel is only replaced when a send actually fails (see sendToPeer).
   const releasePeer = useCallback((_peerId?: string | null) => {}, []);
 
+  const cancelCall = useCallback((roomId: string) => {
+    cancelledRoomsRef.current.add(roomId);
+    if (cancelledRoomsRef.current.size > 100) {
+      const oldest = cancelledRoomsRef.current.values().next().value;
+      if (oldest) cancelledRoomsRef.current.delete(oldest);
+    }
+  }, []);
+
   const cleanup = useCallback(() => {
+    generationRef.current += 1;
+    activeUserRef.current = null;
+    subscribedUserRef.current = null;
     if (reconnectTimerRef.current) {
       clearTimeout(reconnectTimerRef.current);
       reconnectTimerRef.current = null;
@@ -289,17 +319,17 @@ export const useCallSignaling = (userId: string | null) => {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
-    subscribedUserRef.current = null;
     peerChannelsRef.current.forEach(({ channel }) => supabase.removeChannel(channel));
     peerChannelsRef.current.clear();
     callbacksRef.current = {};
   }, []);
 
   useEffect(() => {
+    activeUserRef.current = userId;
     return () => {
       cleanup();
     };
-  }, [cleanup]);
+  }, [cleanup, userId]);
 
   return {
     subscribeToSignaling,
@@ -309,6 +339,7 @@ export const useCallSignaling = (userId: string | null) => {
     sendIceCandidate,
     sendCallState,
     releasePeer,
+    cancelCall,
     cleanup,
   };
 };
