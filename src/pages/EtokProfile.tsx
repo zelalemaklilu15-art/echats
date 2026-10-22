@@ -158,7 +158,7 @@ const EtokProfile = () => {
       {/* Header */}
       <div className="sticky top-0 bg-black z-20 flex items-center justify-between px-4 pt-12 pb-3">
         <button onClick={() => navigate(-1)}><ArrowLeft className="h-6 w-6 text-white" /></button>
-        <span className="font-bold text-[16px]">@{profile?.username}</span>
+        <span className="font-bold text-[16px]">{profile?.username ? `@${profile.username}` : 'Hidden profile'}</span>
         <div className="flex items-center gap-3">
           {isOwn && (
             <>
@@ -179,7 +179,7 @@ const EtokProfile = () => {
           <div className="flex items-center gap-1.5 mb-1">
             <span className="font-bold text-[18px]">{profile?.displayName}</span>
           </div>
-          <p className="text-white/60 text-[13px] mb-3">@{profile?.username}</p>
+          {profile?.username && <p className="text-muted-foreground text-[13px] mb-3">@{profile.username}</p>}
 
           <div className="flex items-center gap-8 mb-5">
             {[

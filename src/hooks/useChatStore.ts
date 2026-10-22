@@ -226,9 +226,7 @@ export function useMessages(chatId: string | undefined) {
 // =============================================
 
 export function useProfile(userId: string | undefined) {
-  const [profile, setProfile] = useState<PublicProfile | null>(
-    userId ? chatStore.getCachedProfile(userId) || null : null
-  );
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [loading, setLoading] = useState(!profile && !!userId);
 
   useEffect(() => {

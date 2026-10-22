@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
+import { resolveProfileAvatar } from '@/lib/profileAccess';
 
 export interface UploadResult {
   url: string;
@@ -91,7 +92,7 @@ const uploadFile = async (
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(path, file, {
-      cacheControl: '3600',
+      cacheControl: bucket === 'avatars' ? '0' : '3600',
       upsert: true,
     });
 
@@ -104,6 +105,10 @@ const uploadFile = async (
     onProgress({ percentage: 100, bytesTransferred: file.size, totalBytes: file.size });
   }
 
+  if (bucket === 'avatars') return {
+    url: `avatars/${data.path}`, path: data.path, name: file.name, size: file.size, type: file.type,
+  };
+
   // Get signed URL (1 hour expiry) for private buckets
   const { data: urlData, error: urlError } = await supabase.storage
     .from(bucket)
@@ -114,7 +119,7 @@ const uploadFile = async (
   }
 
   return {
-    url: bucket === 'avatars' ? `avatars/${data.path}` : urlData.signedUrl,
+    url: urlData.signedUrl,
     path: data.path,
     name: file.name,
     size: file.size,
@@ -133,6 +138,11 @@ export const deleteFile = async (bucket: string, path: string): Promise<void> =>
 
 // Get signed file URL (async for private buckets)
 export const getFileUrl = async (bucket: string, path: string): Promise<string> => {
+  if (bucket === 'avatars') {
+    const url = await resolveProfileAvatar(`avatars/${path}`);
+    if (!url) throw new Error('Profile photo unavailable');
+    return url;
+  }
   const { data, error } = await supabase.storage
     .from(bucket)
     .createSignedUrl(path, 3600);

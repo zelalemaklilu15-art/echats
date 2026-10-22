@@ -57,6 +57,13 @@
       "when": 1792648302019,
       "tag": "0007_profile_identity_safe_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792648625325,
+      "tag": "0008_profile_snapshot_grants",
+      "breakpoints": true
     }
   ]
 }

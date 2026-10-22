@@ -81,6 +81,13 @@ class ChatStore {
   private chats: Map<string, Chat> = new Map();
   private messages: Map<string, Message[]> = new Map();
   private profiles: Map<string, PublicProfile> = new Map();
+  private profileCheckedAt: Map<string, number> = new Map();
+  constructor() {
+    window.addEventListener(PROFILE_ACCESS_EVENT, () => {
+      this.profiles.clear();
+      this.profileCheckedAt.clear();
+    });
+  }
   
   // Subscription state
   private chatListChannel: RealtimeChannel | null = null;
@@ -112,7 +119,7 @@ class ChatStore {
 
   async initialize(userId: string): Promise<boolean> {
     const isSameUser = this.currentUserId === userId;
-    if (!isSameUser) this.profiles.clear();
+    if (!isSameUser) { this.profiles.clear(); this.profileCheckedAt.clear(); }
 
     // If we're already initialized for this user and have an active subscription + data,
     // avoid doing work. (Important: if we previously failed and chats are still empty,
@@ -165,6 +172,7 @@ class ChatStore {
     this.chats.clear();
     this.messages.clear();
     this.profiles.clear();
+    this.profileCheckedAt.clear();
     this.chatListeners.clear();
     this.messageListeners.clear();
     this.typingListeners.clear();
@@ -811,6 +819,7 @@ class ChatStore {
       const profile = await getAccessProfile(userId);
       if (viewer !== this.currentUserId || !profile) return null;
       this.profiles.set(userId, profile);
+      this.profileCheckedAt.set(userId, Date.now());
       this.lastSyncTimes.profiles = new Date();
       
       return profile;
@@ -823,8 +832,9 @@ class ChatStore {
   }
 
   getCachedProfile(userId: string): PublicProfile | undefined {
-    // Authorize on each mount; never reveal a previous viewer's cached identity.
-    return undefined;
+    // Brief viewer-scoped cache for list filtering only; profile hooks reauthorize.
+    const checkedAt = this.profileCheckedAt.get(userId) ?? 0;
+    return this.currentUserId && Date.now() - checkedAt < 15000 ? this.profiles.get(userId) : undefined;
   }
 
   // =============================================

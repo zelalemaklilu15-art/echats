@@ -61,6 +61,7 @@ beforeAll(async () => {
   `);
   await db.exec(readFileSync('drizzle/migrations/0006_strict_profile_access.sql', 'utf8'));
   await db.exec(readFileSync('drizzle/migrations/0007_profile_identity_safe_delivery.sql', 'utf8'));
+  await db.exec(readFileSync('drizzle/migrations/0008_profile_snapshot_grants.sql', 'utf8'));
 }, 30000);
 
 beforeEach(async () => {

@@ -361,7 +361,7 @@ export async function updateEtokProfileAsync(userId: string, updates: { name: st
     .select("id, username, name, avatar_url, bio, is_online")
     .single();
   if (error) throw new Error(error.message || "Profile update failed");
-  return data ? mapUser(data) : null;
+  return data ? fetchEtokProfile(userId) : null;
 }
 
 export async function fetchTotalVideoLikes(userId: string): Promise<number> {
