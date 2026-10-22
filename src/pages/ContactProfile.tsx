@@ -598,7 +598,7 @@ const ContactProfile = () => {
               { label: "Copy username", icon: Copy, action: () => handleCopy(`@${profile?.username}`, "Username"), testid: "menu-copy-username" },
               { label: "Copy profile link", icon: Link2, action: () => handleCopy(`${publicOrigin()}/contact/${userId}`, "Profile link"), testid: "menu-copy-link" },
               { label: "Share contact", icon: QrCode, action: handleShareContact, testid: "menu-share" },
-            ].map(({ label, icon: Icon, action, testid }) => (
+            ].filter(item => profile.username || item.testid !== 'menu-copy-username').map(({ label, icon: Icon, action, testid }) => (
               <button
                 key={label}
                 onClick={() => runFromMenu(action)}

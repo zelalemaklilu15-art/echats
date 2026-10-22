@@ -57,7 +57,9 @@ function readJson<T>(key: string, fallback: T): T {
 }
 
 function writeJson<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
+  const stored = key.startsWith('echat_channel_messages_') && Array.isArray(value)
+    ? value.map(message => ({ ...message, senderName: 'Hidden profile' })) : value;
+  localStorage.setItem(key, JSON.stringify(stored));
 }
 
 

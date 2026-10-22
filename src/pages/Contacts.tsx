@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatLastSeen, isUserOnline } from "@/lib/formatLastSeen";
+import { PROFILE_ACCESS_EVENT } from '@/lib/profileAccess';
 
 const ContactItem = ({ userId, onClick }: { userId: string; onClick: (id: string) => void }) => {
   const { profile, loading } = useProfile(userId);
@@ -99,7 +100,21 @@ const Contacts = () => {
   const navigate = useNavigate();
   const { chats, loading } = useChatList();
   const currentUserId = chatStore.getCurrentUserId();
-  const contactIds = Array.from(new Set(chats.map(c => chatStore.getOtherUserId(c)))).filter(id => id && id !== currentUserId);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const contactIds = Array.from(new Set([...savedIds, ...chats.map(c => chatStore.getOtherUserId(c))])).filter(id => id && id !== currentUserId);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSavedIds([]);
+    const refresh = () => {
+      if (!currentUserId) return;
+      supabase.from('profile_contacts').select('contact_user_id').eq('owner_id', currentUserId)
+        .then(({ data }) => { if (!cancelled) setSavedIds((data ?? []).map(c => c.contact_user_id)); });
+    };
+    refresh();
+    window.addEventListener(PROFILE_ACCESS_EVENT, refresh);
+    return () => { cancelled = true; window.removeEventListener(PROFILE_ACCESS_EVENT, refresh); };
+  }, [currentUserId]);
 
   useEffect(() => {
     const q = searchQuery.trim();
