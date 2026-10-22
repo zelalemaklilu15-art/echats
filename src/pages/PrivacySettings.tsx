@@ -182,6 +182,23 @@ const PrivacySettings = () => {
 
   useEffect(() => { loadBlockedProfiles(); }, []);
 
+  // Who sees my name in their lock-screen notifications (stored on the account).
+  const { user } = useAuth();
+  const [notifIdentity, setNotifIdentity] = useState<string>("contacts");
+  useEffect(() => {
+    if (!user?.id) return;
+    supabase.from("notification_privacy").select("show_identity").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (data?.show_identity) setNotifIdentity(data.show_identity); });
+  }, [user?.id]);
+  const saveNotifIdentity = async (value: string) => {
+    if (!user?.id) return;
+    const prev = notifIdentity;
+    setNotifIdentity(value);
+    const { error } = await supabase.from("notification_privacy")
+      .upsert({ user_id: user.id, show_identity: value, updated_at: new Date().toISOString() });
+    if (error) { setNotifIdentity(prev); toast.error("Could not save"); } else toast.success("Settings updated");
+  };
+
   const loadBlockedProfiles = async () => {
     setLoadingBlocked(true);
     const ids = getBlockedUsers();
@@ -409,6 +426,17 @@ const PrivacySettings = () => {
           chevron
           onClick={() => openSheet("Profile Photos", "profilePhotoVisibility", ["everyone","contacts","nobody"], settings.profilePhotoVisibility, VIS_LABEL)}
           testId="row-profile-photos"
+        />
+        <Divider />
+        <Row
+          label="Name in Notifications"
+          value={VIS_LABEL[notifIdentity]}
+          chevron
+          onClick={() => {
+            const order = ["everyone", "contacts", "nobody"];
+            saveNotifIdentity(order[(order.indexOf(notifIdentity) + 1) % 3]);
+          }}
+          testId="row-notification-identity"
         />
         <Divider />
         <Row
