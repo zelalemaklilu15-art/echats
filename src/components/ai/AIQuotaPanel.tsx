@@ -74,7 +74,7 @@ export default function AIQuotaPanel() {
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : status.is_premium ? (
           <p className="flex items-center gap-2 text-primary font-medium">
-            <Crown className="h-4 w-4" /> Premium — ያልተገደበ፣ እስከ {new Date(status.premium_expires_at!).toLocaleString()}
+            <Crown className="h-4 w-4" /> Premium — ያልተገደበ፣ እስከ {status.premium_expires_at ? new Date(status.premium_expires_at).toLocaleString() : "—"}
           </p>
         ) : (
           <p>ዛሬ የቀረ ነጻ ጥያቄ፦ <b>{left}/{status.daily_limit}</b></p>

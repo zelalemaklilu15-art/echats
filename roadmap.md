@@ -17,12 +17,14 @@
 - [x] 3. Chat (undo-send deleted the wrong message — fixed)
 - [x] 4. Calls — fixed stale setup/signaling, immediate capture release, rapid mute/camera races, sender reuse, sound control and live history; 23 call tests and signed-in hangup/redial verified. Two-phone audio/video and lock-screen delivery remain pending above.
 - [ ] 5. Wallet — active audit; preserve financial data.
-  - [ ] Atomic transfers/payment requests, shared PIN lockout, server device checks and secure activation.
-  - [ ] Account-scoped caches, consistent wallet gates, full history/detail access and working payment links.
-  - [ ] Stop fabricated scheduled/savings payments; show pending deposits honestly.
-  - [ ] Require per-purchase PIN/device authorization for Stars and AI wallet spending; isolate local goals per account.
-  - [ ] Automated financial/security tests and signed-in verification without moving existing funds.
+  - [x] Atomic transfers/payment requests, shared PIN lockout, server device checks and secure activation.
+  - [x] Account-scoped caches, consistent wallet gates, full history/detail access and working payment links.
+  - [x] Stop fabricated scheduled/savings payments; show pending deposits honestly.
+  - [x] Require per-purchase PIN/device authorization for Stars and AI wallet spending; isolate local goals per account.
+  - [x] Automated financial/security tests (111 total passing); signed-in device guard and invalid-link checks; Stars/AI PIN prompts opened without moving existing funds.
+  - [ ] Complete real authorized transfer/request/airtime read-back; blocked by new-device email verification and no authorized payment test input. No live funds moved.
   - [ ] Real deposit settlement needs a payment provider; airtime remains pending as requested.
+  - [x] Answer credit-cost concern; constrain subsequent audit turns to small focused sections rather than expanding a whole stage.
 - [ ] 6. eTok, Stories, Channels
 - [ ] 7. Notifications & privacy
 - [ ] 8. Design & mobile

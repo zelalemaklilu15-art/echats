@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Loader2, Shield, Zap, CreditCard, Landmark, Banknote, Wallet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,7 +30,7 @@ const AddMoney = () => {
   const [step,    setStep]    = useState<"main" | "confirm">("main");
   const [loading, setLoading] = useState(false);
 
-  const [requestKey] = useState(() => newIdempotencyKey("deposit"));
+  const operations = useRef(new Map<string, string>());
   const numeric = parseFloat(amount.replace(/,/g, "")) || 0;
   const sel = METHODS.find(m => m.id === method) ?? METHODS[0];
 
@@ -41,6 +41,9 @@ const AddMoney = () => {
     if (loading || !sel || numeric <= 0 || numeric > 10000) return;
     setLoading(true);
     try {
+      const payload = JSON.stringify([numeric, sel.label]);
+      const requestKey = operations.current.get(payload) ?? newIdempotencyKey("deposit");
+      operations.current.set(payload, requestKey);
       const result = await walletService.deposit(numeric, sel.label, requestKey);
       if (result.success && result.transaction) {
         navigate("/transaction-receipt", {

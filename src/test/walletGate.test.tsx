@@ -1,8 +1,9 @@
 import { describe,it,expect,vi,beforeEach } from 'vitest';
 import {render,screen,waitFor,cleanup} from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-vi.mock('@/lib/walletService',()=>({walletService:{getWalletBalance:async()=>({wallet:{status:'active'}})}}));
-const mock=vi.hoisted(()=>({uid:'A',check:vi.fn(),hasPin:vi.fn()}));
+vi.mock('@/lib/walletService',()=>({walletService:{getWalletBalance:mock.wallet}}));
+vi.mock('@/components/WalletTerms',()=>({default:()=> <div>Activation terms</div>}));
+const mock=vi.hoisted(()=>({uid:'A',check:vi.fn(),hasPin:vi.fn(),wallet:vi.fn()}));
 vi.mock('@/contexts/AuthContext',()=>({useAuth:()=>({userId:mock.uid})}));
 vi.mock('@/lib/walletSecurity',()=>({checkWalletDevice:mock.check}));
 vi.mock('@/lib/chatLockService',()=>({refreshWalletLockFlag:mock.hasPin}));
@@ -10,9 +11,11 @@ vi.mock('@/components/wallet/OtpSheet',()=>({default:()=> <div>Device challenge<
 vi.mock('@/components/wallet/PinSetupSheet',()=>({default:({open}:any)=>open?<div>PIN setup</div>:null}));
 import SecurityGate from '@/components/wallet/WalletSecurityGate';
 const Gate=({children}: {children:React.ReactNode})=><MemoryRouter><SecurityGate>{children}</SecurityGate></MemoryRouter>;
-beforeEach(()=>{cleanup();mock.uid='A';mock.check.mockReset().mockResolvedValue('trusted');mock.hasPin.mockReset().mockResolvedValue(true);});
+beforeEach(()=>{cleanup();mock.uid='A';mock.check.mockReset().mockResolvedValue('trusted');mock.hasPin.mockReset().mockResolvedValue(true);mock.wallet.mockReset().mockResolvedValue({wallet:{status:'active'}});});
 describe('wallet access fails closed',()=>{
  it('does not mount financial content after check failure',async()=>{mock.check.mockRejectedValue(new Error('offline'));const child=vi.fn(()=> <div>Financial data</div>);render(<Gate>{child()}</Gate>);await screen.findByText('Could not verify wallet security.');expect(screen.queryByText('Financial data')).toBeNull();});
  it('rechecks the next account rather than inheriting device trust',async()=>{const view=render(<Gate><div>Financial data</div></Gate>);await screen.findByText('Financial data');mock.uid='B';mock.check.mockResolvedValue('step_up_required');view.rerender(<Gate><div>Financial data</div></Gate>);await screen.findByText('Device challenge');expect(screen.queryByText('Financial data')).toBeNull();expect(mock.check).toHaveBeenCalledTimes(2);});
  it('does not show wallet content until a PIN exists',async()=>{mock.hasPin.mockResolvedValue(false);render(<Gate><div>Financial data</div></Gate>);await screen.findByText('PIN setup');expect(screen.queryByText('Financial data')).toBeNull();});
+ it('requires activation before PIN creation for an account without a wallet',async()=>{mock.wallet.mockResolvedValue({wallet:null});render(<Gate><div>Financial data</div></Gate>);await screen.findByText('Activation terms');expect(mock.hasPin).not.toHaveBeenCalled();expect(screen.queryByText('Financial data')).toBeNull();});
+ it('never offers reactivation or payment for suspended wallets',async()=>{mock.wallet.mockResolvedValue({wallet:{status:'suspended'}});render(<Gate><div>Financial data</div></Gate>);await screen.findByText('Wallet is suspended.');expect(mock.hasPin).not.toHaveBeenCalled();expect(screen.queryByText('Activation terms')).toBeNull();expect(screen.queryByText('Financial data')).toBeNull();});
 });
