@@ -115,6 +115,7 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          idempotency_key: string | null
           paid_with: string
           plan: string
           user_id: string
@@ -124,6 +125,7 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          idempotency_key?: string | null
           paid_with: string
           plan: string
           user_id: string
@@ -133,6 +135,7 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          idempotency_key?: string | null
           paid_with?: string
           plan?: string
           user_id?: string
@@ -2375,20 +2378,42 @@ export type Database = {
           success: boolean
         }[]
       }
-      purchase_stars_with_wallet: {
+      purchase_ai_premium_secure: {
         Args: {
-          p_bonus: number
-          p_idempotency_key?: string
-          p_price: number
-          p_stars: number
+          p_device?: string
+          p_key: string
+          p_method: string
+          p_pin?: string
+          p_plan: string
         }
-        Returns: {
-          balance: number
-          purchase_id: string
-          success: boolean
-          wallet_balance: number
-        }[]
+        Returns: Json
       }
+      purchase_stars_with_wallet:
+        | {
+            Args: {
+              p_bonus: number
+              p_idempotency_key?: string
+              p_price: number
+              p_stars: number
+            }
+            Returns: {
+              balance: number
+              purchase_id: string
+              success: boolean
+              wallet_balance: number
+            }[]
+          }
+        | {
+            Args: {
+              p_bonus: number
+              p_device: string
+              p_idempotency_key: string
+              p_pin: string
+              p_price: number
+              p_stars: number
+            }
+            Returns: Json
+          }
       record_channel_views: {
         Args: { p_channel_id: string }
         Returns: undefined
@@ -2479,6 +2504,10 @@ export type Database = {
       }
       wallet_pin_error: {
         Args: { p_pin: string; p_user: string }
+        Returns: string
+      }
+      wallet_purchase_error: {
+        Args: { p_amount: number; p_device: string; p_pin: string }
         Returns: string
       }
       wallet_transfer_atomic: {
