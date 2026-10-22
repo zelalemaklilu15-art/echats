@@ -16,6 +16,7 @@ export const signUpWithEmail = async (
       email,
       password,
       options: {
+        emailRedirectTo: `${publicOrigin()}/auth`,
         data: {
           username: username.toLowerCase().trim(),
           name: name || email.split('@')[0],
