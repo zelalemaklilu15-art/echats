@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { supabase } from '@/integrations/supabase/client';
 import type { CallType } from '@/hooks/useWebRTC';
-import { getAccessProfiles, hiddenProfile } from '@/lib/profileAccess';
+import { getAccessProfiles, hiddenProfile, PROFILE_ACCESS_EVENT } from '@/lib/profileAccess';
 
 export interface CallLog {
   id: string;
@@ -172,29 +172,38 @@ class CallLogService {
     userId: string,
     onNewLog: (log: CallLog) => void
   ): () => void {
+    const emit = (payload: { new: unknown }) => {
+      const log = payload.new as CallLog;
+      onNewLog({ ...log, call_type: log.call_type as CallType, status: log.status as CallLog['status'] });
+    };
     const channel = supabase
       .channel(`call_logs:${userId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'call_logs',
           filter: `receiver_id=eq.${userId}`,
         },
-        (payload) => {
-          const log = payload.new as CallLog;
-          onNewLog({
-            ...log,
-            call_type: log.call_type as CallType,
-            status: log.status as 'completed' | 'missed' | 'rejected' | 'failed',
-          });
-        }
+        emit,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'call_logs', filter: `caller_id=eq.${userId}` },
+        emit,
       )
       .subscribe();
 
+    // A mounted history must also re-resolve identities after authorization changes.
+    const refresh = () => onNewLog({} as CallLog);
+    window.addEventListener(PROFILE_ACCESS_EVENT, refresh);
+    window.addEventListener('focus', refresh);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener(PROFILE_ACCESS_EVENT, refresh);
+      window.removeEventListener('focus', refresh);
     };
   }
 }

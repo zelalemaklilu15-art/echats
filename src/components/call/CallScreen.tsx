@@ -173,7 +173,7 @@ export const CallScreen = () => {
 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
-  }, [localStream]);
+  }, [localStream, remoteStream]);
 
   const toggleBlurBg = useCallback(() => {
     setBlurBg(prev => !prev);
@@ -252,12 +252,12 @@ export const CallScreen = () => {
         className="fixed inset-0 z-50 bg-black overflow-hidden select-none"
         onClick={resetHideTimer}
       >
-        <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+        <audio ref={remoteAudioRef} autoPlay playsInline muted={!isSpeakerOn} className="hidden" />
 
         {/* Full-screen remote video */}
         <video
           ref={remoteVideoRef}
-          autoPlay playsInline
+          autoPlay playsInline muted
           className="absolute inset-0 w-full h-full object-cover"
         />
 
@@ -376,7 +376,7 @@ export const CallScreen = () => {
   // ─────────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden">
-      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+      <audio ref={remoteAudioRef} autoPlay playsInline muted={!isSpeakerOn} className="hidden" />
 
       {/* ── Background: blurred avatar or animated gradient ── */}
       {hasAvatar ? (
@@ -624,7 +624,7 @@ export const CallScreen = () => {
                   <div className="flex items-center justify-around mb-5">
                     <CtrlBtn
                       icon={isSpeakerOn ? Volume2 : VolumeX}
-                      label="Speaker"
+                      label="Sound"
                       sublabel={isSpeakerOn ? "On" : "Off"}
                       onPress={() => setSpeaker(s => !s)}
                       active={!isSpeakerOn}
