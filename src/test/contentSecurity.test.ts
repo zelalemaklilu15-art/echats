@@ -23,6 +23,7 @@ beforeAll(async()=>{
  await db.exec(readFileSync('drizzle/migrations/0015_stage6_legacy_policy_cleanup.sql','utf8'));
  await db.exec(readFileSync('drizzle/migrations/0016_stage6_attachment_access.sql','utf8'));
  await db.exec(readFileSync('drizzle/migrations/0017_stage6_video_insert_readback.sql','utf8'));
+ await db.exec(readFileSync('drizzle/migrations/0018_stage6_live_terminal_state.sql','utf8'));
 },30000);
 beforeEach(async()=>{
  await db.exec(`RESET ROLE;SELECT set_config('request.jwt.claim.sub','',false);
@@ -123,5 +124,13 @@ describe('Stage 6 actual database rules',()=>{
  it('live counters cannot be spoofed on insert',async()=>{const rows=(await asUser(A,`INSERT INTO public.etok_live_streams(host_id,title,viewer_count,gift_total) VALUES('${A}','new',999,999) RETURNING viewer_count,gift_total`)).rows;expect(rows).toEqual([{viewer_count:0,gift_total:0}]);});
  it('live signaling requires joined member and host direction',async()=>{await expect(asUser(B,`INSERT INTO public.etok_webrtc_signals(stream_id,from_user_id,to_user_id,signal_type,payload) VALUES('${L}','${B}','${A}','request','{}')`)).rejects.toThrow();await asUser(B,`INSERT INTO public.etok_live_viewers(stream_id,user_id) VALUES('${L}','${B}')`);await asUser(B,`INSERT INTO public.etok_webrtc_signals(stream_id,from_user_id,to_user_id,signal_type,payload) VALUES('${L}','${B}','${A}','request','{}')`);await expect(asUser(B,`INSERT INTO public.etok_webrtc_signals(stream_id,from_user_id,to_user_id,signal_type,payload) VALUES('${L}','${B}','${C}','offer','{}')`)).rejects.toThrow();});
  it('expired live session rejects new viewers',async()=>{await db.exec(`UPDATE public.etok_live_streams SET last_heartbeat=now()-interval '3 minutes' WHERE id='${L}'`);await expect(asUser(B,`INSERT INTO public.etok_live_viewers(stream_id,user_id) VALUES('${L}','${B}')`)).rejects.toThrow();});
+ it('ending Live records a server timestamp and cannot be reversed',async()=>{
+  await asUser(A,`UPDATE public.etok_live_streams SET is_live=false,ended_at='2000-01-01' WHERE id='${L}'`);
+  expect((await db.query(`SELECT is_live,ended_at>now()-interval '1 minute' AS recent FROM public.etok_live_streams WHERE id='${L}'`)).rows).toEqual([{is_live:false,recent:true}]);
+  await expect(asUser(A,`UPDATE public.etok_live_streams SET is_live=true,ended_at=NULL WHERE id='${L}'`)).rejects.toThrow();
+ });
+ it('a host cannot fabricate an end time while a broadcast remains live',async()=>{
+  await expect(asUser(A,`UPDATE public.etok_live_streams SET ended_at=now() WHERE id='${L}'`)).rejects.toThrow();
+ });
  it('poll accepts one valid choice per authorized viewer',async()=>{await db.exec(`UPDATE public.user_stories SET privacy='everyone',content='{"stickers":[{"id":"poll","type":"poll","options":["yes","no"]}]}' WHERE id='${S}'`);await expect(asUser(B,`INSERT INTO public.story_poll_votes VALUES('${S}','poll','${B}','invalid',now())`)).rejects.toThrow();await asUser(B,`INSERT INTO public.story_poll_votes VALUES('${S}','poll','${B}','yes',now())`);await expect(asUser(B,`INSERT INTO public.story_poll_votes VALUES('${S}','poll','${B}','no',now())`)).rejects.toThrow();});
 });
