@@ -92,6 +92,27 @@
       "when": 1792664055938,
       "tag": "0012_stars_purchase_atomic_result",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792665198202,
+      "tag": "0013_stage6_content_authorization",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792665558024,
+      "tag": "0014_stage6_media_and_live_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792665959963,
+      "tag": "0015_stage6_legacy_policy_cleanup",
+      "breakpoints": true
     }
   ]
 }

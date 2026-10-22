@@ -1,0 +1,36 @@
+-- Require subject consent (reciprocal following) for private accounts.
+CREATE OR REPLACE FUNCTION public.can_view_etok_video(p_id uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT EXISTS(SELECT 1 FROM public.etok_videos v WHERE v.id=p_id AND (v.author_id=auth.uid() OR (public.etok_not_blocked(v.author_id,auth.uid()) AND (v.privacy='everyone' OR (v.privacy='friends' AND public.etok_are_friends(v.author_id,auth.uid()))) AND (NOT EXISTS(SELECT 1 FROM public.etok_privacy_settings ps WHERE ps.user_id=v.author_id AND ps.private_account) OR public.etok_are_friends(v.author_id,auth.uid()))))); $$;
+CREATE OR REPLACE FUNCTION public.feature_media_path(p_source text,p_bucket text) RETURNS text LANGUAGE sql IMMUTABLE SET search_path=public AS $$ SELECT CASE WHEN p_source LIKE p_bucket||'/%' THEN substr(p_source,length(p_bucket)+2) WHEN split_part(p_source,'?',1) LIKE '%/object/%/'||p_bucket||'/%' THEN substring(split_part(p_source,'?',1) FROM '/object/(?:public|sign|authenticated)/[^/]+/(.*)$') ELSE NULL END; $$;
+CREATE OR REPLACE FUNCTION public.guard_etok_video_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ DECLARE p text;t text; BEGIN IF current_user IN ('authenticated','anon') THEN NEW.views:=0;NEW.likes:=0;NEW.comments:=0;NEW.shares:=0;NEW.is_sponsored:=false; p:=public.feature_media_path(NEW.video_url,'etok-videos');t:=public.feature_media_path(NEW.thumbnail_url,'etok-videos'); IF p IS NULL OR split_part(p,'/',1)<>NEW.author_id::text OR (NEW.thumbnail_url IS NOT NULL AND (t IS NULL OR split_part(t,'/',1)<>NEW.author_id::text)) THEN RAISE EXCEPTION 'Video media must belong to its author';END IF;END IF; RETURN NEW; END $$;
+CREATE OR REPLACE FUNCTION public.guard_etok_thumbnail_update() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ BEGIN IF current_user='authenticated' AND NEW.thumbnail_url IS DISTINCT FROM OLD.thumbnail_url AND NEW.thumbnail_url IS NOT NULL AND coalesce(split_part(public.feature_media_path(NEW.thumbnail_url,'etok-videos'),'/',1),'')<>NEW.author_id::text THEN RAISE EXCEPTION 'Thumbnail owner mismatch';END IF;RETURN NEW;END $$;
+CREATE TRIGGER guard_etok_thumbnail_update BEFORE UPDATE ON public.etok_videos FOR EACH ROW EXECUTE FUNCTION public.guard_etok_thumbnail_update();
+CREATE OR REPLACE FUNCTION public.can_read_etok_media(p_name text) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT split_part(p_name,'/',1)=auth.uid()::text OR EXISTS(SELECT 1 FROM public.etok_videos v WHERE v.author_id::text=split_part(p_name,'/',1) AND public.can_view_etok_video(v.id) AND (public.feature_media_path(v.video_url,'etok-videos')=p_name OR public.feature_media_path(v.thumbnail_url,'etok-videos')=p_name)); $$;
+CREATE OR REPLACE FUNCTION public.validate_story_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ BEGIN NEW.privacy:=public.story_content_privacy(NEW.content); IF NEW.media_url IS NOT NULL THEN NEW.media_path:=public.feature_media_path(NEW.media_url,'chat-media');IF NEW.media_path IS NULL OR NEW.media_path NOT LIKE 'stories/'||NEW.user_id::text||'/%' THEN RAISE EXCEPTION 'Story media owner mismatch';END IF;END IF;IF current_user='authenticated' THEN NEW.views_count:=0;NEW.created_at:=now();NEW.expires_at:=now()+interval '24 hours';END IF;RETURN NEW;END $$;
+REVOKE UPDATE,DELETE ON public.story_views FROM authenticated;
+REVOKE UPDATE ON public.etok_likes,public.etok_comments FROM authenticated;
+-- Remove known historic permissive policies if an older deployment retained them.
+DROP POLICY IF EXISTS "Users can view story media" ON storage.objects;
+DROP POLICY IF EXISTS "Etok videos are publicly accessible" ON storage.objects;
+DROP POLICY IF EXISTS "Anyone can view public videos" ON public.etok_videos;
+DROP POLICY IF EXISTS "Users can view their own videos" ON public.etok_videos;
+DROP POLICY IF EXISTS "Anyone can view comments" ON public.etok_comments;
+DROP POLICY IF EXISTS "Users can insert their own comments" ON public.etok_comments;
+DROP POLICY IF EXISTS "Users can manage their own likes" ON public.etok_likes;
+DROP POLICY IF EXISTS "Anyone can view likes" ON public.etok_likes;
+DROP POLICY IF EXISTS "Anyone can view non-expired stories" ON public.user_stories;
+CREATE OR REPLACE FUNCTION public.guard_live_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ BEGIN IF current_user='authenticated' THEN NEW.viewer_count:=0;NEW.gift_total:=0;NEW.last_heartbeat:=now();NEW.started_at:=now();NEW.is_live:=true;NEW.ended_at:=NULL; END IF;RETURN NEW;END $$;
+CREATE TRIGGER guard_live_insert BEFORE INSERT ON public.etok_live_streams FOR EACH ROW EXECUTE FUNCTION public.guard_live_insert();
+REVOKE UPDATE(last_heartbeat) ON public.etok_live_streams FROM authenticated;
+CREATE OR REPLACE FUNCTION public.guard_live_comment_insert() RETURNS trigger LANGUAGE plpgsql SET search_path=public AS $$ BEGIN IF current_user='authenticated' THEN NEW.is_gift:=false;NEW.gift_emoji:=NULL;IF char_length(btrim(NEW.text))=0 OR char_length(NEW.text)>2000 THEN RAISE EXCEPTION 'Invalid live comment';END IF;END IF;RETURN NEW;END $$;
+CREATE TRIGGER guard_live_comment_insert BEFORE INSERT ON public.etok_live_comments FOR EACH ROW EXECUTE FUNCTION public.guard_live_comment_insert();
+CREATE OR REPLACE FUNCTION public.guard_active_live_gift() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN IF NOT public.etok_live_active(NEW.stream_id) THEN RAISE EXCEPTION 'Live stream has ended'; END IF;RETURN NEW;END $$;
+CREATE TRIGGER guard_active_live_gift BEFORE INSERT ON public.etok_gifts_sent FOR EACH ROW EXECUTE FUNCTION public.guard_active_live_gift();
+-- Persist poll votes; choices belong to the exact authorized story sticker.
+CREATE TABLE public.story_poll_votes(story_id uuid NOT NULL REFERENCES public.user_stories(id) ON DELETE CASCADE,sticker_id text NOT NULL,user_id uuid NOT NULL,choice text NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(story_id,sticker_id,user_id));
+GRANT SELECT,INSERT ON public.story_poll_votes TO authenticated;
+GRANT ALL ON public.story_poll_votes TO service_role;
+ALTER TABLE public.story_poll_votes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY story_poll_read ON public.story_poll_votes FOR SELECT TO authenticated USING(public.can_view_story(story_id));
+CREATE POLICY story_poll_insert ON public.story_poll_votes FOR INSERT TO authenticated WITH CHECK(user_id=auth.uid() AND public.can_view_story(story_id));
+CREATE OR REPLACE FUNCTION public.validate_story_vote() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ DECLARE c jsonb;BEGIN SELECT content::jsonb INTO c FROM public.user_stories WHERE id=NEW.story_id;IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(c->'stickers','[]'::jsonb)) s WHERE s->>'id'=NEW.sticker_id AND s->>'type'='poll' AND (s->'options') ? NEW.choice) THEN RAISE EXCEPTION 'Invalid poll choice';END IF; RETURN NEW;END $$;
+CREATE TRIGGER validate_story_vote BEFORE INSERT ON public.story_poll_votes FOR EACH ROW EXECUTE FUNCTION public.validate_story_vote();

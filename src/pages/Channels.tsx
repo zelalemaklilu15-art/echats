@@ -30,6 +30,7 @@ const Channels = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [channelName, setChannelName] = useState("");
   const [channelDescription, setChannelDescription] = useState("");
+  const [creating, setCreating] = useState(false);
   const [version, setVersion] = useState(0);
   useChannelSync();
 
@@ -50,18 +51,22 @@ const Channels = () => {
   const filteredSubscribed = filterChannels(subscribedChannels);
   const isEmpty = filteredMy.length === 0 && filteredSubscribed.length === 0;
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!channelName.trim()) {
       toast.error("Channel name is required");
       return;
     }
-    if (!userId) return;
-    createChannel(channelName.trim(), channelDescription.trim(), userId);
+    if (!userId || creating) return;
+    setCreating(true);
+    try {
+    await createChannel(channelName.trim(), channelDescription.trim(), userId);
     toast.success("Channel created");
     setChannelName("");
     setChannelDescription("");
     setDialogOpen(false);
     setVersion((v) => v + 1);
+    } catch { toast.error("Could not create channel. Please retry."); }
+    finally { setCreating(false); }
   };
 
   const renderChannelCard = (channel: Channel, index: number) => (
@@ -227,7 +232,7 @@ const Channels = () => {
             >
               Cancel
             </Button>
-            <Button onClick={handleCreate} data-testid="button-confirm-create">
+            <Button disabled={creating} onClick={handleCreate} data-testid="button-confirm-create">
               Create
             </Button>
           </DialogFooter>

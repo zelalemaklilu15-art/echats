@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { resolveFeatureMedia } from '@/lib/featureMedia';
 import { supabase } from "@/integrations/supabase/client";
 import { getAccessProfile, getAccessProfiles, hiddenProfile, searchAccessProfiles } from '@/lib/profileAccess';
 
@@ -130,7 +131,11 @@ async function hydrateVideos(rows: any[] | null | undefined): Promise<EtokVideo[
     const data = await getAccessProfiles(authorIds).catch(() => []);
     (data ?? []).forEach(p => profilesById.set(p.id, mapUser(p)));
   }
-  return list.map(row => ({ ...mapVideo(row), author: profilesById.get(row.author_id) ?? mapUser(hiddenProfile(row.author_id)) }));
+  return Promise.all(list.map(async row => ({ ...mapVideo(row),
+    videoUrl: await resolveFeatureMedia(row.video_url, 'etok-videos') ?? '',
+    thumbnailUrl: await resolveFeatureMedia(row.thumbnail_url, 'etok-videos'),
+    author: profilesById.get(row.author_id) ?? mapUser(hiddenProfile(row.author_id)),
+  })));
 }
 
 async function hydrateComments(rows: any[] | null | undefined): Promise<EtokComment[]> {
@@ -155,16 +160,17 @@ export async function fetchFYPVideos(): Promise<EtokVideo[]> {
     .eq("privacy", "everyone")
     .order("created_at", { ascending: false })
     .limit(50);
-  if (error) { console.error("[Etok] FYP error:", error); return []; }
+  if (error) throw error;
   return hydrateVideos(data);
 }
 
 export async function fetchFollowingVideos(userId: string): Promise<EtokVideo[]> {
   // Get who user follows
-  const { data: follows } = await supabase
+  const { data: follows, error: followsError } = await supabase
     .from("etok_follows")
     .select("following_id")
     .eq("follower_id", userId);
+  if (followsError) throw followsError;
   const ids = (follows ?? []).map(f => f.following_id);
   if (ids.length === 0) return [];
 
@@ -175,7 +181,7 @@ export async function fetchFollowingVideos(userId: string): Promise<EtokVideo[]>
     .neq("privacy", "only_me")
     .order("created_at", { ascending: false })
     .limit(50);
-  if (error) { console.error("[Etok] following error:", error); return []; }
+  if (error) throw error;
   return hydrateVideos(data);
 }
 
@@ -186,7 +192,7 @@ export async function fetchUserVideos(userId: string): Promise<EtokVideo[]> {
     .eq("author_id", userId)
     .order("created_at", { ascending: false })
     .limit(100);
-  if (error) { console.error("[Etok] user videos error:", error); return []; }
+  if (error) throw error;
   return hydrateVideos(data);
 }
 
@@ -222,34 +228,19 @@ export function subscribeToPublicEtokVideos(onNew: (video: EtokVideo) => void) {
    ═══════════════════════════════════════════ */
 
 export async function checkIsLiked(userId: string, videoId: string): Promise<boolean> {
-  const { count } = await supabase
-    .from("etok_likes")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("video_id", videoId);
+  const { count, error } = await supabase.from('etok_likes').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('video_id', videoId);
+  if (error) throw error;
   return (count ?? 0) > 0;
 }
 
+export async function setLikeAsync(videoId: string, liked: boolean): Promise<{ liked: boolean; likes: number }> {
+  const { data, error } = await supabase.rpc('set_etok_like', { p_video: videoId, p_liked: liked });
+  if (error) throw error;
+  return data as { liked: boolean; likes: number };
+}
 export async function toggleLikeAsync(userId: string, videoId: string): Promise<boolean> {
-  if (!userId) throw new Error("Please sign in first");
-  const liked = await checkIsLiked(userId, videoId);
-  if (liked) {
-    await supabase.from("etok_likes").delete().eq("user_id", userId).eq("video_id", videoId);
-    // Decrement likes count
-    const { data: vid } = await supabase.from("etok_videos").select("likes").eq("id", videoId).single();
-    if (vid) {
-      await supabase.from("etok_videos").update({ likes: Math.max(0, vid.likes - 1) }).eq("id", videoId);
-    }
-    return false;
-  } else {
-    await supabase.from("etok_likes").insert({ user_id: userId, video_id: videoId });
-    const { data: vid } = await supabase.from("etok_videos").select("likes").eq("id", videoId).single();
-    if (vid) {
-      await supabase.from("etok_videos").update({ likes: vid.likes + 1 }).eq("id", videoId);
-    }
-    await recordVideoInteractionAsync(videoId, "like");
-    return true;
-  }
+  if (!userId) throw new Error('Please sign in first');
+  return (await setLikeAsync(videoId, !(await checkIsLiked(userId, videoId)))).liked;
 }
 
 /* ═══════════════════════════════════════════
@@ -257,11 +248,12 @@ export async function toggleLikeAsync(userId: string, videoId: string): Promise<
    ═══════════════════════════════════════════ */
 
 export async function checkIsFollowing(followerId: string, followingId: string): Promise<boolean> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("etok_follows")
     .select("follower_id", { count: "exact", head: true })
     .eq("follower_id", followerId)
     .eq("following_id", followingId);
+  if (error) throw error;
   return (count ?? 0) > 0;
 }
 
@@ -270,10 +262,12 @@ export async function toggleFollowAsync(followerId: string, followingId: string)
   if (followerId === followingId) return true;
   const isFollow = await checkIsFollowing(followerId, followingId);
   if (isFollow) {
-    await supabase.from("etok_follows").delete().eq("follower_id", followerId).eq("following_id", followingId);
+    const { error } = await supabase.from("etok_follows").delete().eq("follower_id", followerId).eq("following_id", followingId);
+    if (error) throw error;
     return false;
   } else {
-    await supabase.from("etok_follows").insert({ follower_id: followerId, following_id: followingId });
+    const { error } = await supabase.from("etok_follows").insert({ follower_id: followerId, following_id: followingId });
+    if (error) throw error;
     return true;
   }
 }
@@ -303,11 +297,10 @@ export async function fetchComments(videoId: string): Promise<EtokComment[]> {
     .from("etok_comments")
     .select("*")
     .eq("video_id", videoId)
-    .is("parent_id", null)
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(100);
-  if (error) { console.error("[Etok] comments error:", error); return []; }
+  if (error) throw error;
   return hydrateComments(data);
 }
 
@@ -327,19 +320,15 @@ export async function addCommentAsync(videoId: string, authorId: string, text: s
     .insert({ video_id: videoId, author_id: authorId, text, parent_id: parentId ?? null })
     .select("*")
     .single();
-  if (error) { console.error("[Etok] add comment error:", error); return null; }
-  // Increment comment count
-  const { data: vid } = await supabase.from("etok_videos").select("comments").eq("id", videoId).single();
-  if (vid) {
-    await supabase.from("etok_videos").update({ comments: vid.comments + 1 }).eq("id", videoId);
-  }
-  await recordVideoInteractionAsync(videoId, "comment");
+  if (error) throw error;
   const [comment] = await hydrateComments(data ? [data] : []);
   return comment ?? null;
 }
 
 export async function deleteCommentAsync(commentId: string): Promise<void> {
-  await supabase.from("etok_comments").delete().eq("id", commentId);
+  const { data, error } = await supabase.from("etok_comments").delete().eq("id", commentId).select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Comment could not be deleted");
 }
 
 /* ═══════════════════════════════════════════
@@ -377,22 +366,32 @@ export async function fetchTotalVideoLikes(userId: string): Promise<number> {
    ═══════════════════════════════════════════ */
 
 export async function searchVideosAsync(query: string): Promise<EtokVideo[]> {
-  const clean = query.trim().replace(/^#/, "");
-  if (!clean) return [];
-  const q = `%${clean}%`;
-  const { data } = await supabase
-    .from("etok_videos")
-    .select("*")
-    .or(`description.ilike.${q},sound_name.ilike.${q}`)
-    .eq("privacy", "everyone")
-    .order("views", { ascending: false })
-    .limit(30);
-  const hydrated = await hydrateVideos(data);
-  return hydrated.filter(v =>
-    v.description.toLowerCase().includes(clean.toLowerCase()) ||
-    v.soundName.toLowerCase().includes(clean.toLowerCase()) ||
-    v.hashtags.some(h => h.toLowerCase().includes(clean.toLowerCase()))
-  );
+  if (!query.trim()) return [];
+  const { data, error } = await supabase.rpc('search_etok_videos', { p_query: query.trim() });
+  if (error) throw error;
+  return hydrateVideos(data);
+}
+
+export async function fetchSavedVideos(userId: string): Promise<EtokVideo[]> {
+  const { data, error } = await supabase.from('etok_saved_videos').select('video_id').eq('user_id', userId);
+  if (error) throw error;
+  return (await Promise.all((data ?? []).map(row => fetchVideoById(row.video_id)))).filter((v): v is EtokVideo => v !== null);
+}
+export async function fetchLikedVideos(userId: string): Promise<EtokVideo[]> {
+  const { data, error } = await supabase.from('etok_likes').select('video_id').eq('user_id', userId);
+  if (error) throw error;
+  return (await Promise.all((data ?? []).map(row => fetchVideoById(row.video_id)))).filter((v): v is EtokVideo => v !== null);
+}
+export async function isVideoSaved(userId: string, videoId: string): Promise<boolean> {
+  const { count, error } = await supabase.from('etok_saved_videos').select('video_id', { count: 'exact', head: true }).eq('user_id', userId).eq('video_id', videoId);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+export async function setVideoSaved(userId: string, videoId: string, saved: boolean): Promise<void> {
+  const query = saved ? supabase.from('etok_saved_videos').upsert({ user_id: userId, video_id: videoId }, { onConflict: 'user_id,video_id', ignoreDuplicates: true })
+    : supabase.from('etok_saved_videos').delete().eq('user_id', userId).eq('video_id', videoId);
+  const { error } = await query;
+  if (error) throw error;
 }
 
 export async function searchUsersAsync(query: string): Promise<EtokUser[]> {
@@ -427,6 +426,8 @@ export async function uploadVideoAsync(
     throw new Error("Recorded video is empty");
   }
 
+  const { data: { user: initiatingUser } } = await supabase.auth.getUser();
+  if (initiatingUser?.id !== metadata.authorId) throw new Error("Account changed. Retry the upload.");
   onProgress?.(10);
 
   const contentType = blob.type || "video/webm";
@@ -441,8 +442,12 @@ export async function uploadVideoAsync(
     throw new Error(storageError?.message || "Video upload failed");
   }
 
-  const { data: urlData } = supabase.storage.from("etok-videos").getPublicUrl(storageData.path);
-  const videoUrl = urlData.publicUrl;
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  if (currentUser?.id !== metadata.authorId) {
+    await supabase.storage.from("etok-videos").remove([storageData.path]);
+    throw new Error("Account changed. Upload was not published.");
+  }
+  const videoUrl = `etok-videos/${storageData.path}`;
 
   onProgress?.(70);
 
@@ -462,7 +467,7 @@ export async function uploadVideoAsync(
       allow_stitch: metadata.allowStitch,
       allow_download: metadata.allowDownload,
     })
-    .select("*, profiles!etok_videos_author_id_fkey(id, username, name, avatar_url, bio)")
+    .select("*")
     .single();
 
   onProgress?.(100);
@@ -472,15 +477,17 @@ export async function uploadVideoAsync(
     await supabase.storage.from("etok-videos").remove([storageData.path]);
     throw new Error(error.message || "Could not save video post");
   }
-  return data ? mapVideo(data) : null;
+  return data ? (await hydrateVideos([data]))[0] ?? null : null;
 }
 
 export async function recordVideoViewAsync(videoId: string, source: "fyp" | "following" | "search" | "profile" = "fyp"): Promise<void> {
-  await supabase.rpc("record_etok_video_view", { _video_id: videoId, _source: source });
+  const { error } = await supabase.rpc("record_etok_video_view", { _video_id: videoId, _source: source });
+  if (error) throw error;
 }
 
 export async function recordVideoInteractionAsync(videoId: string, kind: "like" | "comment" | "share"): Promise<void> {
-  await supabase.rpc("record_etok_video_interaction", { _video_id: videoId, _kind: kind });
+  const { error } = await supabase.rpc("record_etok_video_interaction", { _video_id: videoId, _kind: kind });
+  if (error) throw error;
 }
 
 /* ═══════════════════════════════════════════
@@ -543,18 +550,20 @@ export async function fetchTrendingHashtags(): Promise<EtokHashtag[]> {
 export async function searchSoundsAsync(query: string): Promise<EtokSound[]> {
   const q = query.trim();
   if (!q) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("etok_sounds").select("id,title,author_id,cover_emoji,duration,video_count,is_original")
     .ilike('title', `%${q}%`)
     .limit(50);
+  if (error) throw error;
   return hydrateSounds(data);
 }
 
 export async function searchHashtagsAsync(query: string): Promise<EtokHashtag[]> {
   const q = query.trim().replace(/^#/, "");
   if (!q) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("etok_hashtags").select("*").ilike("name", `%${q}%`).limit(50);
+  if (error) throw error;
   return (data ?? []).map(mapHashtag);
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, X, TrendingUp, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -21,14 +22,13 @@ function UserCard({ user, currentUserId, onNavigate }: UserCardProps) {
 
   useEffect(() => {
     if (currentUserId && user.id) {
-      checkIsFollowing(currentUserId, user.id).then(setF);
+      checkIsFollowing(currentUserId, user.id).then(setF).catch(() => {});
     }
   }, [currentUserId, user.id]);
 
   const handleToggleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const result = await toggleFollowAsync(currentUserId, user.id);
-    setF(result);
+    try { setF(await toggleFollowAsync(currentUserId, user.id)); } catch { toast.error("Could not save follow"); }
   };
 
   return (
@@ -128,30 +128,24 @@ const EtokSearch = () => {
     fetchActiveLives().then(setActiveLives);
   }, []);
 
-  // Search with debounce
+  const [searchError, setSearchError] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    if (!query.trim()) {
-      setVideoResults([]);
-      setUserResults([]);
-      setSoundResults([]);
-      setHashtagResults([]);
-      return;
-    }
+    let active = true;
+    setVideoResults([]); setUserResults([]); setSoundResults([]); setHashtagResults([]); setSearchError(false);
+    if (!query.trim()) { setSearching(false); return; }
+    setSearching(true);
     const timer = setTimeout(async () => {
-      const [videos, users, sounds, hashtags] = await Promise.all([
-        searchVideosAsync(query),
-        searchUsersAsync(query),
-        searchSoundsAsync(query),
-        searchHashtagsAsync(query),
-      ]);
-      setVideoResults(videos);
-      setUserResults(users);
-      setSoundResults(sounds);
-      setHashtagResults(hashtags);
-      setActiveTab("top");
+      try {
+        const [videos, users, sounds, hashtags] = await Promise.all([searchVideosAsync(query), searchUsersAsync(query), searchSoundsAsync(query), searchHashtagsAsync(query)]);
+        if (!active) return;
+        setVideoResults(videos); setUserResults(users); setSoundResults(sounds); setHashtagResults(hashtags);
+      } catch { if (active) setSearchError(true); }
+      finally { if (active) setSearching(false); }
     }, 300);
-    return () => clearTimeout(timer);
-  }, [query]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [query, currentUserId, retry]);
 
   const tabs: { id: ResultTab; label: string }[] = [
     { id: "top", label: "Top" },
@@ -214,6 +208,8 @@ const EtokSearch = () => {
         </div>
       )}
 
+      {searching && <p className="px-4 py-2 text-muted-foreground" role="status">Searching…</p>}
+      {searchError && <div className="px-4 py-2 text-destructive" role="alert">Could not load results. <button onClick={() => setRetry(v => v + 1)}>Retry</button></div>}
       {!query ? (
         <div className="px-3 pb-24">
           {/* Category grid */}

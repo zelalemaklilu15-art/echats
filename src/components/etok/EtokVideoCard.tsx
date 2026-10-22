@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   type EtokVideo,
-  checkIsLiked, toggleLikeAsync,
+  checkIsLiked, setLikeAsync, recordVideoViewAsync,
   checkIsFollowing, toggleFollowAsync,
   formatCount, markNotInterested,
 } from "@/lib/etokService";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { EtokComments } from "./EtokComments";
 import { EtokShareSheet } from "./EtokShareSheet";
 
@@ -59,22 +61,33 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
   const [paused, setPaused] = useState(false);
   const [showPauseIcon, setShowPauseIcon] = useState(false);
 
+  const likeBusy = useRef(false);
+  const [likePending, setLikePending] = useState(false);
+  const [followPending, setFollowPending] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastTapRef = useRef(0);
   const pauseIconTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const pattern = BG_PATTERNS[index % BG_PATTERNS.length];
 
-  // Check initial like/follow state
   useEffect(() => {
-    if (currentUserId && video.id) {
-      checkIsLiked(currentUserId, video.id).then(setLiked);
-    }
-    if (currentUserId && video.authorId && video.authorId !== currentUserId) {
-      checkIsFollowing(currentUserId, video.authorId).then(setFollowing);
-    } else if (video.authorId === currentUserId) {
-      setFollowing(true);
-    }
+    let active = true;
+    setLiked(false); setFollowing(video.authorId === currentUserId);
+    checkIsLiked(currentUserId, video.id).then(value => { if (active) setLiked(value); }).catch(() => {});
+    if (video.authorId !== currentUserId) checkIsFollowing(currentUserId, video.authorId).then(value => { if (active) setFollowing(value); }).catch(() => {});
+    return () => { active = false; };
   }, [currentUserId, video.id, video.authorId]);
+  useEffect(() => {
+    if (!isActive || !currentUserId) return;
+    const timer = setTimeout(() => { void recordVideoViewAsync(video.id).catch(() => {}); }, 2000);
+    return () => clearTimeout(timer);
+  }, [isActive, currentUserId, video.id]);
+  const applyLike = async (target: boolean) => {
+    if (likeBusy.current || !currentUserId) return;
+    likeBusy.current = true; setLikePending(true);
+    try { const result = await setLikeAsync(video.id, target); setLiked(result.liked); setLikeCount(result.likes); }
+    catch { toast.error('Could not save like. Please retry.'); }
+    finally { likeBusy.current = false; setLikePending(false); }
+  };
 
   useEffect(() => {
     const el = videoRef.current;
@@ -108,9 +121,7 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       setHeartPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
       if (!liked) {
-        setLiked(true);
-        setLikeCount(c => c + 1);
-        toggleLikeAsync(currentUserId, video.id);
+        void applyLike(true);
       }
       setShowHeart(true);
       setTimeout(() => setShowHeart(false), 900);
@@ -128,16 +139,17 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const nowLiked = await toggleLikeAsync(currentUserId, video.id);
-    setLiked(nowLiked);
-    setLikeCount(c => nowLiked ? c + 1 : Math.max(0, c - 1));
+    await applyLike(!liked);
   };
 
   const handleFollow = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (video.authorId === currentUserId) return;
-    const f = await toggleFollowAsync(currentUserId, video.authorId);
-    setFollowing(f);
+    if (followPending) return;
+    setFollowPending(true);
+    try { setFollowing(await toggleFollowAsync(currentUserId, video.authorId)); }
+    catch { toast.error("Could not save follow. Please retry."); }
+    finally { setFollowPending(false); }
   };
 
   const handleRetry = (e: React.MouseEvent) => {
@@ -236,23 +248,23 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
             {author?.avatar ? <img src={author.avatar} alt="" className="w-full h-full object-cover" /> : "👤"}
           </div>
           {video.authorId !== currentUserId && (
-            <button onClick={handleFollow}
+            <Button variant="ghost" size="icon" aria-label={following ? "Unfollow creator" : "Follow creator"} disabled={followPending} onClick={handleFollow}
               className={cn("absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full flex items-center justify-center shadow-md transition-colors",
                 following ? "bg-white" : "bg-[#ff0050]")}>
               {following ? <Check className="h-3 w-3 text-[#ff0050]" strokeWidth={3} /> : <PlusIcon className="h-3 w-3 text-white" strokeWidth={3} />}
-            </button>
+            </Button>
           )}
         </div>
 
         {/* Like */}
         <ActionBtn icon={<motion.div whileTap={{ scale: 1.4 }}><Heart className={cn("h-[34px] w-[34px] drop-shadow", liked ? "fill-[#ff0050] text-[#ff0050]" : "fill-white text-white")} /></motion.div>}
-          label={formatCount(likeCount)} onClick={handleLike} />
+          label={formatCount(likeCount)} name={liked ? "Unlike video" : "Like video"} disabled={likePending} onClick={handleLike} />
         {/* Comment */}
         <ActionBtn icon={<MessageCircle className="h-[34px] w-[34px] fill-white text-white drop-shadow" />}
-          label={formatCount(commentCount)} onClick={e => { e.stopPropagation(); setShowComments(true); }} />
+          label={formatCount(commentCount)} name="Comments" onClick={e => { e.stopPropagation(); setShowComments(true); }} />
         {/* Share */}
         <ActionBtn icon={<Share2 className="h-[30px] w-[30px] text-white drop-shadow" />}
-          label={formatCount(video.shares)} onClick={e => { e.stopPropagation(); setShowShare(true); }} />
+          label={formatCount(video.shares)} name="Share video" onClick={e => { e.stopPropagation(); setShowShare(true); }} />
         {/* More */}
         <button onClick={e => { e.stopPropagation(); setShowMore(true); }} className="flex flex-col items-center">
           <MoreHorizontal className="h-7 w-7 text-white drop-shadow" />
@@ -316,7 +328,7 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
       <AnimatePresence>
         {showComments && (
           <EtokComments video={video} currentUserId={currentUserId} onClose={() => setShowComments(false)}
-            onCommentAdded={() => setCommentCount(c => c + 1)} />
+            onCommentAdded={() => setCommentCount(c => c + 1)} onCommentDeleted={() => setCommentCount(c => Math.max(0,c - 1))} />
         )}
       </AnimatePresence>
 
@@ -328,11 +340,8 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
   );
 }
 
-function ActionBtn({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: (e: React.MouseEvent) => void }) {
-  return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1">
-      {icon}
-      <span className="text-white text-[12px] font-semibold drop-shadow">{label}</span>
-    </button>
-  );
+function ActionBtn({ icon, label, name, disabled, onClick }: { icon: React.ReactNode; label: string; name: string; disabled?: boolean; onClick: (e: React.MouseEvent) => void }) {
+  return <Button variant="ghost" aria-label={name} disabled={disabled} onClick={onClick} className="flex h-auto flex-col items-center gap-1 p-0 hover:bg-transparent">
+    {icon}<span className="text-foreground text-[12px] font-semibold drop-shadow">{label}</span>
+  </Button>;
 }

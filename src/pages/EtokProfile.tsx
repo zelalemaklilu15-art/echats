@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import {
-  fetchEtokProfile, fetchUserVideos, fetchFollowerCount, fetchFollowingCount, fetchTotalVideoLikes,
+  fetchEtokProfile, fetchUserVideos, fetchLikedVideos, fetchSavedVideos, fetchFollowerCount, fetchFollowingCount, fetchTotalVideoLikes,
   checkIsFollowing, toggleFollowAsync, updateEtokProfileAsync,
   formatCount, type EtokUser, type EtokVideo,
 } from "@/lib/etokService";
@@ -24,7 +24,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-type ProfileTab = "videos" | "likes" | "favorites";
+type ProfileTab = "videos" | "likes" | "saved";
 
 const REPORT_REASONS = [
   { value: "spam", label: "Spam" },
@@ -59,6 +59,8 @@ const EtokProfile = () => {
 
   const [profile, setProfile] = useState<EtokUser | null>(null);
   const [videos, setVideos] = useState<EtokVideo[]>([]);
+  const [likedVideos, setLikedVideos] = useState<EtokVideo[]>([]);
+  const [savedVideos, setSavedVideos] = useState<EtokVideo[]>([]);
   const [following, setFollowingState] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("videos");
   const [showMore, setShowMore] = useState(false);
@@ -83,7 +85,10 @@ const EtokProfile = () => {
   const [reporting, setReporting] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    setProfile(null); setVideos([]);
     const load = async () => {
+      try {
       setLoading(true);
       const [p, vids, followers, followings, totalLikes] = await Promise.all([
         fetchEtokProfile(resolvedId),
@@ -92,6 +97,7 @@ const EtokProfile = () => {
         fetchFollowingCount(resolvedId),
         fetchTotalVideoLikes(resolvedId),
       ]);
+      if (!active) return;
       setProfile(p);
       setVideos(vids);
       setFollowerCount(followers);
@@ -104,19 +110,24 @@ const EtokProfile = () => {
       }
       if (!isOwn) {
         const isF = await checkIsFollowing(currentUserId, resolvedId);
-        setFollowingState(isF);
+        if (active) setFollowingState(isF);
       }
-      setLoading(false);
+      if (active) setLoading(false);
+      } catch { if (active) { setLoading(false); toast.error("Could not load profile"); } }
     };
-    load();
+    void load();
+    return () => { active = false; };
   }, [resolvedId, currentUserId, isOwn]);
 
   const handleFollow = async () => {
-    const f = await toggleFollowAsync(currentUserId, resolvedId);
-    setFollowingState(f);
-    setFollowerCount(c => f ? c + 1 : Math.max(0, c - 1));
+    try { const f = await toggleFollowAsync(currentUserId, resolvedId); setFollowingState(f); setFollowerCount(c => f ? c + 1 : Math.max(0,c - 1)); } catch { toast.error("Could not save follow"); }
   };
 
+  useEffect(() => {
+    let active = true;
+    if (isOwn && currentUserId) Promise.all([fetchLikedVideos(currentUserId), fetchSavedVideos(currentUserId)]).then(([likes, saved]) => { if (active) { setLikedVideos(likes); setSavedVideos(saved); } }).catch(() => {});
+    return () => { active = false; };
+  }, [currentUserId, isOwn]);
   const VideoGrid = ({ vids }: { vids: EtokVideo[] }) => (
     <>
       {vids.length === 0 ? (
@@ -227,6 +238,7 @@ const EtokProfile = () => {
           {[
             { id: "videos" as ProfileTab, icon: Grid3X3 },
             { id: "likes" as ProfileTab, icon: Heart },
+            ...(isOwn ? [{ id: "saved" as ProfileTab, icon: Bookmark }] : []),
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={cn("flex-1 flex items-center justify-center py-3 border-b-[2px] transition-colors", activeTab === tab.id ? "border-white" : "border-transparent")}>
@@ -238,7 +250,9 @@ const EtokProfile = () => {
         {/* Grid */}
         <div className="grid grid-cols-3 gap-[1.5px]">
           {activeTab === "videos" && <VideoGrid vids={videos} />}
-          {activeTab === "likes" && (
+          {activeTab === "saved" && isOwn && <VideoGrid vids={savedVideos} />}
+          {activeTab === "likes" && isOwn && <VideoGrid vids={likedVideos} />}
+          {activeTab === "likes" && !isOwn && (
             <div className="col-span-3 flex flex-col items-center justify-center py-20 text-white/40">
               <Lock className="h-8 w-8 mb-3" /><p className="text-sm">Liked videos are private</p>
             </div>

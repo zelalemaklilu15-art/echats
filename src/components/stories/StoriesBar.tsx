@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   Plus, X, Eye, Trash2, Camera, Type, Send, ChevronUp,
@@ -18,7 +19,9 @@ import {
   uploadStoryMedia, isStealthMode, archiveStory,
   type Story, type StoryGroup, type StoryViewerInfo,
 } from "@/lib/storyService";
-import { isCloseFriend } from "@/lib/closeFriendsService";
+import { getAccessProfiles } from "@/lib/profileAccess";
+import { useViewerEpoch } from "@/hooks/useViewerEpoch";
+import { isCloseFriend, syncCloseFriends } from "@/lib/closeFriendsService";
 import { supabase } from "@/integrations/supabase/client";
 import { compressImage } from "@/lib/supabaseStorage";
 import { toast } from "sonner";
@@ -120,6 +123,8 @@ function getTimeAgo(dateStr: string): string {
 // =============================================
 
 export function StoriesBar() {
+  const viewerEpoch = useViewerEpoch();
+  const generation = useRef(0);
   const { userId } = useAuth();
   const navigate = useNavigate();
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
@@ -131,7 +136,11 @@ export function StoriesBar() {
 
   const loadStories = useCallback(async () => {
     if (!userId) return;
+    const started = ++generation.current;
+    try {
+    await syncCloseFriends();
     const [stories, viewed] = await Promise.all([getActiveStories(), getMyViewedStories()]);
+    if (started !== generation.current) return;
     setViewedIds(viewed);
 
     const grouped = new Map<string, Story[]>();
@@ -144,15 +153,15 @@ export function StoriesBar() {
     const userIds = Array.from(grouped.keys());
     const profiles = new Map<string, { username: string; name: string; avatar_url: string | null }>();
     if (userIds.length > 0) {
-      const { data } = await supabase.from("profiles").select("id, username, name, avatar_url").in("id", userIds);
-      for (const p of data || []) profiles.set(p.id, { username: p.username, name: p.name || p.username, avatar_url: p.avatar_url });
+      const data = await getAccessProfiles(userIds);
+      data.forEach(p => profiles.set(p.id, { username: p.username ?? '', name: p.name || 'Hidden profile', avatar_url: p.avatar_url }));
     }
 
     const allGroups: StoryGroup[] = [];
     let myGroup: StoryGroup | null = null;
 
     if (grouped.has(userId)) {
-      const own = grouped.get(userId)!;
+      const own = grouped.get(userId) ?? [];
       const p = profiles.get(userId);
       myGroup = { user_id: userId, username: p?.username || "You", name: "Your Story", avatar_url: p?.avatar_url || null, stories: own, hasUnviewed: own.some(s => !viewed.has(s.id)) };
       allGroups.push(myGroup);
@@ -161,14 +170,16 @@ export function StoriesBar() {
     for (const [uid, strs] of grouped) {
       if (uid === userId) continue;
       const p = profiles.get(uid);
-      allGroups.push({ user_id: uid, username: p?.username || "user", name: p?.name || p?.username || "User", avatar_url: p?.avatar_url || null, stories: strs, hasUnviewed: strs.some(s => !viewed.has(s.id)) });
+      allGroups.push({ user_id: uid, username: p?.username || "user", name: p?.name || "Hidden profile", avatar_url: p?.avatar_url || null, stories: strs, hasUnviewed: strs.some(s => !viewed.has(s.id)) });
     }
 
+    if (started !== generation.current) return;
     setMyStoryGroup(myGroup);
     setStoryGroups(allGroups);
-  }, [userId]);
+    } catch { if (started === generation.current) toast.error("Could not load stories"); }
+  }, [userId, viewerEpoch]);
 
-  useEffect(() => { loadStories(); }, [loadStories]);
+  useEffect(() => { setStoryGroups([]); setMyStoryGroup(null); setShowViewer(false); setShowCreator(false); void loadStories(); return () => { generation.current += 1; }; }, [loadStories]);
 
   const openViewer = (groupIdx: number) => {
     setCurrentGroupIndex(groupIdx);
@@ -183,6 +194,7 @@ export function StoriesBar() {
           <div className="relative">
             {myStoryGroup?.stories.length ? (
               <div
+                data-testid="button-view-my-story"
                 onClick={(e) => { e.stopPropagation(); const idx = storyGroups.findIndex(g => g.user_id === userId); if (idx >= 0) openViewer(idx); }}
                 className={`p-[2.5px] rounded-full ${getPrivacyRing(myStoryGroup)}`}
               >
@@ -279,6 +291,10 @@ function StoryCircle({ group, index, onClick }: { group: StoryGroup; index: numb
 // =============================================
 
 export function StoryCreator({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { userId } = useAuth();
+  const postLock = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
   const navigate = useNavigate();
   // ── step: "create" = editor, "share" = privacy settings ──
   const [step, setStep] = useState<"create" | "share">("create");
@@ -342,37 +358,38 @@ export function StoryCreator({ onClose, onCreated }: { onClose: () => void; onCr
   } as StoryContent);
 
   const handlePost = async () => {
-    setPosting(true);
+    if (postLock.current || !userId) return;
+    postLock.current = true; setPosting(true);
     try {
       const json = buildContent();
       if (mode === "text") {
         if (!text.trim()) { setPosting(false); return; }
-        if (await createTextStory(json, selectedBg)) { toast.success("Story posted!"); onCreated(); }
+        if (await createTextStory(json, selectedBg, duration)) { toast.success("Story posted!"); onCreated(); }
         else toast.error("Failed to post story");
       } else if (mediaFile) {
         let f = mediaFile;
         if (!isVideo && mediaFile.type.startsWith("image/")) { try { f = await compressImage(mediaFile); } catch {} }
-        const { url, type } = await uploadStoryMedia(f);
-        if (await createMediaStory(url, type, json)) { toast.success("Story posted!"); onCreated(); }
+        const { url, type, ownerId } = await uploadStoryMedia(f, userId);
+        if (await createMediaStory(url, type, json, duration, ownerId)) { toast.success("Story posted!"); onCreated(); }
         else toast.error("Failed to post story");
       }
     } catch { toast.error("Failed to post story"); }
-    finally { setPosting(false); }
+    finally { postLock.current = false; if (mounted.current) setPosting(false); }
   };
 
   const canPost = mode === "text" ? text.trim().length > 0 : !!mediaFile;
 
   // ── Privacy options (Telegram-style) ──
   const PRIVACY_OPTIONS: { id: StoryPrivacy; label: string; sub: string; color: string; bg: string; Icon: React.ElementType }[] = [
-    { id: "everyone",      label: "Everyone",       sub: "exclude people",  color: "#fff",  bg: "#29b6f6", Icon: Globe },
-    { id: "contacts",      label: "My Contacts",    sub: "exclude people",  color: "#fff",  bg: "#7c4dff", Icon: Users2 },
-    { id: "close_friends", label: "Close Friends",  sub: "edit list",       color: "#fff",  bg: "#4caf50", Icon: Star },
+    { id: "everyone",      label: "Everyone",       sub: "",  color: "#fff",  bg: "#29b6f6", Icon: Globe },
+    { id: "contacts",      label: "My Contacts",    sub: "",  color: "#fff",  bg: "#7c4dff", Icon: Users2 },
+    { id: "close_friends", label: "Close Friends",  sub: "",       color: "#fff",  bg: "#4caf50", Icon: Star },
   ];
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black flex flex-col"
+      className="fixed inset-0 z-50 bg-background flex flex-col"
     >
       <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleMediaSelect} data-testid="input-story-file" />
       <input ref={cameraInputRef} type="file" accept="image/*,video/*" capture="environment" className="hidden" onChange={handleMediaSelect} data-testid="input-story-camera" />
@@ -622,7 +639,7 @@ export function StoryCreator({ onClose, onCreated }: { onClose: () => void; onCr
         {/* ── STEP 2: SHARE SETTINGS ──────────────────────────────── */}
         {step === "share" && (
           <motion.div key="share" initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "tween", duration: 0.25 }}
-            className="absolute inset-0 flex flex-col bg-[#0e0e0e]">
+            className="absolute inset-0 flex min-h-0 flex-col bg-background">
             {/* blurred preview behind */}
             <div className="absolute inset-0 overflow-hidden">
               {mediaPreview && !isVideo && (
@@ -643,7 +660,7 @@ export function StoryCreator({ onClose, onCreated }: { onClose: () => void; onCr
             </div>
 
             {/* scrollable panel */}
-            <div className="relative z-10 flex-1 overflow-y-auto">
+            <div className="relative z-10 min-h-0 flex-1 overflow-y-auto">
               <div className="mx-4 rounded-2xl overflow-hidden" style={{ background: "#1c1c1e" }}>
                 {/* section title */}
                 <div className="px-4 pt-5 pb-3">
@@ -672,42 +689,7 @@ export function StoryCreator({ onClose, onCreated }: { onClose: () => void; onCr
                   </button>
                 ))}
 
-                <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                  <p className="text-[#29b6f6] text-sm">
-                    Select people who will never see your stories.
-                  </p>
-                </div>
               </div>
-
-              {/* toggles */}
-              <div className="mx-4 mt-3 rounded-2xl overflow-hidden" style={{ background: "#1c1c1e" }}>
-                <div className="flex items-center justify-between px-4 py-4">
-                  <span className="text-white text-[15px]">Allow Screenshots</span>
-                  <button onClick={() => setAllowScreenshots(v => !v)}
-                    className={`w-12 h-7 rounded-full transition-colors flex items-center px-0.5 ${allowScreenshots ? "bg-[#29b6f6]" : "bg-white/15"}`}
-                    data-testid="switch-allow-screenshots">
-                    <motion.div animate={{ x: allowScreenshots ? 20 : 0 }} transition={{ type: "spring", damping: 20 }}
-                      className="w-6 h-6 rounded-full bg-white shadow-md" />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                  <span className="text-white text-[15px]">Post to My Profile</span>
-                  <button onClick={() => setPostToProfile(v => !v)}
-                    className={`w-12 h-7 rounded-full transition-colors flex items-center px-0.5 ${postToProfile ? "bg-[#29b6f6]" : "bg-white/15"}`}
-                    data-testid="switch-post-to-profile">
-                    <motion.div animate={{ x: postToProfile ? 20 : 0 }} transition={{ type: "spring", damping: 20 }}
-                      className="w-6 h-6 rounded-full bg-white shadow-md" />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-                  <span className="text-white text-[15px]">Album</span>
-                  <span className="text-[#29b6f6] text-[15px]">All Stories ›</span>
-                </div>
-              </div>
-
-              <p className="text-white/30 text-[12px] px-8 mt-3 text-center leading-relaxed">
-                Keep this story on your profile even after it expires in 24 hours. Privacy settings will apply.
-              </p>
 
               <div className="h-32" />
             </div>
@@ -724,7 +706,7 @@ export function StoryCreator({ onClose, onCreated }: { onClose: () => void; onCr
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </motion.div>, document.body
   );
 }
 
@@ -770,7 +752,7 @@ function StickerPreview({ sticker }: { sticker: StorySticker }) {
       </div>
     );
   }
-  if (sticker.type === "link") return (
+  if (sticker.type === "link" && /^https?:\/\//i.test(sticker.url ?? "")) return (
     <div className="bg-white/90 text-black rounded-xl px-3 py-1.5 max-w-[140px] flex items-center gap-1">
       <Link className="h-3 w-3 text-blue-500 shrink-0" />
       <span className="text-[10px] font-semibold truncate">{sticker.label}</span>
@@ -783,7 +765,7 @@ function StickerPreview({ sticker }: { sticker: StorySticker }) {
 // STORY VIEWER
 // =============================================
 
-function StoryViewerComponent({
+export function StoryViewerComponent({
   groups, initialGroupIndex, viewedIds, userId, onClose, onMarkViewed,
 }: {
   groups: StoryGroup[];
@@ -803,7 +785,7 @@ function StoryViewerComponent({
   const [replyText, setReplyText] = useState("");
   const [flyEmojis, setFlyEmojis] = useState<{ id: string; emoji: string; x: number }[]>([]);
   const [showForward, setShowForward] = useState(false);
-  const [forwardChats, setForwardChats] = useState<{ id: string; name: string; avatar_url: string | null }[]>([]);
+  const [forwardChats, setForwardChats] = useState<{ id: string; recipientId: string; name: string; avatar_url: string | null }[]>([]);
   const [votedPoll, setVotedPoll] = useState<Record<string, string>>({});
   const [questionAnswer, setQuestionAnswer] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -825,11 +807,11 @@ function StoryViewerComponent({
   useEffect(() => {
     if (story && !viewedIds.has(story.id)) {
       if (!isStealthMode()) {
-        viewStory(story.id);
+        if (!isOwn) void viewStory(story.id).catch(() => {});
       }
       onMarkViewed(story.id);
     }
-    archiveStory(story!);
+
   }, [story?.id]);
 
   const goNext = useCallback(() => {
@@ -904,7 +886,7 @@ function StoryViewerComponent({
 
   const handleSwipeEnd = (_: unknown, info: PanInfo) => { if (info.offset.y > 100) onClose(); };
 
-  const loadViewers = async () => { if (!story) return; setViewers(await getStoryViewers(story.id)); };
+  const loadViewers = async () => { if (!story) return; try { setViewers(await getStoryViewers(story.id)); } catch { toast.error("Could not load viewers"); } };
   const toggleViewers = () => {
     if (!showViewers) { handlePause(); loadViewers(); } else handleResume();
     setShowViewers(!showViewers);
@@ -918,16 +900,11 @@ function StoryViewerComponent({
 
     if (!group || isOwn) return;
     try {
-      const { data: existingChat } = await supabase.from("chats").select("id").or(`and(participant_1.eq.${userId},participant_2.eq.${group.user_id}),and(participant_1.eq.${group.user_id},participant_2.eq.${userId})`).maybeSingle();
-      let chatId = existingChat?.id;
-      if (!chatId) {
-        const { data: newChat } = await supabase.from("chats").insert({ participant_1: userId, participant_2: group.user_id }).select("id").single();
-        chatId = newChat?.id;
-      }
-      if (chatId) {
-        await supabase.from("messages").insert({ chat_id: chatId, sender_id: userId, receiver_id: group.user_id, content: `${emoji} — reacted to your story`, message_type: "text" });
-      }
-    } catch {}
+      const { data: chatId, error } = await supabase.rpc('find_or_create_chat', { user1_id: userId, user2_id: group.user_id });
+      if (error || !chatId) throw error ?? new Error('Chat unavailable');
+      const result = await supabase.from('messages').insert({ chat_id: chatId, sender_id: userId, receiver_id: group.user_id, content: `${emoji} — reacted to your story`, message_type: 'text' });
+      if (result.error) throw result.error;
+    } catch { toast.error('Could not send reaction'); }
   };
 
   const handleDownload = async () => {
@@ -944,45 +921,43 @@ function StoryViewerComponent({
     }
   };
 
+  const sendToSubject = async (text: string) => {
+    if (!group || isOwn) throw new Error('No recipient');
+    const { data: chatId, error } = await supabase.rpc('find_or_create_chat',{ user1_id: userId,user2_id: group.user_id });
+    if (error || !chatId) throw error ?? new Error('Chat unavailable');
+    const result = await supabase.from('messages').insert({ chat_id: chatId,sender_id: userId,receiver_id: group.user_id,content: text,message_type: 'text' });
+    if (result.error) throw result.error;
+  };
   const openForward = async () => {
+    if (!story || story.privacy !== 'everyone') { toast.info('Private stories cannot be forwarded'); return; }
     handlePause();
-    const { data: chats } = await supabase.from("chats").select("id, participant_1, participant_2").or(`participant_1.eq.${userId},participant_2.eq.${userId}`).limit(10);
-    if (!chats) return;
-    const ids = chats.map(c => c.participant_1 === userId ? c.participant_2 : c.participant_1);
-    const { data: profiles } = await supabase.from("profiles").select("id, name, username, avatar_url").in("id", ids);
-    setForwardChats((profiles || []).map(p => ({ id: chats.find(c => c.participant_1 === p.id || c.participant_2 === p.id)!.id, name: p.name || p.username, avatar_url: p.avatar_url })));
-    setShowForward(true);
-  };
-
-  const sendForward = async (chatId: string) => {
-    if (!story || !group) return;
-    const text = story.media_url ? `📖 Forwarded story from ${group.name}` : `📖 "${parsed.text || story.content}"`;
-    await supabase.from("messages").insert({ chat_id: chatId, sender_id: userId, receiver_id: "", content: text, message_type: "text" });
-    toast.success("Story forwarded!");
-    setShowForward(false);
-    handleResume();
-  };
-
-  const handleReply = async () => {
-    if (!replyText.trim() || !group) return;
     try {
-      const { data: existing } = await supabase.from("chats").select("id").or(`and(participant_1.eq.${userId},participant_2.eq.${group.user_id}),and(participant_1.eq.${group.user_id},participant_2.eq.${userId})`).maybeSingle();
-      let chatId = existing?.id;
-      if (!chatId) {
-        const { data: newChat } = await supabase.from("chats").insert({ participant_1: userId, participant_2: group.user_id }).select("id").single();
-        chatId = newChat?.id;
-      }
-      if (chatId) {
-        await supabase.from("messages").insert({ chat_id: chatId, sender_id: userId, receiver_id: group.user_id, content: replyText.trim(), message_type: "text" });
-        toast.success("Reply sent");
-      }
-    } catch { toast.error("Failed to send reply"); }
-    setReplyText(""); handleResume();
+      const { data: chats, error } = await supabase.from('chats').select('id,participant_1,participant_2').or(`participant_1.eq.${userId},participant_2.eq.${userId}`).limit(10);
+      if (error) throw error;
+      const list = chats ?? [];
+      const profiles = await getAccessProfiles(list.map(c => c.participant_1 === userId ? c.participant_2 : c.participant_1));
+      setForwardChats(list.map(c => { const recipientId = c.participant_1 === userId ? c.participant_2 : c.participant_1; const p = profiles.find(p => p.id === recipientId); return { id: c.id,recipientId,name: p?.name || 'Hidden profile',avatar_url: p?.avatar_url ?? null }; }));
+      setShowForward(true);
+    } catch { toast.error('Could not load chats'); handleResume(); }
+  };
+  const sendForward = async (chatId: string) => {
+    const recipient = forwardChats.find(c => c.id === chatId);
+    if (!story || !recipient || story.privacy !== 'everyone') return;
+    try {
+      const { error } = await supabase.from('messages').insert({ chat_id: chatId,sender_id: userId,receiver_id: recipient.recipientId,content: `${window.location.origin}/stories?story=${encodeURIComponent(story.id)}`,message_type: 'text' });
+      if (error) throw error;
+      toast.success('Story link sent'); setShowForward(false); handleResume();
+    } catch { toast.error('Could not forward story'); }
+  };
+  const handleReply = async () => {
+    if (!replyText.trim()) return;
+    try { await sendToSubject(replyText.trim()); setReplyText(''); toast.success('Reply sent'); handleResume(); }
+    catch { toast.error('Could not send reply. Your draft is still here.'); }
   };
 
   if (!story || !group) return null;
 
-  return (
+  return createPortal(
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: isPaused ? 0.97 : 1 }} exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
@@ -1027,7 +1002,7 @@ function StoryViewerComponent({
             </Button>
           )}
           {isOwn && (
-            <Button variant="ghost" size="icon" onClick={async () => { await deleteStory(story.id); toast.success("Story deleted"); if (group.stories.length <= 1) onClose(); else goNext(); }} className="text-white h-8 w-8" data-testid="button-delete-story">
+            <Button variant="ghost" size="icon" onClick={async () => { try { if (!await deleteStory(story.id)) throw new Error("Not deleted"); toast.success("Story deleted"); onClose(); } catch { toast.error("Could not delete story"); } }} className="text-white h-8 w-8" data-testid="button-delete-story">
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
@@ -1064,14 +1039,9 @@ function StoryViewerComponent({
 
         {/* Interactive Stickers */}
         {storyStickers.map(stk => (
-          <ViewerSticker key={stk.id} sticker={stk} userId={userId} group={group} votedPoll={votedPoll} setVotedPoll={setVotedPoll}
+          <ViewerSticker key={`${story.id}:${stk.id}`} storyId={story.id} sticker={stk} userId={userId} group={group} votedPoll={votedPoll} setVotedPoll={setVotedPoll}
             questionAnswer={questionAnswer} setQuestionAnswer={setQuestionAnswer} onSendAnswer={async (ans) => {
-              try {
-                const { data: existing } = await supabase.from("chats").select("id").or(`and(participant_1.eq.${userId},participant_2.eq.${group.user_id}),and(participant_1.eq.${group.user_id},participant_2.eq.${userId})`).maybeSingle();
-                let chatId = existing?.id;
-                if (!chatId) { const { data: nc } = await supabase.from("chats").insert({ participant_1: userId, participant_2: group.user_id }).select("id").single(); chatId = nc?.id; }
-                if (chatId) { await supabase.from("messages").insert({ chat_id: chatId, sender_id: userId, receiver_id: group.user_id, content: `💬 Answer to "${stk.prompt}": ${ans}`, message_type: "text" }); toast.success("Answer sent!"); }
-              } catch {}
+              try { await sendToSubject(`Answer to "${stk.prompt}": ${ans}`); toast.success('Answer sent'); } catch { toast.error('Could not send answer'); }
             }} />
         ))}
 
@@ -1168,7 +1138,7 @@ function StoryViewerComponent({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </motion.div>, document.body
   );
 }
 
@@ -1176,23 +1146,36 @@ function StoryViewerComponent({
 // INTERACTIVE STICKERS IN VIEWER
 // =============================================
 
-function ViewerSticker({ sticker, userId, group, votedPoll, setVotedPoll, questionAnswer, setQuestionAnswer, onSendAnswer }: {
+function ViewerSticker({ storyId, sticker, userId, group, votedPoll, setVotedPoll, questionAnswer, setQuestionAnswer, onSendAnswer }: {
+  storyId: string;
   sticker: StorySticker;
   userId: string;
   group: StoryGroup;
   votedPoll: Record<string, string>;
-  setVotedPoll: (v: Record<string, string>) => void;
+  setVotedPoll: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   questionAnswer: string;
   setQuestionAnswer: (v: string) => void;
   onSendAnswer: (ans: string) => void;
 }) {
   const [localVotes, setLocalVotes] = useState<Record<string, number>>(sticker.votes || {});
   const [countdownSec, setCountdownSec] = useState(0);
+  const [voteBusy, setVoteBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (sticker.type !== 'poll') return;
+    void supabase.from('story_poll_votes').select('choice,user_id').eq('story_id',storyId).eq('sticker_id',sticker.id).then(({ data,error }) => {
+      if (!active || error) return;
+      const totals: Record<string,number> = {};
+      for (const row of data ?? []) { totals[row.choice] = (totals[row.choice] ?? 0)+1; if (row.user_id === userId) setVotedPoll(prev => ({ ...prev,[sticker.id]: row.choice })); }
+      setLocalVotes(totals);
+    });
+    return () => { active = false; };
+  }, [storyId,sticker.id,userId]);
 
   useEffect(() => {
     if (sticker.type !== "countdown" || !sticker.endsAt) return;
     const tick = () => {
-      const diff = Math.max(0, new Date(sticker.endsAt!).getTime() - Date.now());
+      const diff = Math.max(0, new Date(sticker.endsAt ?? "").getTime() - Date.now());
       setCountdownSec(Math.floor(diff / 1000));
     };
     tick();
@@ -1214,15 +1197,20 @@ function ViewerSticker({ sticker, userId, group, votedPoll, setVotedPoll, questi
           const votes = localVotes[opt] || 0;
           const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
           return (
-            <button key={i} disabled={!!voted} onClick={() => {
-              if (voted) return;
-              const next = { ...localVotes, [opt]: (localVotes[opt] || 0) + 1 };
-              setLocalVotes(next);
-              setVotedPoll({ ...votedPoll, [sticker.id]: opt });
+            <Button variant="ghost" key={i} disabled={!!voted || voteBusy} onClick={async () => {
+              if (voted || voteBusy) return;
+              setVoteBusy(true);
+              try {
+                const { error } = await supabase.from('story_poll_votes').insert({ story_id: storyId,sticker_id: sticker.id,user_id: userId,choice: opt });
+                if (error) throw error;
+                setLocalVotes(prev => ({ ...prev,[opt]: (prev[opt] ?? 0)+1 }));
+                setVotedPoll(prev => ({ ...prev,[sticker.id]: opt }));
+              } catch { toast.error('Could not save vote'); }
+              finally { setVoteBusy(false); }
             }} className={`w-full rounded-xl px-3 py-1.5 mb-1 text-sm font-semibold text-left transition-all relative overflow-hidden ${voted === opt ? "bg-primary text-primary-foreground" : "bg-black/10 dark:bg-white/10 text-black dark:text-white"}`}>
               {voted && <div className="absolute left-0 top-0 bottom-0 bg-primary/20 transition-all" style={{ width: `${pct}%` }} />}
               <span className="relative z-10 flex justify-between"><span>{opt}</span>{voted && <span>{pct}%</span>}</span>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -1259,7 +1247,7 @@ function ViewerSticker({ sticker, userId, group, votedPoll, setVotedPoll, questi
     );
   }
 
-  if (sticker.type === "link") return (
+  if (sticker.type === "link" && /^https?:\/\//i.test(sticker.url ?? "")) return (
     <a href={sticker.url} target="_blank" rel="noopener noreferrer" style={style}
       className="flex items-center gap-2 bg-white/90 dark:bg-black/70 rounded-full px-3 py-1.5 shadow-lg">
       <Link className="h-3.5 w-3.5 text-blue-500 shrink-0" />

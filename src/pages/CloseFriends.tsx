@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { isCloseFriend, toggleCloseFriend } from "@/lib/closeFriendsService";
+import { isCloseFriend, toggleCloseFriend, syncCloseFriends } from "@/lib/closeFriendsService";
+import { getAccessProfiles } from "@/lib/profileAccess";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -31,6 +32,8 @@ const CloseFriends = () => {
   const loadContacts = async () => {
     if (!userId) return;
     setLoading(true);
+    try {
+    await syncCloseFriends();
     const { data: chats } = await supabase
       .from("chats")
       .select("participant_1, participant_2")
@@ -42,10 +45,7 @@ const CloseFriends = () => {
 
     if (otherIds.length === 0) { setLoading(false); return; }
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, name, username, avatar_url")
-      .in("id", otherIds);
+    const profiles = await getAccessProfiles(otherIds);
 
     const list: Contact[] = (profiles || []).map((p) => ({
       id: p.id,
@@ -57,16 +57,19 @@ const CloseFriends = () => {
     setContacts(list);
     setCloseFriendIds(new Set(list.filter((c) => isCloseFriend(c.id)).map((c) => c.id)));
     setLoading(false);
+    } catch { setLoading(false); toast.error("Could not load close friends"); }
   };
 
-  const handleToggle = (contactId: string, name: string) => {
-    const added = toggleCloseFriend(contactId);
+  const handleToggle = async (contactId: string, name: string) => {
+    try {
+    const added = await toggleCloseFriend(contactId);
     setCloseFriendIds((prev) => {
       const next = new Set(prev);
       if (added) { next.add(contactId); toast.success(`${name} added to Close Friends`); }
       else { next.delete(contactId); toast.success(`${name} removed from Close Friends`); }
       return next;
     });
+    } catch { toast.error("Could not save close friends"); }
   };
 
   const filtered = contacts.filter((c) =>

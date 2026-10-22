@@ -24,7 +24,11 @@
   - [x] Automated financial/security tests (111 total passing); signed-in device guard and invalid-link checks; Stars/AI PIN prompts opened without moving existing funds.
   - [ ] Complete real authorized transfer/request/airtime read-back; blocked by new-device email verification and no authorized payment test input. No live funds moved.
   - [ ] Real deposit settlement needs a payment provider; airtime remains pending as requested.
-  - [x] Answer credit-cost concern; constrain subsequent audit turns to small focused sections rather than expanding a whole stage.
+  - [x] Answer credit-cost concern; Stage 6 scope subsequently expanded at the user's explicit request.
 - [ ] 6. eTok, Stories, Channels
+  - [ ] 6a. Deep eTok audit: feed, likes, comments/replies, upload, profile/search and live.
+  - [ ] 6b. Deep Stories audit: publishing, viewing, expiry, privacy and identity handling.
+  - [ ] 6c. Deep Channels audit: permissions, posting, subscriptions, synchronization and identity handling.
+  - [ ] 6d. Regression tests and signed-in end-to-end verification; retain explicit physical-device blockers.
 - [ ] 7. Notifications & privacy
 - [ ] 8. Design & mobile
