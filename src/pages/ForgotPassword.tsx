@@ -26,15 +26,10 @@ const ForgotPassword = () => {
       setSent(true);
       toast.success("Password reset email sent!");
     } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        toast.error("No account found with this email");
-      } else if (error.code === 'auth/invalid-email') {
-        toast.error("Invalid email address");
-      } else if (error.code === 'auth/too-many-requests') {
-        toast.error("Too many requests. Please try again later.");
-      } else {
-        toast.error("Failed to send reset email. Please try again.");
-      }
+      const m = String(error?.message || '');
+      if (/rate|too many|seconds/i.test(m)) toast.error("Too many requests. Please try again later.");
+      else if (/invalid/i.test(m)) toast.error("Invalid email address");
+      else toast.error("Failed to send reset email. Please try again.");
     } finally {
       setLoading(false);
     }

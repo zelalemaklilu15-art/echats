@@ -56,7 +56,14 @@ const Auth = () => {
         if (!(await isUsernameUnique(n))) { toast.error("Username already taken"); return; }
         const { user, error } = await signUpWithEmail(email, password, n, email.split("@")[0]);
         if (error) throw error;
-        if (user) { toast.success("Account created!"); navigate(safeNext, { replace: true }); }
+        if (user && Array.isArray(user.identities) && user.identities.length === 0) {
+          toast.error("Email already in use. Sign in instead.");
+          setIsSignUp(false);
+        } else if (user) {
+          const { data } = await import("@/integrations/supabase/client").then((m) => m.supabase.auth.getSession());
+          if (data.session) { toast.success("Account created!"); navigate(safeNext, { replace: true }); }
+          else { toast.success("Account created! Check your email to confirm, then sign in."); setIsSignUp(false); }
+        }
       } else {
         const { user, error } = await signInWithEmail(email, password);
         if (error) throw error;

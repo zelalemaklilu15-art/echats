@@ -13,7 +13,7 @@
 - [ ] Report any Android SDK-only checks that still require a local device build.
 ## A-Z audit (step by step)
 - [x] 1. General health: tests, errors (presence offline-on-leave fixed, denied-notification noise quieted)
-- [ ] 2. Sign-in & account
+- [x] 2. Sign-in & account (password reset page added, signup email-confirm handling)
 - [ ] 3. Chat
 - [ ] 4. Calls
 - [ ] 5. Wallet

@@ -53,6 +53,7 @@ const TransactionReceipt = lazy(() => import("./pages/TransactionReceipt"));
 const TransactionDetail = lazy(() => import("./pages/TransactionDetail"));
 const AddAccount = lazy(() => import("./pages/AddAccount"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ContactProfile = lazy(() => import("./pages/ContactProfile"));
 const PrivacySettings = lazy(() => import("./pages/PrivacySettings"));
 const NotificationSettings = lazy(() => import("./pages/NotificationSettings"));
@@ -226,6 +227,7 @@ const AppRoutes = () => {
           <Route path="/index" element={isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />} />
           <Route path="/auth" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Auth /></PageTransition>} />
           <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><ForgotPassword /></PageTransition>} />
+          <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
           <Route path="/chats" element={guard(isAuthenticated, <Chats />)} />
           <Route path="/chat" element={isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />} />
           <Route path="/chat/:chatId" element={guard(isAuthenticated, <Chat />)} />
