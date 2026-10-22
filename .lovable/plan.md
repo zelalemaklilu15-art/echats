@@ -1,10 +1,10 @@
-# Remove the All / Unread / Groups buttons from the Chats screen
+# በቻት ገፅ ላይ ያሉትን All / Unread / Groups ቁልፎች ማስወገድ
 
-## What changes
-- The row of All, Unread and Groups buttons below the search bar on the Chats screen is removed.
-- The chat list always shows all chats, so nothing is hidden.
-- The unread message count at the top of the screen stays.
-- The folder row (All plus your own folders) stays. Tell me if you want that removed too.
+## ምን ይቀየራል
+- በቻት ገፅ ከፍለጋ ሳጥኑ ስር ያሉት የ"All"፣ "Unread" እና "Groups" ቁልፎች ይወገዳሉ።
+- የቻት ዝርዝሩ ሁልጊዜ ሁሉንም ቻቶች ያሳያል፤ የሚደበቅ ቻት የለም።
+- ከላይ ያለው ያልተነበቡ መልዕክቶች ቁጥር እንዳለ ይቆያል።
+- ከስሩ ያለው የፎልደሮች ረድፍ (All እና የራስዎ ፎልደሮች) እንዳለ ይቆያል። እሱም እንዲጠፋ ከፈለጉ ይንገሩኝ።
 
-## Technical details
-- `src/pages/Chats.tsx`: delete the "Filter Chips" block (around lines 765-791). `activeFilter` stays fixed at `"all"`, so the filtering logic still works and no other code needs to change.
+## ቴክኒካዊ ዝርዝር
+- `src/pages/Chats.tsx`፦ የ"Filter Chips" ክፍል ይሰረዛል (በግምት ከመስመር 765 እስከ 791)። `activeFilter` ሁልጊዜ `"all"` ሆኖ ስለሚቆይ የማጣሪያው ኮድ እንዳለ ይሰራል፤ ሌላ ኮድ መቀየር አያስፈልግም።
