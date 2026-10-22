@@ -762,33 +762,6 @@ const Chats = () => {
         </div>
       </motion.div>
 
-      {/* Filter Chips */}
-      <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide" style={{ borderBottom: "1px solid hsl(var(--border) / 0.35)" }}>
-        {(Object.keys(filterLabels) as ChatFilter[]).map((filter) => (
-          <motion.button
-            key={filter}
-            whileTap={{ scale: 0.93 }}
-            data-testid={`filter-${filter}`}
-            onClick={() => setActiveFilter(filter)}
-            className="relative px-4 py-1.5 rounded-2xl text-[12px] font-bold transition-all whitespace-nowrap overflow-hidden"
-            style={activeFilter === filter ? {
-              background: "var(--gradient-primary)",
-              color: "white",
-              boxShadow: "var(--shadow-primary)",
-            } : {
-              background: "hsl(var(--muted) / 0.7)",
-              color: "hsl(var(--muted-foreground))",
-            }}
-          >
-            {filterLabels[filter]}
-            {filter === "unread" && totalUnread > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center min-w-[15px] h-[15px] rounded-full bg-white/25 text-white text-[9px] px-1 font-black">
-                {totalUnread}
-              </span>
-            )}
-          </motion.button>
-        ))}
-      </div>
 
       {/* Folder Tabs */}
       <div className="px-4 py-2.5 flex items-center gap-2 border-b border-border/50 overflow-x-auto scrollbar-hide" data-testid="folder-tabs-row">
