@@ -26,8 +26,8 @@ if (config.apiKey && config.projectId && config.appId) {
 
     self.registration.showNotification(title, {
       body,
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       tag: data.tag || data.type || 'echat',
       data,
       vibrate: isCall ? [400, 200, 400, 200, 400] : [200, 100, 200],

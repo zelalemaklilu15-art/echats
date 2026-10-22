@@ -4,8 +4,8 @@ self.addEventListener('push', (event) => {
   let data = {
     title: 'Echat',
     body: 'You have a new notification',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: 'default',
     data: {},
   };
