@@ -15,7 +15,7 @@
 - [x] 1. General health: tests, errors (presence offline-on-leave fixed, denied-notification noise quieted)
 - [x] 2. Sign-in & account (password reset page added, signup email-confirm handling)
 - [x] 3. Chat (undo-send deleted the wrong message — fixed)
-- [ ] 4. Calls
+- [ ] 4. Calls — active audit: voice/video lifecycle, hangup/redial, accept/reject and history; physical-phone delivery remains user-dependent.
 - [ ] 5. Wallet
 - [ ] 6. eTok, Stories, Channels
 - [ ] 7. Notifications & privacy
