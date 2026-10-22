@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Crown } from "lucide-react";
 import { toast } from "sonner";
+import WalletPurchaseConfirm from "@/components/wallet/WalletPurchaseConfirm";
+import { getDeviceId, newIdempotencyKey } from "@/lib/walletSecurity";
 
 export const AI_QUOTA_EVENT = "echat:ai-quota-changed";
 
@@ -42,14 +44,24 @@ export function AIQuotaBadge() {
 export default function AIQuotaPanel() {
   const { status, refresh } = useAIQuota();
   const [busy, setBusy] = useState<string | null>(null);
+  const [walletPlan, setWalletPlan] = useState<{ id: string; birr: number; key: string } | null>(null);
 
-  const buy = async (plan: string, method: "stars" | "wallet") => {
+  const request = async (plan: string, method: "stars" | "wallet", key = newIdempotencyKey("ai"), pin?: string) => {
     setBusy(`${plan}-${method}`);
-    const { error } = await supabase.rpc("purchase_ai_premium" as any, { p_plan: plan, p_method: method });
-    setBusy(null);
-    if (error) { toast.error(error.message); return; }
+    try {
+      const { data, error } = await supabase.rpc("purchase_ai_premium_secure" as any, {
+        p_plan: plan, p_method: method, p_key: key, p_pin: pin ?? null, p_device: method === "wallet" ? await getDeviceId() : null,
+      });
+      return error ? { success: false, error: "Could not complete purchase. Please retry." } : data as { success: boolean; error?: string };
+    } finally { setBusy(null); }
+  };
+  const done = () => {
     toast.success("Echat AI Premium ገቢር ሆኗል 🎉");
     refresh();
+  };
+  const buyWithStars = async (plan: string) => {
+    const r = await request(plan, "stars");
+    if (r.success) done(); else toast.error(r.error || "Purchase failed");
   };
 
   const left = status ? Math.max(0, status.daily_limit - status.used) : null;
@@ -74,16 +86,20 @@ export default function AIQuotaPanel() {
           <div key={p.id} className="p-3 rounded-xl border border-border bg-card space-y-2">
             <p className="text-sm font-semibold">{p.label}</p>
             <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => buy(p.id, "stars")}>
+              <Button size="sm" variant="outline" disabled={!!busy} onClick={() => void buyWithStars(p.id)}>
                 {busy === `${p.id}-stars` ? <Loader2 className="h-4 w-4 animate-spin" /> : `⭐ ${p.stars} Stars`}
               </Button>
-              <Button size="sm" disabled={!!busy} onClick={() => buy(p.id, "wallet")}>
+              <Button size="sm" disabled={!!busy} onClick={() => setWalletPlan({ id: p.id, birr: p.birr, key: newIdempotencyKey("ai") })}>
                 {busy === `${p.id}-wallet` ? <Loader2 className="h-4 w-4 animate-spin" /> : `${p.birr} ብር (Wallet)`}
               </Button>
             </div>
           </div>
         ))}
       </div>
+      {walletPlan && <WalletPurchaseConfirm open onClose={() => setWalletPlan(null)}
+        summary={`Pay ${walletPlan.birr} ETB for Echat AI Premium`}
+        purchase={pin => request(walletPlan.id, "wallet", walletPlan.key, pin)}
+        onDone={() => { setWalletPlan(null); done(); }} />}
     </div>
   );
 }
