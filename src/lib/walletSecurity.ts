@@ -41,7 +41,8 @@ export async function checkWalletDevice(): Promise<"trusted" | "step_up_required
   const id = await getDeviceId();
   const { data, error } = await supabase.rpc("check_wallet_device", { p_device_id: id });
   if (error) throw error;
-  return data as "trusted" | "step_up_required";
+  if (data !== 'trusted' && data !== 'step_up_required') throw new Error('Could not verify this device');
+  return data;
 }
 
 /** Sends a one-time code to the signed-in user's email (step-up only). */
@@ -64,7 +65,7 @@ export function newIdempotencyKey(prefix = "tx"): string {
 
 export async function buyAirtime(phone: string, amount: number, pin: string, key: string) {
   const { data, error } = await supabase.rpc("airtime_topup", {
-    p_phone: phone, p_amount: amount, p_pin: pin, p_idempotency_key: key,
+    p_phone: phone, p_amount: amount, p_pin: pin, p_idempotency_key: key, p_device: await getDeviceId(),
   });
   if (error) return { success: false, error: "Top-up failed. Please try again." };
   const row = (Array.isArray(data) ? data[0] : data) as { success: boolean; error: string | null; balance: number | null; topup_id: string | null };

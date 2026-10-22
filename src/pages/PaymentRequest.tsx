@@ -7,6 +7,7 @@ import { QRCodeSVG as QRCode } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { paymentLink } from "@/lib/paymentLinks";
 
 const PaymentRequest = () => {
   const navigate = useNavigate();
@@ -28,9 +29,7 @@ const PaymentRequest = () => {
   const generateLink = () => {
     if (!amount || parseFloat(amount) <= 0) { toast.error("Enter a valid amount"); return; }
     if (!username) { toast.error("Username not loaded yet"); return; }
-    const base = publicOrigin();
-    const params = note ? `?note=${encodeURIComponent(note)}` : "";
-    const url = `${base}/pay/${username}/${amount}${params}`;
+    const url = paymentLink(publicOrigin(), username, Number(amount), note);
     setLink(url);
   };
 
@@ -62,7 +61,7 @@ const PaymentRequest = () => {
             <p className="text-[12px] text-muted-foreground mb-1.5 font-medium">Amount (ETB)</p>
             <input
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={e => { setAmount(e.target.value); setLink(''); setCopied(false); }}
               placeholder="0.00"
               type="number"
               min="0"
@@ -74,7 +73,7 @@ const PaymentRequest = () => {
             <p className="text-[12px] text-muted-foreground mb-1.5 font-medium">Note (optional)</p>
             <input
               value={note}
-              onChange={e => setNote(e.target.value)}
+              onChange={e => { setNote(e.target.value); setLink(''); setCopied(false); }}
               placeholder="What's it for?"
               className="w-full bg-muted rounded-2xl px-4 py-3 text-[14px] outline-none"
               data-testid="input-request-note"

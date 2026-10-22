@@ -54,6 +54,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           wallet: null,
+          transactions: [],
+          stats: { monthly_received: 0, monthly_sent: 0 },
           needs_activation: true,
           message: 'Wallet not found. Please activate your wallet.'
         }),
@@ -62,15 +64,13 @@ Deno.serve(async (req) => {
     }
 
     // Get balance from ledger
-    const { data: balance } = await supabaseAdmin
-      .rpc('get_wallet_balance', { p_wallet_id: wallet.id });
+    const balance = wallet.balance;
 
     // Get recent transactions
     const { data: transactions } = await supabaseAdmin
       .from('wallet_transactions')
       .select('*')
       .eq('wallet_id', wallet.id)
-      .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -78,14 +78,23 @@ Deno.serve(async (req) => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    const monthlyReceived = (transactions || [])
+    const monthlyRows: { amount: number; type: string; created_at: string }[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data: rows, error: statsError } = await supabaseAdmin.from('wallet_transactions')
+        .select('amount,type,created_at').eq('wallet_id', wallet.id).eq('status', 'completed')
+        .gte('created_at', startOfMonth.toISOString()).order('id').range(offset, offset + 99);
+      if (statsError) throw statsError;
+      monthlyRows.push(...(rows ?? []));
+      if ((rows?.length ?? 0) < 100) break;
+    }
+    const monthlyReceived = monthlyRows
       .filter(t => 
         new Date(t.created_at) >= startOfMonth && 
         (t.type === 'deposit' || t.type === 'transfer_in')
       )
       .reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
-    const monthlySent = (transactions || [])
+    const monthlySent = monthlyRows
       .filter(t => 
         new Date(t.created_at) >= startOfMonth && 
         t.type === 'transfer_out'

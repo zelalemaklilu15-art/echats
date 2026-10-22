@@ -10,6 +10,9 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { paymentLink } from "@/lib/paymentLinks";
+import { publicOrigin } from "@/lib/native";
+import { searchAccessProfiles } from "@/lib/profileAccess";
 import { createPaymentRequest, getIncomingRequests, getOutgoingRequests, respondToRequest, migrateLocalRequests } from "@/lib/paymentRequestService";
 
 interface Contact { id: string; name: string; username: string; avatar_url?: string; is_online?: boolean; last_seen?: string; }
@@ -55,13 +58,12 @@ const RequestMoney = () => {
   const [lastRequest, setLastRequest] = useState<PaymentRequest | null>(null);
 
   useEffect(() => {
-    if (query.length < 2) { setContacts([]); return; }
+    if (query.replace(/^@/, '').trim().length < 3) { setContacts([]); return; }
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const { data, error } = await supabase.rpc("search_users_public", { search_term: query });
-        if (error) throw error;
-        setContacts((data || []).map((u: any) => ({
+        const data = await searchAccessProfiles(query);
+        setContacts(data.map((u: any) => ({
           id: u.id, name: u.name || u.username, username: u.username,
           avatar_url: u.avatar_url, is_online: u.is_online, last_seen: u.last_seen,
         })));
@@ -124,7 +126,7 @@ const RequestMoney = () => {
   };
 
   const requestLink = lastRequest
-    ? `https://echat.app/pay/@${lastRequest.toUsername}?amount=${lastRequest.amount}&reason=${encodeURIComponent(lastRequest.reason)}&ref=${lastRequest.id}`
+    ? paymentLink(publicOrigin(), '', undefined, undefined, lastRequest.id)
     : "";
 
   const handleCopyLink = async () => {

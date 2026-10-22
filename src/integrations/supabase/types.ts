@@ -2203,21 +2203,38 @@ export type Database = {
     }
     Functions: {
       accept_profile_call: { Args: { p_room_id: string }; Returns: boolean }
-      airtime_topup: {
-        Args: {
-          p_amount: number
-          p_idempotency_key: string
-          p_phone: string
-          p_pin: string
-        }
-        Returns: {
-          balance: number
-          duplicate: boolean
-          error: string
-          success: boolean
-          topup_id: string
-        }[]
-      }
+      airtime_topup:
+        | {
+            Args: {
+              p_amount: number
+              p_idempotency_key: string
+              p_phone: string
+              p_pin: string
+            }
+            Returns: {
+              balance: number
+              duplicate: boolean
+              error: string
+              success: boolean
+              topup_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_amount: number
+              p_device: string
+              p_idempotency_key: string
+              p_phone: string
+              p_pin: string
+            }
+            Returns: {
+              balance: number
+              duplicate: boolean
+              error: string
+              success: boolean
+              topup_id: string
+            }[]
+          }
       can_read_profile: { Args: { p_subject: string }; Returns: boolean }
       can_view_channel: {
         Args: { _channel_id: string; _uid: string }
@@ -2388,6 +2405,10 @@ export type Database = {
         Args: { p_platform?: string; p_token: string; p_user_agent?: string }
         Returns: string
       }
+      resolve_payment_destination: {
+        Args: { p_request?: string; p_user?: string; p_username?: string }
+        Returns: Json
+      }
       respond_payment_request: {
         Args: { p_action: string; p_id: string }
         Returns: string
@@ -2442,6 +2463,39 @@ export type Database = {
       verify_wallet_pin: {
         Args: { p_pin: string; p_user_id: string }
         Returns: boolean
+      }
+      wallet_activate_secure: {
+        Args: { p_agent: string; p_device: string; p_ip: string }
+        Returns: Json
+      }
+      wallet_deposit_request: {
+        Args: {
+          p_amount: number
+          p_device: string
+          p_key: string
+          p_method: string
+        }
+        Returns: Json
+      }
+      wallet_pin_error: {
+        Args: { p_pin: string; p_user: string }
+        Returns: string
+      }
+      wallet_transfer_atomic: {
+        Args: {
+          p_amount: number
+          p_device: string
+          p_key: string
+          p_note: string
+          p_pin: string
+          p_recipient: string
+          p_request?: string
+        }
+        Returns: Json
+      }
+      wallet_verify_own_pin: {
+        Args: { p_device: string; p_pin: string }
+        Returns: Json
       }
     }
     Enums: {

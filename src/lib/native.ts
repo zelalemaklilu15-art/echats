@@ -37,7 +37,10 @@ export async function initNative() {
     App.addListener("appUrlOpen", ({ url }) => {
       try {
         const u = new URL(url);
-        const path = (u.host ? `/${u.host}` : "") + u.pathname + u.search;
+        const web = u.protocol === 'https:' || u.protocol === 'http:';
+        if (web && !['echats.lovable.app', 'echat.app', window.location.hostname].includes(u.hostname)) return;
+        if (!web && !['echat:', 'com.echat.app:'].includes(u.protocol)) return;
+        const path = (web ? '' : u.host ? `/${u.host}` : '') + u.pathname + u.search;
         if (path && path !== "/") window.location.assign(path);
       } catch {}
     });

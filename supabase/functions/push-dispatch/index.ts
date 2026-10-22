@@ -5,6 +5,9 @@ import { sendPushToUser, adminClient, type PushMessage } from '../_shared/fcm.ts
 type Rec = Record<string, any>;
 const db = adminClient();
 const clip = (s: string, n = 120) => (s || '').slice(0, n);
+const preview = (content: unknown, kind: string) => kind === 'text' || !kind
+  ? clip(typeof content === 'string' ? content : '') || 'New message'
+  : ({ image: 'Photo', video: 'Video', audio: 'Voice message', file: 'File', gift: 'Gift' } as Record<string, string>)[kind] ?? 'New message';
 
 async function nameOf(id: string): Promise<string> {
   // Deferred until delivery: every recipient has a different authorization.
@@ -31,6 +34,7 @@ const GENERIC: Record<string, [string | null, string]> = {
   payment_request: ['Echat', 'Payment request'],
   payment_request_paid: ['Echat', 'Payment request update'],
   payment_request_declined: ['Echat', 'Payment request update'],
+  wallet_transfer: ['Echat', 'Money received'],
   missed_call: ['Echat', 'Missed call'],
   story: ['Echat', 'New story'],
   etok_like: ['eTok', 'New activity'],
@@ -64,6 +68,26 @@ async function followersOf(id: string) {
 
 async function handle(table: string, op: string, r: Rec): Promise<number> {
   switch (table) {
+    case 'wallet_transactions': {
+      const { data: wallet } = await db.from('wallets').select('user_id').eq('id', r.wallet_id).maybeSingle();
+      if (!wallet?.user_id) return 0;
+      if (r.type === 'transfer_in' && r.status === 'completed') {
+        const actor = r.metadata?.sender_user_id;
+        if (!actor) return 0;
+        return send([wallet.user_id], actor, {
+          title: 'Money received', body: `${await nameOf(actor)} sent you ${Number(r.amount).toFixed(2)} ETB`,
+          tag: `wallet-${r.id}`, url: '/wallet', data: { type: 'wallet_transfer', transactionId: r.id },
+        });
+      }
+      if (r.type === 'deposit' && (op === 'INSERT' || r.status === 'completed')) {
+        return (await sendPushToUser(wallet.user_id, {
+          title: r.status === 'completed' ? 'Deposit confirmed' : 'Deposit request created',
+          body: `${Number(r.amount).toFixed(2)} ETB — ${r.status === 'completed' ? 'confirmed' : 'awaiting payment confirmation'}`,
+          tag: `wallet-${r.id}`, url: '/wallet', data: { type: 'wallet_deposit', transactionId: r.id, status: r.status },
+        })).sent;
+      }
+      return 0;
+    }
     case 'messages': {
       const n = await nameOf(r.sender_id);
       return send([r.receiver_id], r.sender_id, {
