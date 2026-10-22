@@ -196,7 +196,7 @@ export function useMessages(chatId: string | undefined) {
     if (!chatId) return false;
     try {
       const result = await chatStore.sendMessage(chatId, content, messageType, mediaUrl, fileName);
-      return !!result;
+      return result ? (result as { id: string }) : false;
     } catch (error) {
       console.error("Send message error:", error);
       return false;
