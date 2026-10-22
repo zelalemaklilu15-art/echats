@@ -91,7 +91,7 @@ function mapStream(row: any): EtokLiveStream {
     startedAt: row.started_at,
     thumbnailColor: row.thumbnail_color ?? BG_COLORS[0],
     thumbnailEmoji: row.thumbnail_emoji ?? "📡",
-    isLive: row.is_live ?? false,
+    isLive: !!row.is_live && new Date(row.last_heartbeat ?? row.started_at).getTime() > Date.now() - 120000,
   };
 }
 
@@ -129,6 +129,7 @@ export async function fetchActiveLives(): Promise<EtokLiveStream[]> {
     .from("etok_live_streams")
     .select("*")
     .eq("is_live", true)
+    .gt("last_heartbeat", new Date(Date.now() - 120000).toISOString())
     .order("viewer_count", { ascending: false })
     .limit(50);
   if (error) { console.error("[EtokLive] fetch lives:", error); return []; }
@@ -149,7 +150,7 @@ export async function startLiveAsync(hostId: string, title: string, category: st
       category,
       thumbnail_color: BG_COLORS[Math.floor(Math.random() * BG_COLORS.length)],
       thumbnail_emoji: "📡",
-      viewer_count: 1,
+      viewer_count: 0,
     })
     .select("*")
     .single();
@@ -158,29 +159,21 @@ export async function startLiveAsync(hostId: string, title: string, category: st
 }
 
 export async function endLiveAsync(streamId: string): Promise<void> {
-  await supabase.from("etok_live_streams")
-    .update({ is_live: false, ended_at: new Date().toISOString() })
-    .eq("id", streamId);
+  const { data, error } = await supabase.from('etok_live_streams').update({ is_live: false,ended_at: new Date().toISOString() }).eq('id',streamId).select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('Could not end stream');
 }
-
-export async function joinLiveAsync(streamId: string, userId: string): Promise<void> {
-  await supabase.from("etok_live_viewers").upsert({ stream_id: streamId, user_id: userId });
-  // refresh viewer count from actual viewers
-  const { count } = await supabase.from("etok_live_viewers")
-    .select("*", { count: "exact", head: true })
-    .eq("stream_id", streamId);
-  await supabase.from("etok_live_streams").update({ viewer_count: count ?? 1 }).eq("id", streamId);
+export async function joinLiveAsync(streamId: string,userId: string): Promise<void> {
+  const { error } = await supabase.from('etok_live_viewers').upsert({ stream_id: streamId,user_id: userId }, { onConflict: 'stream_id,user_id',ignoreDuplicates: true });
+  if (error) throw error;
 }
-
-export async function leaveLiveAsync(streamId: string, userId: string): Promise<void> {
-  await supabase.from("etok_live_viewers")
-    .delete()
-    .eq("stream_id", streamId)
-    .eq("user_id", userId);
-  const { count } = await supabase.from("etok_live_viewers")
-    .select("*", { count: "exact", head: true })
-    .eq("stream_id", streamId);
-  await supabase.from("etok_live_streams").update({ viewer_count: Math.max(0, count ?? 0) }).eq("id", streamId);
+export async function leaveLiveAsync(streamId: string,userId: string): Promise<void> {
+  const { error } = await supabase.from('etok_live_viewers').delete().eq('stream_id',streamId).eq('user_id',userId);
+  if (error) throw error;
+}
+export async function heartbeatLive(streamId: string): Promise<void> {
+  const { data, error } = await supabase.rpc('heartbeat_etok_live', { p_id: streamId });
+  if (error || !data) throw error ?? new Error('Live stream has ended');
 }
 
 /* ═══════════════════════════════════════════
@@ -216,13 +209,14 @@ export async function addLiveCommentAsync(
   isGift?: boolean,
   giftEmoji?: string
 ): Promise<void> {
-  await supabase.from("etok_live_comments").insert({
+  const { error } = await supabase.from("etok_live_comments").insert({
     stream_id: streamId,
     author_id: authorId,
     text,
     is_gift: isGift ?? false,
     gift_emoji: giftEmoji ?? null,
   });
+  if (error) throw error;
 }
 
 /* ═══════════════════════════════════════════
@@ -328,40 +322,49 @@ export async function sendWebRTCSignal(
   signalType: "offer" | "answer" | "ice" | "request",
   payload: any
 ): Promise<void> {
-  await supabase.from("etok_webrtc_signals").insert({
+  const { error } = await supabase.from("etok_webrtc_signals").insert({
     stream_id: streamId,
     from_user_id: fromUserId,
     to_user_id: toUserId,
     signal_type: signalType,
     payload,
   });
+  if (error) throw error;
 }
 
 export function subscribeToWebRTCSignals(
   userId: string,
-  handler: (signal: { id: string; streamId: string; fromUserId: string; signalType: string; payload: any }) => void
+  handler: (signal: { id: string; streamId: string; fromUserId: string; signalType: string; payload: any }) => void | Promise<void>,
+  onReady?: () => void,
+  onError?: (error: unknown) => void,
 ) {
-  const channel = supabase
-    .channel(`rtc-${userId}`)
-    .on("postgres_changes", {
-      event: "INSERT",
-      schema: "public",
-      table: "etok_webrtc_signals",
-      filter: `to_user_id=eq.${userId}`,
-    }, async (payload: any) => {
-      const row = payload.new;
-      handler({
-        id: row.id,
-        streamId: row.stream_id,
-        fromUserId: row.from_user_id,
-        signalType: row.signal_type,
-        payload: row.payload,
-      });
-      // Cleanup processed signal
-      await supabase.from("etok_webrtc_signals").delete().eq("id", row.id);
-    })
-    .subscribe();
-  return () => { supabase.removeChannel(channel); };
+  let active = true;
+  const processing = new Set<string>();
+  const seen = new Set<string>();
+  const process = async (row: any) => {
+    if (!active || processing.has(row.id) || seen.has(row.id)) return;
+    processing.add(row.id);
+    try {
+      await handler({ id: row.id, streamId: row.stream_id, fromUserId: row.from_user_id, signalType: row.signal_type, payload: row.payload });
+      if (!active) return;
+      seen.add(row.id);
+      const { error } = await supabase.from('etok_webrtc_signals').delete().eq('id',row.id);
+      if (error) throw error;
+    } catch (error) { if (active) onError?.(error); }
+    finally { processing.delete(row.id); }
+  };
+  const channel = supabase.channel(`rtc-${userId}-${crypto.randomUUID()}`)
+    .on('postgres_changes', { event: 'INSERT',schema: 'public',table: 'etok_webrtc_signals',filter: `to_user_id=eq.${userId}` }, payload => { void process(payload.new); })
+    .subscribe(async status => {
+      if (!active) return;
+      if (status !== 'SUBSCRIBED') { if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') onError?.(new Error('Live connection unavailable')); return; }
+      const { data, error } = await supabase.from('etok_webrtc_signals').select('*').eq('to_user_id',userId).gt('created_at', new Date(Date.now() - 120000).toISOString()).order('created_at');
+      if (!active) return;
+      if (error) { onError?.(error); return; }
+      for (const row of data ?? []) await process(row);
+      if (active) onReady?.();
+    });
+  return () => { active = false; void supabase.removeChannel(channel); };
 }
 
 /* ═══════════════════════════════════════════

@@ -17,7 +17,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
 } }));
 import { CHANNELS_SYNC_EVENT, getChannelMessages, syncChannelMessages, syncChannels } from '@/lib/channelService';
 
-const post = { id: 'post', channel_id: 'channel', sender_id: 'subject', sender_name: 'Authorized name', content: 'Hello' };
+const post = { created_at: '2026-10-22T09:00:00Z', id: 'post', channel_id: 'channel', sender_id: 'subject', sender_name: 'Authorized name', content: 'Hello' };
 beforeEach(() => {
   localStorage.clear();
   mock.rpc.mockReset();
@@ -27,16 +27,22 @@ beforeEach(() => {
 });
 
 describe('viewer-scoped channel identity', () => {
+  it('does not clear posts for repeated sign-in events on the same account', async () => {
+    mock.rpc.mockResolvedValue({ data: [post], error: null });
+    await syncChannelMessages('channel');
+    mock.authChanged?.('SIGNED_IN', { user: { id: mock.viewer } });
+    expect(getChannelMessages('channel')).toHaveLength(1);
+  });
   it('shows authorized names only in memory and hides them immediately when access changes', async () => {
     mock.rpc.mockResolvedValue({ data: [post], error: null });
     await syncChannelMessages('channel');
     expect(getChannelMessages('channel')[0].senderName).toBe('Authorized name');
-    expect(JSON.parse(localStorage.getItem('echat_channel_messages_channel') ?? '[]')[0].senderName).toBe('Hidden profile');
+    expect(localStorage.getItem('echat_channel_messages_channel')).toBeNull();
     const rerender = vi.fn();
     window.addEventListener(CHANNELS_SYNC_EVENT, rerender);
     try {
       window.dispatchEvent(new Event('echat:profile-access'));
-      expect(getChannelMessages('channel')[0].senderName).toBe('Hidden profile');
+      expect(getChannelMessages('channel')).toEqual([]);
       expect(rerender).toHaveBeenCalledTimes(1);
     } finally { window.removeEventListener(CHANNELS_SYNC_EVENT, rerender); }
   });

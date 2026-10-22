@@ -748,6 +748,7 @@ export type Database = {
           host_id: string
           id: string
           is_live: boolean
+          last_heartbeat: string
           started_at: string
           thumbnail_color: string
           thumbnail_emoji: string
@@ -762,6 +763,7 @@ export type Database = {
           host_id: string
           id?: string
           is_live?: boolean
+          last_heartbeat?: string
           started_at?: string
           thumbnail_color?: string
           thumbnail_emoji?: string
@@ -776,6 +778,7 @@ export type Database = {
           host_id?: string
           id?: string
           is_live?: boolean
+          last_heartbeat?: string
           started_at?: string
           thumbnail_color?: string
           thumbnail_emoji?: string
@@ -917,6 +920,32 @@ export type Database = {
           reporter_id?: string
         }
         Relationships: []
+      }
+      etok_saved_videos: {
+        Row: {
+          created_at: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etok_saved_videos_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "etok_videos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       etok_scheduled_lives: {
         Row: {
@@ -1166,6 +1195,32 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "etok_video_analytics_daily_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "etok_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      etok_video_view_receipts: {
+        Row: {
+          day: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          day?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          day?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "etok_video_view_receipts_video_id_fkey"
             columns: ["video_id"]
             isOneToOne: false
             referencedRelation: "etok_videos"
@@ -1880,6 +1935,56 @@ export type Database = {
         }
         Relationships: []
       }
+      story_close_friends: {
+        Row: {
+          contact_user_id: string
+          created_at: string
+          owner_id: string
+        }
+        Insert: {
+          contact_user_id: string
+          created_at?: string
+          owner_id: string
+        }
+        Update: {
+          contact_user_id?: string
+          created_at?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
+      story_poll_votes: {
+        Row: {
+          choice: string
+          created_at: string
+          sticker_id: string
+          story_id: string
+          user_id: string
+        }
+        Insert: {
+          choice: string
+          created_at?: string
+          sticker_id: string
+          story_id: string
+          user_id: string
+        }
+        Update: {
+          choice?: string
+          created_at?: string
+          sticker_id?: string
+          story_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_poll_votes_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "user_stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       story_views: {
         Row: {
           id: string
@@ -1956,7 +2061,9 @@ export type Database = {
           duration: number | null
           expires_at: string
           id: string
+          media_path: string | null
           media_url: string | null
+          privacy: string
           story_type: string
           user_id: string
           views_count: number | null
@@ -1968,7 +2075,9 @@ export type Database = {
           duration?: number | null
           expires_at?: string
           id?: string
+          media_path?: string | null
           media_url?: string | null
+          privacy?: string
           story_type?: string
           user_id: string
           views_count?: number | null
@@ -1980,7 +2089,9 @@ export type Database = {
           duration?: number | null
           expires_at?: string
           id?: string
+          media_path?: string | null
           media_url?: string | null
+          privacy?: string
           story_type?: string
           user_id?: string
           views_count?: number | null
@@ -2238,11 +2349,16 @@ export type Database = {
               topup_id: string
             }[]
           }
+      can_comment_etok: { Args: { p_id: string }; Returns: boolean }
+      can_read_etok_media: { Args: { p_name: string }; Returns: boolean }
       can_read_profile: { Args: { p_subject: string }; Returns: boolean }
+      can_read_story_media: { Args: { p_name: string }; Returns: boolean }
       can_view_channel: {
         Args: { _channel_id: string; _uid: string }
         Returns: boolean
       }
+      can_view_etok_video: { Args: { p_id: string }; Returns: boolean }
+      can_view_story: { Args: { p_id: string }; Returns: boolean }
       check_wallet_device: { Args: { p_device_id: string }; Returns: string }
       consume_ai_quota: {
         Args: { p_user_id: string }
@@ -2261,6 +2377,23 @@ export type Database = {
           success: boolean
         }[]
       }
+      etok_are_friends: {
+        Args: { p_owner: string; p_viewer: string }
+        Returns: boolean
+      }
+      etok_live_active: { Args: { p_id: string }; Returns: boolean }
+      etok_not_blocked: {
+        Args: { p_owner: string; p_viewer: string }
+        Returns: boolean
+      }
+      etok_valid_signal: {
+        Args: { p_from: string; p_kind: string; p_stream: string; p_to: string }
+        Returns: boolean
+      }
+      feature_media_path: {
+        Args: { p_bucket: string; p_source: string }
+        Returns: string
+      }
       find_or_create_chat: {
         Args: { user1_id: string; user2_id: string }
         Returns: string
@@ -2272,6 +2405,21 @@ export type Database = {
           is_premium: boolean
           premium_expires_at: string
           used: number
+        }[]
+      }
+      get_channel_posts_page: {
+        Args: { p_before?: string; p_before_id?: string; p_channel_id: string }
+        Returns: {
+          channel_id: string
+          content: string
+          created_at: string
+          edited: boolean
+          id: string
+          reactions: Json
+          sender_id: string
+          sender_name: string
+          type: string
+          views: number
         }[]
       }
       get_channel_posts_safe: {
@@ -2334,6 +2482,7 @@ export type Database = {
       }
       has_recent_otp: { Args: { p_seconds?: number }; Returns: boolean }
       has_wallet_pin: { Args: never; Returns: boolean }
+      heartbeat_etok_live: { Args: { p_id: string }; Returns: boolean }
       is_channel_owner: {
         Args: { _channel_id: string; _uid: string }
         Returns: boolean
@@ -2438,6 +2587,36 @@ export type Database = {
         Args: { p_action: string; p_id: string }
         Returns: string
       }
+      search_etok_videos: {
+        Args: { p_query: string }
+        Returns: {
+          allow_comments: boolean
+          allow_download: boolean
+          allow_duet: boolean
+          allow_stitch: boolean
+          author_id: string
+          comments: number
+          created_at: string
+          description: string
+          duration: number
+          hashtags: string[]
+          id: string
+          is_sponsored: boolean
+          likes: number
+          privacy: string
+          shares: number
+          sound_name: string
+          thumbnail_url: string | null
+          video_url: string
+          views: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "etok_videos"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       search_users_public: {
         Args: { search_term: string }
         Returns: {
@@ -2479,7 +2658,12 @@ export type Database = {
           success: boolean
         }[]
       }
+      set_etok_like: {
+        Args: { p_liked: boolean; p_video: string }
+        Returns: Json
+      }
       set_wallet_pin: { Args: { p_pin: string }; Returns: undefined }
+      story_content_privacy: { Args: { p_content: string }; Returns: string }
       toggle_channel_reaction: {
         Args: { p_add: boolean; p_emoji: string; p_post_id: string }
         Returns: Json

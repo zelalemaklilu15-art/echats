@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { fetchFYPVideos, fetchFollowingVideos, fetchVideoById, subscribeToPublicEtokVideos, type EtokVideo } from "@/lib/etokService";
 import { EtokVideoCard } from "@/components/etok/EtokVideoCard";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
+import { Button } from "@/components/ui/button";
 import { isEtokOnboardedAsync } from "./EtokOnboarding";
 
 type FeedTab = "fyp" | "following";
@@ -29,6 +30,8 @@ const Etok = () => {
 
   const [pullY, setPullY] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const requestGeneration = useRef(0);
+  const [loadError, setLoadError] = useState(false);
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,7 +46,9 @@ const Etok = () => {
   }, [currentUserId, navigate]);
 
   const loadVideos = useCallback(async (showLoading = true) => {
-    if (showLoading) setLoading(true);
+    const generation = ++requestGeneration.current;
+    if (showLoading) { setLoading(true); setVideos([]); }
+    setLoadError(false);
     try {
       let data = activeTab === "fyp"
         ? await fetchFYPVideos()
@@ -52,12 +57,12 @@ const Etok = () => {
         const focusedVideo = await fetchVideoById(focusVideoId);
         if (focusedVideo) data = [focusedVideo, ...data.filter(v => v.id !== focusedVideo.id)];
       }
+      if (generation !== requestGeneration.current) return;
       setVideos(data);
     } catch (e) {
-      console.error("[Etok] load error:", e);
+      if (generation === requestGeneration.current) setLoadError(true);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (generation === requestGeneration.current) { setLoading(false); setRefreshing(false); }
     }
   }, [activeTab, currentUserId, focusVideoId]);
 
@@ -65,18 +70,8 @@ const Etok = () => {
     loadVideos(true);
     setActiveIndex(0);
     containerRef.current?.scrollTo({ top: 0 });
+    return () => { requestGeneration.current += 1; };
   }, [loadVideos]);
-
-  useEffect(() => {
-    if (!focusVideoId) return;
-    fetchVideoById(focusVideoId).then(video => {
-      if (!video) return;
-      setActiveTab("fyp");
-      setVideos(prev => [video, ...prev.filter(v => v.id !== video.id)]);
-      setActiveIndex(0);
-      containerRef.current?.scrollTo({ top: 0 });
-    });
-  }, [focusVideoId]);
 
   useEffect(() => {
     if (activeTab !== "fyp") return;
@@ -190,6 +185,8 @@ const Etok = () => {
             <div className="w-12 h-12 rounded-full border-4 border-white/20 border-t-white animate-spin" />
             <p className="text-white/50 text-sm">Loading videos...</p>
           </div>
+        ) : loadError ? (
+          <div className="h-full flex flex-col items-center justify-center gap-4 bg-background text-foreground"><p role="alert">Could not load videos.</p><Button onClick={() => void loadVideos()}>Retry</Button></div>
         ) : videos.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-white gap-4 px-8 text-center" style={{ height: "100dvh" }}>
             <span className="text-7xl">🎬</span>

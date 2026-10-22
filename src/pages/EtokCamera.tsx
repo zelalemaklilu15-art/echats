@@ -104,6 +104,11 @@ const EtokCamera = () => {
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const countdownRef = useRef<ReturnType<typeof setInterval>>();
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraGeneration = useRef(0);
+  const recordedUrlRef = useRef<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => { recordedUrlRef.current = recordedUrl; }, [recordedUrl]);
+  useEffect(() => () => { mounted.current = false; cameraGeneration.current += 1; if (recordedUrlRef.current) URL.revokeObjectURL(recordedUrlRef.current); }, []);
 
   const handleGalleryPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -124,6 +129,7 @@ const EtokCamera = () => {
       const d = Math.max(1, Math.min(Math.round(probe.duration || 1), 600));
       setElapsed(d);
     };
+    cameraGeneration.current += 1;
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     setStage("preview");
   };
@@ -132,6 +138,7 @@ const EtokCamera = () => {
   useEffect(() => { fetchAllSounds().then(setSounds); }, []);
 
   const startCamera = useCallback(async () => {
+    const generation = ++cameraGeneration.current;
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
@@ -142,6 +149,7 @@ const EtokCamera = () => {
         video: { facingMode, width: { ideal: 1080 }, height: { ideal: 1920 } },
         audio: true,
       });
+      if (!mounted.current || generation !== cameraGeneration.current) { stream.getTracks().forEach(t => t.stop()); return; }
       streamRef.current = stream;
       if (cameraRef.current) {
         cameraRef.current.srcObject = stream;
@@ -149,6 +157,7 @@ const EtokCamera = () => {
       }
       setCameraReady(true);
     } catch (err: unknown) {
+      if (!mounted.current || generation !== cameraGeneration.current) return;
       const msg = err instanceof Error ? err.message : "Camera access denied";
       setCameraError(msg.includes("denied") || msg.includes("Permission")
         ? "Camera access denied. Please allow camera access in your browser settings."
@@ -164,6 +173,9 @@ const EtokCamera = () => {
       startCamera();
     }
     return () => {
+      cameraGeneration.current += 1;
+      const recorder = mediaRecorderRef.current;
+      if (recorder) { recorder.onstop = null; recorder.ondataavailable = null; if (recorder.state !== "inactive") recorder.stop(); }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
         streamRef.current = null;
@@ -206,8 +218,11 @@ const EtokCamera = () => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
 
+    const recordingGeneration = cameraGeneration.current;
     recorder.onstop = () => {
+      if (!mounted.current || recordingGeneration !== cameraGeneration.current) return;
       const blob = new Blob(chunksRef.current, { type: mimeType });
+      if (recordedUrlRef.current) URL.revokeObjectURL(recordedUrlRef.current);
       const url = URL.createObjectURL(blob);
       setRecordedBlob(blob);
       setRecordedUrl(url);
@@ -273,6 +288,7 @@ const EtokCamera = () => {
       toast.error("Please add a description");
       return;
     }
+    if (posting) return;
     setPosting(true);
     setUploadProgress(0);
     try {
@@ -296,6 +312,7 @@ const EtokCamera = () => {
       if (!postedVideo) {
         throw new Error("Video was not saved");
       }
+      if (!mounted.current) return;
       toast.success("Video posted!");
       if (recordedUrl) URL.revokeObjectURL(recordedUrl);
       navigate(`/etok?video=${postedVideo.id}`, { replace: true });

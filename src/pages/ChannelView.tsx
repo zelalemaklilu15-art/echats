@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useChannelSync } from "@/hooks/useChannelSync";
-import { syncChannels, recordChannelViews } from "@/lib/channelService";
+import { syncChannels, syncChannelMessages, recordChannelViews } from "@/lib/channelService";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, MoreVertical, Send, Eye, Megaphone, Users, Trash2,
@@ -78,12 +78,14 @@ const ReactionBar = ({ message, channelId, userId, onReacted }: ReactionBarProps
   const [showPicker, setShowPicker] = useState(false);
   const existingReactions = Object.entries(message.reactions || {}).filter(([, users]) => users.length > 0);
 
-  const handleReact = (emoji: string) => {
+  const handleReact = async (emoji: string) => {
+    try {
     const reacted = message.reactions?.[emoji]?.includes(userId);
-    if (reacted) removeReaction(channelId, message.id, emoji, userId);
-    else addReaction(channelId, message.id, emoji, userId);
+    if (reacted) await removeReaction(channelId, message.id, emoji, userId);
+    else await addReaction(channelId, message.id, emoji, userId);
     setShowPicker(false);
     onReacted();
+    } catch { toast.error("Could not save reaction"); }
   };
 
   return (
@@ -187,6 +189,8 @@ const ChannelView = () => {
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [showScheduled, setShowScheduled] = useState(false);
   const [postType, setPostType] = useState<"text" | "announcement">("text");
+  const [busy, setBusy] = useState(false);
+  const sendLock = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isOwner = channel?.createdBy === userId;
@@ -196,16 +200,14 @@ const ChannelView = () => {
     if (!id) return;
     const ch = getChannel(id);
     if (!ch) {
-      syncChannels().then(() => {
-        if (!getChannel(id)) { toast.error("Channel not found"); navigate("/channels"); }
-      });
+      setChannel(null); setMessages([]);
       return;
     }
     setChannel(ch);
     setMessages(getChannelMessages(id));
     if (userId) setSubscribed(isSubscribed(id, userId));
     setSubCount(getSubscriberCount(id));
-    setScheduledPosts(getScheduledPosts(id));
+    setScheduledPosts(getScheduledPosts(id).filter(() => isOwner));
   };
 
   const syncVersion = useChannelSync(id);
@@ -213,53 +215,25 @@ const ChannelView = () => {
   useEffect(() => { if (id) recordChannelViews(id); }, [id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
-  const handleSend = (scheduleAt?: string) => {
-    if (!newMessage.trim() || !id || !userId) return;
-    const senderName =
-      (user as any)?.user_metadata?.name || (user as any)?.user_metadata?.username ||
-      (user as any)?.email || channel?.name || "Admin";
-
-    if (scheduleAt) {
-      addScheduledPost(id, newMessage.trim(), scheduleAt, postType);
-      setNewMessage(""); setScheduleDate(""); setScheduleTime("");
-      setScheduledOpen(false);
-      toast.success(`Post scheduled for ${format(new Date(scheduleAt), "MMM d 'at' h:mm a")}`);
-      reload();
-      return;
-    }
-    sendChannelMessage(id, newMessage.trim(), userId, senderName, postType);
-    setNewMessage("");
-    reload();
+  const handleSend = async (scheduleAt?: string) => {
+    if (!newMessage.trim() || !id || !userId || sendLock.current) return;
+    if (scheduleAt) { toast.error('Scheduled publishing is not available yet. Your draft has not been sent.'); return; }
+    sendLock.current = true; setBusy(true);
+    try { await sendChannelMessage(id,newMessage.trim(),userId,'',postType); setNewMessage(''); reload(); }
+    catch { toast.error('Could not post. Your draft is still here.'); }
+    finally { sendLock.current = false; setBusy(false); }
   };
-
-  const handleSchedule = () => {
-    if (!scheduleDate || !scheduleTime) { toast.error("Pick date and time"); return; }
-    const iso = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
-    handleSend(iso);
+  const handleSchedule = () => { toast.error('Scheduled publishing is not available yet.'); };
+  const handleSubscribeToggle = async () => {
+    if (!id || !userId || busy) return; setBusy(true);
+    try { if (subscribed) await unsubscribeFromChannel(id,userId); else await subscribeToChannel(id,userId); reload(); }
+    catch { toast.error('Could not change subscription. Please retry.'); }
+    finally { setBusy(false); }
   };
-
-  const handleSubscribeToggle = () => {
-    if (!id || !userId) return;
-    if (subscribed) { unsubscribeFromChannel(id, userId); toast.success("Unsubscribed"); }
-    else { subscribeToChannel(id, userId); toast.success(`Subscribed to ${channel?.name}`); }
-    reload();
-  };
-
-  const handleDelete = () => { if (!id) return; deleteChannel(id); toast.success("Deleted"); navigate("/channels"); };
-  const handleDeleteMessage = (msgId: string) => { if (!id) return; deleteChannelMessage(id, msgId); reload(); };
-
-  const handlePin = (msgId: string) => {
-    if (!id) return;
-    if (channel?.pinnedMessageId === msgId) { unpinMessage(id); toast.success("Unpinned"); }
-    else { pinMessage(id, msgId); toast.success("Pinned"); }
-    reload();
-  };
-
-  const handleEditSave = () => {
-    if (!id || !editName.trim()) { toast.error("Name required"); return; }
-    updateChannel(id, { name: editName.trim(), description: editDescription.trim() });
-    toast.success("Updated"); setEditDialogOpen(false); reload();
-  };
+  const handleDelete = async () => { if (!id) return; try { await deleteChannel(id); toast.success('Deleted'); navigate('/channels'); } catch { toast.error('Could not delete channel'); } };
+  const handleDeleteMessage = async (msgId: string) => { if (!id) return; try { await deleteChannelMessage(id,msgId); reload(); } catch { toast.error('Could not delete post'); } };
+  const handlePin = async (msgId: string) => { if (!id) return; try { if (channel?.pinnedMessageId === msgId) await unpinMessage(id); else await pinMessage(id,msgId); reload(); } catch { toast.error('Could not change pinned post'); } };
+  const handleEditSave = async () => { if (!id || !editName.trim()) return; try { await updateChannel(id,{ name: editName.trim(),description: editDescription.trim() }); setEditDialogOpen(false); reload(); } catch { toast.error('Could not save changes'); } };
 
   if (!channel) {
     return (
@@ -311,7 +285,7 @@ const ChannelView = () => {
                   {!isOwner && <DropdownMenuItem onClick={handleSubscribeToggle} data-testid="menu-subscribe-toggle">
                     <Megaphone className="h-4 w-4 mr-2" />{subscribed ? "Unsubscribe" : "Subscribe"}
                   </DropdownMenuItem>}
-                  <DropdownMenuItem onClick={() => { toast.success("Link copied!"); }}>
+                  <DropdownMenuItem onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/channel/${encodeURIComponent(id ?? '')}`); toast.success("Link copied!"); } catch { toast.error("Could not copy link"); } }}>
                     <Share2 className="h-4 w-4 mr-2" /> Share Channel
                   </DropdownMenuItem>
                   {isOwner && scheduledPosts.length > 0 && (
@@ -421,7 +395,7 @@ const ChannelView = () => {
 
             {/* Reactions + meta */}
             <div className="px-4 pb-3">
-              <ReactionBar message={msg} channelId={id!} userId={userId!} onReacted={reload} />
+              <ReactionBar message={msg} channelId={id ?? ""} userId={userId ?? ""} onReacted={reload} />
               <div className="flex items-center gap-3 mt-2 text-muted-foreground">
                 <div className="flex items-center gap-1"><Eye className="h-3 w-3" /><span className="text-[11px]">{formatCount(msg.views)}</span></div>
                 <div className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /><span className="text-[11px]">0</span></div>
@@ -436,6 +410,7 @@ const ChannelView = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {messages.length >= 100 && <Button variant="ghost" onClick={() => { if (id) void syncChannelMessages(id,true).then(reload).catch(() => toast.error('Could not load older posts')); }}>Load older posts</Button>}
       {/* ── Subscribe button (non-owners) ── */}
       {!isOwner && (
         <div className="flex-shrink-0 px-4 pb-3 pt-1">
@@ -473,11 +448,11 @@ const ChannelView = () => {
               data-testid="input-channel-message"
             />
             <div className="flex flex-col gap-1.5 shrink-0">
-              <Button size="icon" onClick={() => setScheduledOpen(true)} disabled={!newMessage.trim()}
+              <Button size="icon" onClick={() => toast.info("Scheduled publishing is not available yet")} disabled
                 variant="outline" className="rounded-xl h-9 w-9 border-border/60" data-testid="button-schedule">
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </Button>
-              <Button size="icon" onClick={() => handleSend()} disabled={!newMessage.trim()}
+              <Button size="icon" onClick={() => handleSend()} disabled={!newMessage.trim() || busy}
                 className="rounded-xl h-9 w-9 text-white"
                 style={{ background: "var(--gradient-primary)" }} data-testid="button-send-message">
                 <Send className="h-4 w-4" />
@@ -550,14 +525,14 @@ const ChannelView = () => {
         {contextMsg && (
           <PostContextMenu
             message={contextMsg}
-            channelId={id!}
+            channelId={id ?? ""}
             isOwner={isOwner}
             isPinned={channel.pinnedMessageId === contextMsg.id}
             onClose={() => setContextMsg(null)}
             onPin={() => { handlePin(contextMsg.id); setContextMsg(null); }}
             onDelete={() => { handleDeleteMessage(contextMsg.id); setContextMsg(null); }}
             onForward={() => { navigator.clipboard.writeText(contextMsg.content); toast.success("Copied for forwarding"); setContextMsg(null); }}
-            onSave={() => { toast.success("Saved to bookmarks"); setContextMsg(null); }}
+            onSave={() => { toast.info("Channel bookmarks are not available yet"); setContextMsg(null); }}
           />
         )}
       </AnimatePresence>

@@ -1,168 +1,85 @@
-// @ts-nocheck
-import { useEffect, useRef, useState } from "react";
-import { sendWebRTCSignal, subscribeToWebRTCSignals } from "@/lib/etokLiveService";
-import { getEtokIceServers } from "@/lib/etokIceServers";
+import { useEffect, useRef, useState } from 'react';
+import { sendWebRTCSignal, subscribeToWebRTCSignals } from '@/lib/etokLiveService';
+import { getEtokIceServers } from '@/lib/etokIceServers';
 
-const FALLBACK_ICE: RTCIceServer[] = [
-  { urls: "stun:stun.cloudflare.com:3478" },
-  { urls: "stun:stun.l.google.com:19302" },
-];
-
-interface BroadcastOptions {
-  streamId: string | undefined;
-  userId: string;
-  isHost: boolean;
-  hostId?: string;
-}
-
-/**
- * WebRTC mesh broadcast for Etok Live.
- * - Host: captures camera/mic, listens for "request" signals from viewers, sends offer + ICE.
- * - Viewer: on mount sends "request" to host, accepts offer, replies with answer + ICE.
- */
+interface BroadcastOptions { streamId?: string; userId: string; isHost: boolean; hostId?: string; }
 export function useEtokLiveBroadcast({ streamId, userId, isHost, hostId }: BroadcastOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  // host: viewerId -> pc;  viewer: hostId -> pc
-  const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-
-  // Attach a stream to the video element
-  const attachStream = (stream: MediaStream) => {
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {});
-    }
-  };
-
-  /* ─── HOST ─── */
   useEffect(() => {
-    if (!streamId || !isHost || !userId) return;
-    let cancelled = false;
-    let iceServers: RTCIceServer[] = FALLBACK_ICE;
-
-    (async () => {
-      try {
-        iceServers = await getEtokIceServers();
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 720 }, height: { ideal: 1280 }, facingMode: "user" },
-          audio: true,
-        });
-        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-        localStreamRef.current = stream;
-        attachStream(stream);
-        setIsConnected(true);
-      } catch (err: any) {
-        console.error("[Broadcast] host getUserMedia failed:", err);
-        setError(err?.message ?? "Camera permission denied");
+    setError(null); setIsConnected(false);
+    if (!streamId || !userId || (!isHost && !hostId)) return;
+    let active = true;
+    let local: MediaStream | null = null;
+    const peers = new Map<string, RTCPeerConnection>();
+    const chains = new Map<string, Promise<void>>();
+    const candidates = new Map<string, RTCIceCandidateInit[]>();
+    const report = () => { if (active) setError('Could not connect live video. Please leave and retry.'); };
+    const attach = (stream: MediaStream) => { if (active && videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => {}); } };
+    const ready = (async () => {
+      const iceServers = await getEtokIceServers();
+      if (!active) return null;
+      if (isHost) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 720 },height: { ideal: 1280 },facingMode: 'user' },audio: true });
+        if (!active) { stream.getTracks().forEach(t => t.stop()); return null; }
+        local = stream; attach(stream); setIsConnected(true);
       }
+      return iceServers;
     })();
-
-    const unsub = subscribeToWebRTCSignals(userId, async (sig) => {
-      if (sig.streamId !== streamId) return;
-
-      if (sig.signalType === "request") {
-        // Viewer wants to join → create new RTCPeerConnection and send offer
-        const pc = new RTCPeerConnection({ iceServers });
-        peersRef.current.set(sig.fromUserId, pc);
-
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach(t => pc.addTrack(t, localStreamRef.current!));
-        }
-
-        pc.onicecandidate = (e) => {
-          if (e.candidate) sendWebRTCSignal(streamId, userId, sig.fromUserId, "ice", e.candidate.toJSON());
-        };
-        pc.onconnectionstatechange = () => {
-          if (["disconnected", "failed", "closed"].includes(pc.connectionState)) {
-            pc.close();
-            peersRef.current.delete(sig.fromUserId);
-          }
-        };
-
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await sendWebRTCSignal(streamId, userId, sig.fromUserId, "offer", offer);
-      } else if (sig.signalType === "answer") {
-        const pc = peersRef.current.get(sig.fromUserId);
-        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-      } else if (sig.signalType === "ice") {
-        const pc = peersRef.current.get(sig.fromUserId);
-        if (pc && pc.remoteDescription) {
-          try { await pc.addIceCandidate(new RTCIceCandidate(sig.payload)); } catch {}
-        }
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsub();
-      localStreamRef.current?.getTracks().forEach(t => t.stop());
-      localStreamRef.current = null;
-      peersRef.current.forEach(pc => pc.close());
-      peersRef.current.clear();
-      setIsConnected(false);
+    void ready.catch(report);
+    const send = async (to: string,kind: 'offer' | 'answer' | 'ice' | 'request',payload: any) => { if (active) await sendWebRTCSignal(streamId,userId,to,kind,payload); };
+    const flush = async (id: string, pc: RTCPeerConnection) => {
+      const queued = candidates.get(id) ?? []; candidates.delete(id);
+      for (const item of queued) { if (!active || peers.get(id) !== pc) return; await pc.addIceCandidate(item); }
     };
-  }, [streamId, isHost, userId]);
-
-  /* ─── VIEWER ─── */
-  useEffect(() => {
-    if (!streamId || isHost || !userId || !hostId) return;
-    let cancelled = false;
-    let pc: RTCPeerConnection | null = null;
-    let iceServers: RTCIceServer[] = FALLBACK_ICE;
-
-    // Pre-fetch credentials so they're ready when the offer arrives
-    getEtokIceServers().then((s) => { iceServers = s; }).catch(() => {});
-
-    const unsub = subscribeToWebRTCSignals(userId, async (sig) => {
-      if (sig.streamId !== streamId) return;
-
-      if (sig.signalType === "offer") {
-        pc = new RTCPeerConnection({ iceServers });
-        peersRef.current.set(hostId, pc);
-
-        const remoteStream = new MediaStream();
-        attachStream(remoteStream);
-
-        pc.ontrack = (e) => {
-          e.streams[0].getTracks().forEach(t => remoteStream.addTrack(t));
-          setIsConnected(true);
-        };
-        pc.onicecandidate = (e) => {
-          if (e.candidate) sendWebRTCSignal(streamId, userId, hostId, "ice", e.candidate.toJSON());
-        };
-        pc.onconnectionstatechange = () => {
-          if (pc && ["disconnected", "failed", "closed"].includes(pc.connectionState)) {
-            setIsConnected(false);
-          }
-        };
-
-        await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
-        const ans = await pc.createAnswer();
-        await pc.setLocalDescription(ans);
-        await sendWebRTCSignal(streamId, userId, hostId, "answer", ans);
-      } else if (sig.signalType === "ice" && pc?.remoteDescription) {
-        try { await pc.addIceCandidate(new RTCIceCandidate(sig.payload)); } catch {}
-      }
-    });
-
-    // Ask the host to start the offer once subscription is up
-    const t = setTimeout(() => {
-      if (!cancelled) sendWebRTCSignal(streamId, userId, hostId, "request", {});
-    }, 400);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-      unsub();
-      pc?.close();
-      peersRef.current.forEach(p => p.close());
-      peersRef.current.clear();
-      setIsConnected(false);
+    const createPeer = (id: string, iceServers: RTCIceServer[]) => {
+      peers.get(id)?.close();
+      const pc = new RTCPeerConnection({ iceServers }); peers.set(id,pc);
+      pc.onicecandidate = event => { if (active && peers.get(id) === pc && event.candidate) void send(id,'ice',event.candidate.toJSON()).catch(report); };
+      pc.onconnectionstatechange = () => { if (!active || peers.get(id) !== pc) return; if (pc.connectionState === 'failed') { setIsConnected(false); report(); } };
+      return pc;
     };
-  }, [streamId, isHost, userId, hostId]);
-
-  return { videoRef, error, isConnected, viewerCount: peersRef.current.size };
+    const unsubscribe = subscribeToWebRTCSignals(userId, signal => {
+      if (!active || signal.streamId !== streamId || (!isHost && signal.fromUserId !== hostId)) return;
+      const id = signal.fromUserId;
+      const job = (chains.get(id) ?? Promise.resolve()).catch(() => {}).then(async () => {
+        const iceServers = await ready;
+        if (!active || !iceServers) return;
+        if (signal.signalType === 'ice') {
+          const pc = peers.get(id);
+          if (pc?.remoteDescription) await pc.addIceCandidate(signal.payload);
+          else candidates.set(id,[...(candidates.get(id) ?? []),signal.payload].slice(-100));
+          return;
+        }
+        if (isHost && signal.signalType === 'request') {
+          if (peers.has(id) || !local) return;
+          const pc = createPeer(id,iceServers); const capture = local;
+          capture.getTracks().forEach(track => pc.addTrack(track,capture));
+          const offer = await pc.createOffer(); if (!active || peers.get(id) !== pc) return;
+          await pc.setLocalDescription(offer); if (!active || peers.get(id) !== pc) return;
+          await send(id,'offer',offer);
+        } else if (isHost && signal.signalType === 'answer') {
+          const pc = peers.get(id); if (!pc) return;
+          await pc.setRemoteDescription(signal.payload); if (active) await flush(id,pc);
+        } else if (!isHost && signal.signalType === 'offer') {
+          const pc = createPeer(id,iceServers);
+          const remote = new MediaStream(); attach(remote);
+          pc.ontrack = event => { if (!active || peers.get(id) !== pc) return; remote.addTrack(event.track); attach(remote); setIsConnected(true); };
+          await pc.setRemoteDescription(signal.payload); if (!active || peers.get(id) !== pc) return;
+          await flush(id,pc);
+          const answer = await pc.createAnswer(); if (!active || peers.get(id) !== pc) return;
+          await pc.setLocalDescription(answer); if (!active || peers.get(id) !== pc) return;
+          await send(id,'answer',answer);
+        }
+      });
+      chains.set(id,job); return job;
+    }, () => { if (!isHost && hostId) void ready.then(servers => { if (servers && active) return send(hostId,'request',{}); }).catch(report); }, report);
+    return () => {
+      active = false; unsubscribe(); local?.getTracks().forEach(t => t.stop()); local = null;
+      peers.forEach(pc => pc.close()); peers.clear(); candidates.clear(); chains.clear();
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [streamId,userId,isHost,hostId]);
+  return { videoRef,error,isConnected };
 }

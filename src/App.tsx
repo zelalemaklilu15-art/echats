@@ -13,6 +13,7 @@ import logoImage from "@/assets/echat-logo.png";
 import { CallProvider } from "@/contexts/CallContext";
 import { CallOverlay } from "@/components/call/CallOverlay";
 import { DevHealthBanner } from "@/components/dev/DevHealthBanner";
+import { useViewerEpoch } from "@/hooks/useViewerEpoch";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { chatStore } from "@/lib/chatStore";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -122,6 +123,8 @@ const guard = (isAuthenticated: boolean, El: JSX.Element, withTransition = true)
 
 const AppRoutes = () => {
   const { authState, user } = useAuth();
+  const viewerEpoch = useViewerEpoch();
+  const viewerKey = `${user?.id ?? "signed-out"}:${viewerEpoch}`;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -259,14 +262,14 @@ const AppRoutes = () => {
           <Route path="/transaction-receipt" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><TransactionReceipt /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/transaction-detail/:transactionId" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><TransactionDetail /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/add-account" element={guard(isAuthenticated, <AddAccount />)} />
-          <Route path="/channels" element={guard(isAuthenticated, <Channels />)} />
-          <Route path="/channel/:id" element={guard(isAuthenticated, <ChannelView />)} />
+          <Route path="/channels" element={guard(isAuthenticated, <Channels key={viewerKey} />)} />
+          <Route path="/channel/:id" element={guard(isAuthenticated, <ChannelView key={viewerKey} />)} />
           <Route path="/bots" element={guard(isAuthenticated, <Bots />)} />
           <Route path="/bot/:id" element={guard(isAuthenticated, <BotChat />)} />
           <Route path="/nearby" element={guard(isAuthenticated, <NearbyPeople />)} />
           <Route path="/active-sessions" element={guard(isAuthenticated, <ActiveSessions />)} />
           <Route path="/voice-chat/:id" element={guard(isAuthenticated, <VoiceChatRoom />)} />
-          <Route path="/live-stories" element={guard(isAuthenticated, <LiveStories />)} />
+          <Route path="/live-stories" element={guard(isAuthenticated, <Navigate to="/etok/live" replace />)} />
           <Route path="/quick-replies" element={guard(isAuthenticated, <QuickRepliesSettings />)} />
           <Route path="/business-profile" element={guard(isAuthenticated, <BusinessProfileSettings />)} />
           <Route path="/gifts" element={guard(isAuthenticated, <GiftsPage />)} />
@@ -274,16 +277,16 @@ const AppRoutes = () => {
           <Route path="/search" element={guard(isAuthenticated, <GlobalSearch />, false)} />
           <Route path="/ai-assistant" element={guard(isAuthenticated, <AIAssistant />, false)} />
           <Route path="/etok/onboarding" element={guard(isAuthenticated, <EtokOnboarding />, false)} />
-          <Route path="/etok" element={guard(isAuthenticated, <Etok />, false)} />
-          <Route path="/etok/camera" element={guard(isAuthenticated, <EtokCamera />, false)} />
-          <Route path="/etok/search" element={guard(isAuthenticated, <EtokSearch />, false)} />
-          <Route path="/etok/live" element={guard(isAuthenticated, <EtokLive />, false)} />
-          <Route path="/etok/live/:streamId" element={guard(isAuthenticated, <EtokLive />, false)} />
-          <Route path="/etok/profile/:userId" element={guard(isAuthenticated, <EtokProfile />, false)} />
-          <Route path="/etok/me" element={guard(isAuthenticated, <EtokProfile />, false)} />
+          <Route path="/etok" element={guard(isAuthenticated, <Etok key={viewerKey} />, false)} />
+          <Route path="/etok/camera" element={guard(isAuthenticated, <EtokCamera key={viewerKey} />, false)} />
+          <Route path="/etok/search" element={guard(isAuthenticated, <EtokSearch key={viewerKey} />, false)} />
+          <Route path="/etok/live" element={guard(isAuthenticated, <EtokLive key={viewerKey} />, false)} />
+          <Route path="/etok/live/:streamId" element={guard(isAuthenticated, <EtokLive key={viewerKey} />, false)} />
+          <Route path="/etok/profile/:userId" element={guard(isAuthenticated, <EtokProfile key={viewerKey} />, false)} />
+          <Route path="/etok/me" element={guard(isAuthenticated, <EtokProfile key={viewerKey} />, false)} />
           <Route path="/etok/analytics" element={guard(isAuthenticated, <EtokAnalytics />, false)} />
           <Route path="/etok/creator-tools" element={guard(isAuthenticated, <EtokCreatorTools />, false)} />
-          <Route path="/etok/settings" element={guard(isAuthenticated, <EtokSettings />, false)} />
+          <Route path="/etok/settings" element={guard(isAuthenticated, <EtokSettings key={viewerKey} />, false)} />
           <Route path="/reminders" element={guard(isAuthenticated, <Reminders />)} />
           <Route path="/chat-stats/:chatId" element={guard(isAuthenticated, <ChatStats />)} />
           <Route path="/group-call/:roomId" element={guard(isAuthenticated, <GroupCall />, false)} />
@@ -293,8 +296,8 @@ const AppRoutes = () => {
           <Route path="/payment-request" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><PaymentRequest /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/pay/request/:requestId" element={<Pay />} />
           <Route path="/pay/:recipient/:amount?" element={<Pay />} />
-          <Route path="/stories" element={guard(isAuthenticated, <Stories />)} />
-          <Route path="/close-friends" element={guard(isAuthenticated, <CloseFriends />)} />
+          <Route path="/stories" element={guard(isAuthenticated, <Stories key={viewerKey} />)} />
+          <Route path="/close-friends" element={guard(isAuthenticated, <CloseFriends key={viewerKey} />)} />
           <Route path="/.lovable/oauth/consent" element={<PageTransition><OAuthConsent /></PageTransition>} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>

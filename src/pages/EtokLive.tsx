@@ -9,10 +9,12 @@ import {
   fetchActiveLives, fetchLiveById, joinLiveAsync, leaveLiveAsync, addLiveCommentAsync,
   fetchLiveComments, sendLiveGiftAsync, startLiveAsync, endLiveAsync, LIVE_GIFTS,
   CATEGORIES, fetchScheduledLives, toggleReminderAsync, getCoinsBalanceAsync,
-  subscribeLiveComments, subscribeStreamUpdates,
+  subscribeLiveComments, subscribeStreamUpdates, heartbeatLive,
   type EtokLiveStream, type LiveComment, type ScheduledLive,
 } from "@/lib/etokLiveService";
-import { formatCount, fetchEtokProfile, type EtokUser } from "@/lib/etokService";
+import { formatCount, fetchEtokProfile, toggleFollowAsync, type EtokUser } from "@/lib/etokService";
+import { Button } from "@/components/ui/button";
+import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
 import { useEtokLiveBroadcast } from "@/hooks/useEtokLiveBroadcast";
 
@@ -40,6 +42,10 @@ const EtokLive = () => {
   const [elapsed, setElapsed] = useState(0);
   const [giftAnim, setGiftAnim] = useState<{ emoji: string; name: string; color: string } | null>(null);
   const [coinBalance, setCoinBalance] = useState(0);
+  const [commentBusy,setCommentBusy] = useState(false);
+  const [startBusy,setStartBusy] = useState(false);
+  const [giftBusy,setGiftBusy] = useState(false);
+  const sessionRef = useRef<EtokLiveStream | null>(null);
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch current user profile
@@ -67,25 +73,50 @@ const EtokLive = () => {
 
   // Initial load of lives & coins
   useEffect(() => {
-    fetchActiveLives().then(setActiveLives);
-    fetchScheduledLives(currentUserId).then(setScheduledLives);
-    if (currentUserId) getCoinsBalanceAsync(currentUserId).then(setCoinBalance);
+    let active = true;
+    void Promise.all([fetchActiveLives(),fetchScheduledLives(currentUserId),currentUserId ? getCoinsBalanceAsync(currentUserId) : Promise.resolve(0)])
+      .then(([lives,scheduled,coins]) => { if (active) { setActiveLives(lives);setScheduledLives(scheduled);setCoinBalance(coins); } })
+      .catch(() => { if (active) toast.error('Could not load live streams. Please retry.'); });
+    return () => { active = false; };
   }, [currentUserId]);
 
-  // Load specific stream when navigated
+  useEffect(() => { sessionRef.current = currentStream ?? null; }, [currentStream]);
+  useEffect(() => () => {
+    const stream = sessionRef.current;
+    if (stream?.hostId === currentUserId) void endLiveAsync(stream.id).catch(() => {});
+  }, [currentUserId]);
   useEffect(() => {
+    let active = true;
     if (!streamId || !currentUserId) return;
-    fetchLiveById(streamId).then(async (stream) => {
-      if (!stream) return;
-      setCurrentStream(stream);
-      await joinLiveAsync(streamId, currentUserId);
-      const c = await fetchLiveComments(streamId);
-      setComments(c);
-    });
-    return () => {
-      if (streamId && currentUserId) leaveLiveAsync(streamId, currentUserId);
-    };
-  }, [streamId, currentUserId]);
+    setCurrentStream(undefined); setComments([]);
+    void (async () => {
+      try {
+        const stream = await fetchLiveById(streamId);
+        if (!active) return;
+        if (!stream?.isLive) throw new Error('Live stream unavailable');
+        if (stream.hostId !== currentUserId) await joinLiveAsync(streamId,currentUserId);
+        if (!active) { if (stream.hostId !== currentUserId) await leaveLiveAsync(streamId,currentUserId); return; }
+        setCurrentStream(stream);
+        const data = await fetchLiveComments(streamId); if (active) setComments(data);
+      } catch { if (active) toast.error('Could not join this live stream'); }
+    })();
+    return () => { active = false; void leaveLiveAsync(streamId,currentUserId).catch(() => {}); };
+  }, [streamId,currentUserId]);
+  useEffect(() => {
+    if (!currentStream || currentStream.hostId !== currentUserId || !currentStream.isLive) return;
+    let active = true;
+    const beat = () => { void heartbeatLive(currentStream.id).catch(() => { if (active) { toast.error('Live session ended or disconnected'); setCurrentStream(undefined); } }); };
+    beat(); const timer = setInterval(beat,30000);
+    return () => { active = false; clearInterval(timer); };
+  }, [currentStream?.id,currentUserId]);
+  const exitLive = async () => {
+    const stream = currentStream;
+    setCurrentStream(undefined); setComments([]); setIsHosting(false); setMyStream(null);
+    try { if (stream?.hostId === currentUserId) await endLiveAsync(stream.id); else if (stream) await leaveLiveAsync(stream.id,currentUserId); }
+    catch { toast.error('Could not confirm live closure. It will expire if disconnected.'); }
+    navigate('/etok/live');
+    void fetchActiveLives().then(setActiveLives).catch(() => toast.error('Could not refresh live streams'));
+  };
 
   // Realtime: subscribe to new comments + stream updates
   useEffect(() => {
@@ -95,7 +126,7 @@ const EtokLive = () => {
       setTimeout(() => commentsEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     });
     const unsubStream = subscribeStreamUpdates(currentStream.id, (s) => {
-      setCurrentStream(s);
+      if (!s.isLive) { setCurrentStream(undefined); toast.info("Live stream ended"); } else setCurrentStream(s);
     });
     return () => { unsubComments(); unsubStream(); };
   }, [currentStream?.id]);
@@ -111,40 +142,46 @@ const EtokLive = () => {
   const formatElapsed = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   const handleSendComment = async () => {
-    if (!commentText.trim() || !currentStream) return;
-    const txt = commentText;
-    setCommentText("");
-    await addLiveCommentAsync(currentStream.id, currentUserId, txt);
+    if (!commentText.trim() || !currentStream || commentBusy) return;
+    setCommentBusy(true);
+    try { await addLiveCommentAsync(currentStream.id,currentUserId,commentText); setCommentText(""); } catch { toast.error("Could not send comment. Your draft is still here."); } finally { setCommentBusy(false); }
   };
 
   const handleSendGift = async (giftId: string) => {
-    if (!currentStream) return;
+    if (!currentStream || giftBusy) return;
+    setGiftBusy(true);
+    try {
     const success = await sendLiveGiftAsync(currentStream.id, giftId, currentUserId, currentStream.hostId);
     if (success) {
       const gift = LIVE_GIFTS.find(g => g.id === giftId);
       if (gift) { setGiftAnim({ emoji: gift.emoji, name: gift.name, color: gift.animationColor }); setTimeout(() => setGiftAnim(null), 2000); }
       const bal = await getCoinsBalanceAsync(currentUserId);
       setCoinBalance(bal);
-    } else toast.error("Not enough coins! Buy more coins.");
+    } else toast.error("Gift could not be sent. Check coins and live availability.");
+    } catch { toast.error('Could not send gift. Please retry.'); } finally { setGiftBusy(false); }
   };
 
   const handleStartLive = async () => {
     if (!liveTitle.trim()) { toast.error("Add a title first"); return; }
+    if (startBusy) return;
+    setStartBusy(true);
+    try {
     const stream = await startLiveAsync(currentUserId, liveTitle, liveCategory);
     if (!stream) { toast.error("Failed to start live"); return; }
     setMyStream(stream);
     setCurrentStream(stream);
     setIsHosting(true);
     setShowStartDialog(false);
-    toast.success("You're LIVE! 🔴");
+    } catch { toast.error('Could not start live stream. Please retry.'); }
+    finally { setStartBusy(false); }
   };
 
   const filteredLives = selectedCategory === "All" ? activeLives : activeLives.filter(l => l.category === selectedCategory);
 
   /* ─── WATCHING A LIVE STREAM ─── */
-  const isHostOfCurrent = !!currentStream && (currentStream.hostId === currentUserId || isHosting);
+  const isHostOfCurrent = !!currentStream && currentStream.hostId === currentUserId;
   const { videoRef, error: broadcastError, isConnected: broadcastConnected } = useEtokLiveBroadcast({
-    streamId: currentStream?.id,
+    streamId: currentStream?.isLive ? currentStream.id : undefined,
     userId: currentUserId,
     isHost: isHostOfCurrent,
     hostId: currentStream?.hostId,
@@ -194,16 +231,16 @@ const EtokLive = () => {
 
         {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-12 pb-3">
-          <button onClick={() => { if (currentUserId) leaveLiveAsync(currentStream.id, currentUserId); navigate("/etok/live"); }}>
+          <button aria-label="Leave live stream" onClick={() => void exitLive()}>
             <ArrowLeft className="h-6 w-6 text-white drop-shadow" />
           </button>
           <div className="flex items-center gap-2">
             {/* Host info */}
             <div className="flex items-center gap-2 bg-black/40 rounded-full pl-1 pr-3 py-1">
-              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-base">{host?.avatar ?? "👤"}</div>
-              <span className="text-white text-[13px] font-semibold">{host?.username}</span>
+              <ChatAvatar size="sm" name={host?.displayName ?? "Hidden profile"} src={host?.avatar ?? undefined} />
+              <span className="text-foreground text-[13px] font-semibold">{host?.displayName ?? "Hidden profile"}</span>
               {!isHost && (
-                <button className="ml-1 bg-[#ff0050] text-white text-[11px] font-bold px-2 py-0.5 rounded-full">Follow</button>
+                <Button size="sm" variant="secondary" onClick={() => { void toggleFollowAsync(currentUserId,currentStream.hostId).then(value => toast.success(value ? "Followed" : "Unfollowed")).catch(() => toast.error("Could not save follow")); }}>Follow</Button>
               )}
             </div>
           </div>
@@ -238,7 +275,7 @@ const EtokLive = () => {
                 animate={{ opacity: 1, x: 0 }}
                 className={cn("flex items-start gap-2 max-w-full", c.isGift ? "bg-[#ff0050]/20 rounded-xl px-2 py-1" : "")}
               >
-                <span className="text-lg leading-none flex-shrink-0">{c.authorAvatar}</span>
+                <ChatAvatar size="sm" name={c.authorName} src={c.authorAvatar.startsWith("blob:") ? c.authorAvatar : undefined} />
                 <span className="text-white/80 text-[12px] font-semibold flex-shrink-0">{c.authorName}</span>
                 <span className="text-white text-[12px] break-words leading-relaxed">
                   {c.isGift ? `${c.giftEmoji} ${c.text}` : c.text}
@@ -253,7 +290,7 @@ const EtokLive = () => {
         <div className="absolute right-3 bottom-32 z-10 flex flex-col gap-5 items-center">
           {isHost ? (
             <>
-              <button onClick={async () => { if (myStream) { await endLiveAsync(myStream.id); } setIsHosting(false); setCurrentStream(undefined); setMyStream(null); navigate("/etok/live"); }} className="flex flex-col items-center gap-1">
+              <button aria-label="End live stream" onClick={() => void exitLive()} className="flex flex-col items-center gap-1">
                 <div className="w-11 h-11 rounded-full bg-red-600 flex items-center justify-center"><X className="h-5 w-5 text-white" /></div>
                 <span className="text-white text-[10px]">End</span>
               </button>
@@ -329,7 +366,7 @@ const EtokLive = () => {
               className="flex-1 bg-transparent text-white text-[14px] outline-none placeholder:text-white/40"
             />
           </div>
-          <button onClick={handleSendComment} disabled={!commentText.trim()} className="w-9 h-9 flex items-center justify-center">
+          <button onClick={handleSendComment} disabled={!commentText.trim() || commentBusy} className="w-9 h-9 flex items-center justify-center">
             <Send className={cn("h-5 w-5", commentText.trim() ? "text-[#ff0050]" : "text-white/30")} />
           </button>
         </div>

@@ -28,68 +28,34 @@ export interface ChannelMessage {
   forwardedFrom?: string;
 }
 
-const CHANNELS_KEY = 'echat_channels';
-const channelMessagesKey = (id: string) => `echat_channel_messages_${id}`;
-const channelSubscribersKey = (id: string) => `echat_channel_subscribers_${id}`;
-
-const AVATAR_COLORS = [
-  'hsl(210, 80%, 55%)',
-  'hsl(145, 65%, 42%)',
-  'hsl(340, 75%, 55%)',
-  'hsl(260, 70%, 58%)',
-  'hsl(25, 85%, 55%)',
-  'hsl(185, 70%, 42%)',
-  'hsl(45, 85%, 50%)',
-  'hsl(0, 70%, 55%)',
-];
-
-function randomAvatarColor(): string {
-  return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-}
-
-function readJson<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJson<T>(key: string, value: T): void {
-  const stored = key.startsWith('echat_channel_messages_') && Array.isArray(value)
-    ? value.map(message => ({ ...message, senderName: 'Hidden profile' })) : value;
-  localStorage.setItem(key, JSON.stringify(stored));
-}
-
-
-// ---------------------------------------------------------------------------
-// Channels are stored on the server. This module keeps a local cache so the
-// existing synchronous API keeps working; every write is sent to the server
-// and `syncChannels()` / `syncChannelMessages()` refresh the cache.
-// Listen for CHANNELS_SYNC_EVENT (or use useChannelSync) to re-render.
-// ---------------------------------------------------------------------------
-
+// Authorized content and identities never survive account/access changes on disk.
+const channels = new Map<string, Channel>();
+const posts = new Map<string, ChannelMessage[]>();
+const subscriptions = new Set<string>();
 export const CHANNELS_SYNC_EVENT = 'echat:channels-sync';
 const emit = () => window.dispatchEvent(new Event(CHANNELS_SYNC_EVENT));
-const MIGRATED_KEY = 'echat_channels_migrated_v1';
-const senderIdentity = new Map<string, { viewer: string; name: string; checkedAt: number }>();
 let identityViewer: string | null = null;
 let accessGeneration = 0;
-const invalidateIdentity = () => {
-  accessGeneration += 1;
-  senderIdentity.clear();
-  emit();
-};
+const invalidate = () => { accessGeneration += 1; channels.clear(); posts.clear(); subscriptions.clear(); emit(); };
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED') return;
-  identityViewer = session?.user.id ?? null;
-  invalidateIdentity();
+  const next = session?.user.id ?? null;
+  if (next === identityViewer) return;
+  identityViewer = next; invalidate();
 });
-window.addEventListener(PROFILE_ACCESS_EVENT, invalidateIdentity);
+window.addEventListener(PROFILE_ACCESS_EVENT, invalidate);
 const db = supabase as any;
-const bg = (p: PromiseLike<{ error: any }>, what: string) =>
-  Promise.resolve(p).then(({ error }) => { if (error) console.error(`[channels] ${what} failed:`, error.message); });
+async function check(result: { error: any; data?: any }, requireRow = false) {
+  if (result.error) throw result.error;
+  if (requireRow && !result.data?.length) throw new Error('Action was not authorized or item is unavailable');
+}
+async function viewer() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Please sign in again');
+  if (!identityViewer) identityViewer = user.id;
+  if (user.id !== identityViewer) throw new Error('Account changed');
+  return { id: user.id, generation: accessGeneration };
+}
 
 const rowToChannel = (r: any): Channel => ({
   id: r.id, name: r.name, description: r.description, createdBy: r.created_by, createdAt: r.created_at,
@@ -109,197 +75,90 @@ const messageToRow = (m: ChannelMessage) => ({
   content: m.content || '', type: m.type || 'text', created_at: m.createdAt,
 });
 
-/** One-time upload of channels that were only saved on this phone. */
-async function migrateLocal(uid: string) {
-  if (localStorage.getItem(MIGRATED_KEY) === uid) return;
-  const mine = readJson<Channel[]>(CHANNELS_KEY, []).filter(c => c.createdBy === uid);
-  for (const c of mine) {
-    const { error } = await db.from('channels').upsert(channelToRow(c), { onConflict: 'id', ignoreDuplicates: true });
-    if (error) { console.error('[channels] migrate failed', error.message); return; }
-    const msgs = readJson<ChannelMessage[]>(channelMessagesKey(c.id), []).filter(m => m.senderId === uid);
-    if (msgs.length) await db.from('channel_posts').upsert(msgs.map(messageToRow), { onConflict: 'id', ignoreDuplicates: true });
-  }
-  localStorage.setItem(MIGRATED_KEY, uid);
-}
-
 let syncing: { generation: number; promise: Promise<void> } | null = null;
-/** Pull channels (public + mine + subscribed) and my subscriptions from the server. */
 export function syncChannels(): Promise<void> {
-  const generation = accessGeneration;
-  if (syncing?.generation === generation) return syncing.promise;
+  const started = accessGeneration;
+  if (syncing?.generation === started) return syncing.promise;
   const promise = (async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || generation !== accessGeneration || identityViewer !== user.id) return;
-    await migrateLocal(user.id);
-    if (generation !== accessGeneration || identityViewer !== user.id) return;
-    const [{ data: chans, error }, { data: subs }] = await Promise.all([
+    const owner = await viewer();
+    const [rows, subs] = await Promise.all([
       db.from('channels').select('*').order('created_at', { ascending: true }).limit(500),
-      db.from('channel_subscribers').select('channel_id').eq('user_id', user.id),
+      db.from('channel_subscribers').select('channel_id').eq('user_id', owner.id),
     ]);
-    if (error) { console.error('[channels] sync failed', error.message); return; }
-    if (generation !== accessGeneration || identityViewer !== user.id) return;
-    writeJson(CHANNELS_KEY, (chans ?? []).map(rowToChannel));
-    const subscribed = new Set((subs ?? []).map((s: any) => s.channel_id));
-    for (const c of chans ?? []) writeJson(channelSubscribersKey(c.id), subscribed.has(c.id) ? [user.id] : []);
+    await check(rows); await check(subs);
+    if (owner.generation !== accessGeneration) return;
+    channels.clear(); subscriptions.clear();
+    for (const row of rows.data ?? []) channels.set(row.id, rowToChannel(row));
+    for (const row of subs.data ?? []) subscriptions.add(row.channel_id);
+    for (const key of posts.keys()) if (!channels.has(key)) posts.delete(key);
     emit();
-  })().finally(() => { if (syncing?.generation === generation) syncing = null; });
-  syncing = { generation, promise };
-  return promise;
+  })().finally(() => { if (syncing?.generation === started) syncing = null; });
+  syncing = { generation: started, promise }; return promise;
 }
-
-/** Pull the posts of one channel from the server. */
-export async function syncChannelMessages(channelId: string): Promise<void> {
-  const generation = accessGeneration;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user || generation !== accessGeneration || identityViewer !== user.id) return;
-  const { data, error } = await db.rpc('get_channel_posts_safe', { p_channel_id: channelId });
-  if (error) { console.error('[channels] posts sync failed', error.message); return; }
-  if (generation !== accessGeneration || identityViewer !== user.id) return;
-  for (const row of data ?? []) senderIdentity.set(row.id, { viewer: user.id, name: row.sender_name, checkedAt: Date.now() });
-  // Persistent posts contain content only, never viewer-specific personal identity.
-  writeJson(channelMessagesKey(channelId), (data ?? []).map((r: any) => ({ ...rowToMessage(r), senderName: 'Hidden profile' })));
+export async function syncChannelMessages(channelId: string, older = false): Promise<void> {
+  const owner = await viewer();
+  const current = posts.get(channelId) ?? [];
+  const first = older ? current[0] : null;
+  const { data, error } = await db.rpc('get_channel_posts_page', { p_channel_id: channelId, p_before: first?.createdAt ?? null, p_before_id: first?.id ?? null });
+  await check({ data, error });
+  if (owner.generation !== accessGeneration) return;
+  const incoming = (data ?? []).map(rowToMessage).reverse();
+  const merged = new Map<string, ChannelMessage>();
+  // Preserve older loaded pages, replace the newest server page atomically.
+  for (const item of current) if (older || (incoming[0] && item.createdAt < incoming[0].createdAt)) merged.set(item.id,item);
+  for (const item of incoming) merged.set(item.id,item);
+  posts.set(channelId, [...merged.values()].sort((a,b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)));
   emit();
 }
-
-export function recordChannelViews(channelId: string): void {
-  bg(db.rpc('record_channel_views', { p_channel_id: channelId }), 'views');
+export function recordChannelViews(channelId: string): void { void Promise.resolve(db.rpc('record_channel_views', { p_channel_id: channelId })).catch(() => {}); }
+export function getChannels(): Channel[] { return [...channels.values()]; }
+export function getChannel(id: string): Channel | undefined { return channels.get(id); }
+export async function createChannel(name: string, description: string, userId: string): Promise<Channel> {
+  const owner = await viewer();
+  if (owner.id !== userId) throw new Error('Account changed');
+  const channel: Channel = { id: `ch_${crypto.randomUUID()}`, name, description, createdBy: userId, createdAt: new Date().toISOString(), isPublic: true, subscriberCount: 0, avatarColor: 'hsl(var(--primary))' };
+  await check(await db.from('channels').insert(channelToRow(channel)).select('id'), true);
+  if (owner.generation !== accessGeneration) throw new Error('Account changed');
+  await syncChannels(); return getChannel(channel.id) ?? channel;
 }
-
-export function getChannels(): Channel[] {
-  return readJson<Channel[]>(CHANNELS_KEY, []);
+export async function deleteChannel(id: string): Promise<void> {
+  await viewer(); await check(await db.from('channels').delete().eq('id',id).select('id'),true); await syncChannels(); posts.delete(id);
 }
-
-export function createChannel(name: string, description: string, userId: string): Channel {
-  const channels = getChannels();
-  const channel: Channel = {
-    id: `ch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    name, description, createdBy: userId, createdAt: new Date().toISOString(),
-    isPublic: true, subscriberCount: 0, avatarColor: randomAvatarColor(),
-    pinnedMessageId: undefined, link: undefined,
-  };
-  channels.push(channel);
-  writeJson(CHANNELS_KEY, channels);
-  bg(db.from('channels').insert(channelToRow(channel)), 'create');
-  return channel;
+export async function updateChannel(id: string, updates: Partial<Channel>): Promise<Channel | undefined> {
+  await viewer(); const channel = getChannel(id); if (!channel) throw new Error('Channel unavailable');
+  const changed = { ...channel,...updates };
+  const { id: _id, created_by: _owner, ...row } = channelToRow(changed);
+  await check(await db.from('channels').update(row).eq('id',id).select('id'),true); await syncChannels(); return getChannel(id);
 }
-
-export function getChannel(id: string): Channel | undefined {
-  return getChannels().find(c => c.id === id);
+export async function subscribeToChannel(channelId: string, userId: string): Promise<void> {
+  const owner = await viewer(); if (owner.id !== userId) throw new Error('Account changed');
+  await check(await db.from('channel_subscribers').upsert({ channel_id: channelId,user_id: userId }, { onConflict: 'channel_id,user_id',ignoreDuplicates: true })); await syncChannels();
 }
-
-export function deleteChannel(id: string): void {
-  writeJson(CHANNELS_KEY, getChannels().filter(c => c.id !== id));
-  localStorage.removeItem(channelMessagesKey(id));
-  localStorage.removeItem(channelSubscribersKey(id));
-  bg(db.from('channels').delete().eq('id', id), 'delete');
+export async function unsubscribeFromChannel(channelId: string, userId: string): Promise<void> {
+  const owner = await viewer(); if (owner.id !== userId) throw new Error('Account changed');
+  await check(await db.from('channel_subscribers').delete().eq('channel_id',channelId).eq('user_id',userId)); await syncChannels();
 }
-
-export function updateChannel(id: string, updates: Partial<Channel>): Channel | undefined {
-  const channels = getChannels();
-  const idx = channels.findIndex(c => c.id === id);
-  if (idx === -1) return undefined;
-  channels[idx] = { ...channels[idx], ...updates, id };
-  writeJson(CHANNELS_KEY, channels);
-  const { id: _i, createdBy: _c, ...row } = channelToRow(channels[idx]) as any;
-  bg(db.from('channels').update(row).eq('id', id), 'update');
-  return channels[idx];
+export function isSubscribed(channelId: string,userId: string): boolean { return userId === identityViewer && subscriptions.has(channelId); }
+export function getSubscriberCount(id: string): number { return getChannel(id)?.subscriberCount ?? 0; }
+export function getChannelMessages(id: string): ChannelMessage[] { return posts.get(id) ?? []; }
+export async function sendChannelMessage(channelId: string,content: string,senderId: string,_senderName: string,type = 'text'): Promise<ChannelMessage> {
+  const owner = await viewer(); if (owner.id !== senderId) throw new Error('Account changed');
+  const message: ChannelMessage = { id: `msg_${crypto.randomUUID()}`,channelId,content,senderId,senderName: 'Hidden profile',createdAt: new Date().toISOString(),type: type as ChannelMessage['type'],views: 0,edited: false,reactions: {} };
+  await check(await db.from('channel_posts').insert(messageToRow(message)).select('id'),true);
+  if (owner.generation !== accessGeneration) throw new Error('Account changed');
+  await syncChannelMessages(channelId); return message;
 }
-
-function getSubscribers(channelId: string): string[] {
-  return readJson<string[]>(channelSubscribersKey(channelId), []);
+export async function deleteChannelMessage(channelId: string,messageId: string): Promise<void> {
+  await viewer(); await check(await db.from('channel_posts').delete().eq('id',messageId).eq('channel_id',channelId).select('id'),true);
+  posts.set(channelId,getChannelMessages(channelId).filter(item => item.id !== messageId)); emit();
 }
-
-function bumpCount(channelId: string, delta: number) {
-  const channels = getChannels();
-  const idx = channels.findIndex(c => c.id === channelId);
-  if (idx !== -1) {
-    channels[idx].subscriberCount = Math.max(0, (channels[idx].subscriberCount || 0) + delta);
-    writeJson(CHANNELS_KEY, channels);
-  }
+export async function pinMessage(channelId: string,messageId: string): Promise<void> { await updateChannel(channelId,{ pinnedMessageId: messageId }); }
+export async function unpinMessage(channelId: string): Promise<void> { await updateChannel(channelId,{ pinnedMessageId: undefined }); }
+async function setReaction(channelId: string,messageId: string,emoji: string,userId: string,add: boolean): Promise<void> {
+  const owner = await viewer(); if (owner.id !== userId) throw new Error('Account changed');
+  await check(await db.rpc('toggle_channel_reaction',{ p_post_id: messageId,p_emoji: emoji,p_add: add })); await syncChannelMessages(channelId);
 }
-
-export function subscribeToChannel(channelId: string, userId: string): void {
-  if (getSubscribers(channelId).includes(userId)) return;
-  writeJson(channelSubscribersKey(channelId), [...getSubscribers(channelId), userId]);
-  bumpCount(channelId, 1);
-  bg(db.from('channel_subscribers').insert({ channel_id: channelId, user_id: userId }), 'subscribe');
-}
-
-export function unsubscribeFromChannel(channelId: string, userId: string): void {
-  if (!getSubscribers(channelId).includes(userId)) return;
-  writeJson(channelSubscribersKey(channelId), getSubscribers(channelId).filter(s => s !== userId));
-  bumpCount(channelId, -1);
-  bg(db.from('channel_subscribers').delete().eq('channel_id', channelId).eq('user_id', userId), 'unsubscribe');
-}
-
-export function isSubscribed(channelId: string, userId: string): boolean {
-  return getSubscribers(channelId).includes(userId);
-}
-
-export function getSubscriberCount(channelId: string): number {
-  return getChannel(channelId)?.subscriberCount ?? 0;
-}
-
-export function getChannelMessages(channelId: string): ChannelMessage[] {
-  return readJson<ChannelMessage[]>(channelMessagesKey(channelId), []).map(m => {
-    const identity = senderIdentity.get(m.id);
-    return { ...m, senderName: identity?.viewer === identityViewer && Date.now() - identity.checkedAt < 15000 ? identity.name : 'Hidden profile' };
-  });
-}
-
-export function sendChannelMessage(
-  channelId: string, content: string, senderId: string, senderName: string, type: string = 'text'
-): ChannelMessage {
-  const messages = getChannelMessages(channelId);
-  const message: ChannelMessage = {
-    id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    channelId, content, senderId, senderName: 'Hidden profile', createdAt: new Date().toISOString(),
-    type: type as ChannelMessage['type'], views: 0, edited: false, reactions: {},
-  };
-  messages.push(message);
-  writeJson(channelMessagesKey(channelId), messages);
-  bg(db.from('channel_posts').insert(messageToRow(message)), 'post');
-  return message;
-}
-
-export function deleteChannelMessage(channelId: string, messageId: string): void {
-  writeJson(channelMessagesKey(channelId), getChannelMessages(channelId).filter(m => m.id !== messageId));
-  bg(db.from('channel_posts').delete().eq('id', messageId), 'delete post');
-}
-
-export function pinMessage(channelId: string, messageId: string): void {
-  updateChannel(channelId, { pinnedMessageId: messageId });
-}
-
-export function unpinMessage(channelId: string): void {
-  updateChannel(channelId, { pinnedMessageId: undefined });
-}
-
-function setReaction(channelId: string, messageId: string, emoji: string, userId: string, add: boolean) {
-  const messages = getChannelMessages(channelId);
-  const idx = messages.findIndex(m => m.id === messageId);
-  if (idx === -1) return;
-  const reactions = { ...(messages[idx].reactions || {}) };
-  const list = (reactions[emoji] || []).filter(u => u !== userId);
-  if (add) list.push(userId);
-  if (list.length) reactions[emoji] = list; else delete reactions[emoji];
-  messages[idx].reactions = reactions;
-  writeJson(channelMessagesKey(channelId), messages);
-  bg(db.rpc('toggle_channel_reaction', { p_post_id: messageId, p_emoji: emoji, p_add: add }), 'reaction');
-}
-
-export function addReaction(channelId: string, messageId: string, emoji: string, userId: string): void {
-  setReaction(channelId, messageId, emoji, userId, true);
-}
-
-export function removeReaction(channelId: string, messageId: string, emoji: string, userId: string): void {
-  setReaction(channelId, messageId, emoji, userId, false);
-}
-
-export function getMyChannels(userId: string): Channel[] {
-  return getChannels().filter(c => c.createdBy === userId);
-}
-
-export function getSubscribedChannels(userId: string): Channel[] {
-  return getChannels().filter(c => isSubscribed(c.id, userId) && c.createdBy !== userId);
-}
+export async function addReaction(channelId: string,messageId: string,emoji: string,userId: string): Promise<void> { await setReaction(channelId,messageId,emoji,userId,true); }
+export async function removeReaction(channelId: string,messageId: string,emoji: string,userId: string): Promise<void> { await setReaction(channelId,messageId,emoji,userId,false); }
+export function getMyChannels(userId: string): Channel[] { return getChannels().filter(c => c.createdBy === userId); }
+export function getSubscribedChannels(userId: string): Channel[] { return getChannels().filter(c => isSubscribed(c.id,userId) && c.createdBy !== userId); }

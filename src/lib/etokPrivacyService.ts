@@ -76,7 +76,7 @@ export async function getPrivacySettingsAsync(userId: string): Promise<EtokPriva
 }
 
 export async function savePrivacySettingsAsync(s: EtokPrivacySettings): Promise<void> {
-  await supabase.from("etok_privacy_settings").upsert({
+  const { error } = await supabase.from("etok_privacy_settings").upsert({
     user_id: s.userId,
     private_account: s.privateAccount,
     is_business_account: s.isBusinessAccount,
@@ -94,6 +94,7 @@ export async function savePrivacySettingsAsync(s: EtokPrivacySettings): Promise<
     family_pairing_email: s.familyPairingEmail,
     updated_at: new Date().toISOString(),
   });
+  if (error) throw error;
 }
 
 export async function getBlockedUsersAsync(blockerId: string): Promise<BlockedUser[]> {
@@ -102,11 +103,13 @@ export async function getBlockedUsersAsync(blockerId: string): Promise<BlockedUs
 }
 
 export async function blockUserAsync(blockerId: string, blockedId: string): Promise<void> {
-  await supabase.from("etok_blocked_users").upsert({ blocker_id: blockerId, blocked_id: blockedId });
+  const { error } = await supabase.from("etok_blocked_users").upsert({ blocker_id: blockerId, blocked_id: blockedId });
+  if (error) throw error;
 }
 
 export async function unblockUserAsync(blockerId: string, blockedId: string): Promise<void> {
-  await supabase.from("etok_blocked_users").delete().eq("blocker_id", blockerId).eq("blocked_id", blockedId);
+  const { error } = await supabase.from("etok_blocked_users").delete().eq("blocker_id", blockerId).eq("blocked_id", blockedId);
+  if (error) throw error;
 }
 
 export async function isBlockedAsync(blockerId: string, blockedId: string): Promise<boolean> {
@@ -121,9 +124,10 @@ export async function reportContentAsync(
   contentId: string,
   reason: string
 ): Promise<void> {
-  await supabase.from("etok_reports").insert({
+  const { error } = await supabase.from("etok_reports").insert({
     reporter_id: reporterId, content_type: contentType, content_id: contentId, reason,
   });
+  if (error) throw error;
 }
 
 /* Screen-time stays device-local (UI-only feature) */

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Star, Archive, Camera, Sparkles,
   Eye, Clock, Users,
@@ -12,9 +12,12 @@ import {
   getActiveStories, getMyViewedStories, getArchivedStories,
   type Story, type StoryGroup,
 } from "@/lib/storyService";
-import { isCloseFriend } from "@/lib/closeFriendsService";
+import { getAccessProfiles } from "@/lib/profileAccess";
+import { useViewerEpoch } from "@/hooks/useViewerEpoch";
+import { isCloseFriend, syncCloseFriends } from "@/lib/closeFriendsService";
 import { supabase } from "@/integrations/supabase/client";
-import { StoriesBar, StoryCreator } from "@/components/stories/StoriesBar";
+import { Button } from "@/components/ui/button";
+import { StoriesBar, StoryCreator, StoryViewerComponent } from "@/components/stories/StoriesBar";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -54,8 +57,13 @@ function cardGradient(uid: string) {
 
 export default function Stories() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { userId } = useAuth();
 
+  const generation = useRef(0);
+  const viewerEpoch = useViewerEpoch();
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [error, setError] = useState(false);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>([]);
   const [myGroup, setMyGroup] = useState<StoryGroup | null>(null);
   const [viewedIds, setViewedIds] = useState<Set<string>>(new Set());
@@ -66,21 +74,25 @@ export default function Stories() {
 
   const loadStories = useCallback(async () => {
     if (!userId) return;
-    setLoading(true);
+    const started = ++generation.current;
+    setLoading(true); setError(false);
+    try {
+    await syncCloseFriends();
     const [stories, viewed] = await Promise.all([getActiveStories(), getMyViewedStories()]);
+    if (started !== generation.current) return;
     setViewedIds(viewed);
     const grouped = new Map<string, Story[]>();
     for (const s of stories) { const a = grouped.get(s.user_id) || []; a.push(s); grouped.set(s.user_id, a); }
     const userIds = [...grouped.keys()];
     const profiles = new Map<string, { username: string; name: string; avatar_url: string | null }>();
     if (userIds.length) {
-      const { data } = await supabase.from("profiles").select("id,username,name,avatar_url").in("id", userIds);
-      (data || []).forEach(p => profiles.set(p.id, { username: p.username, name: p.name || p.username, avatar_url: p.avatar_url }));
+      const data = await getAccessProfiles(userIds);
+      data.forEach(p => profiles.set(p.id, { username: p.username ?? '', name: p.name || 'Hidden profile', avatar_url: p.avatar_url }));
     }
     const all: StoryGroup[] = [];
     let mine: StoryGroup | null = null;
     if (grouped.has(userId)) {
-      const own = grouped.get(userId)!;
+      const own = grouped.get(userId) ?? [];
       const p = profiles.get(userId);
       mine = { user_id: userId, username: p?.username || "you", name: "Your Story", avatar_url: p?.avatar_url || null, stories: own, hasUnviewed: own.some(s => !viewed.has(s.id)) };
       all.push(mine);
@@ -88,15 +100,20 @@ export default function Stories() {
     for (const [uid, strs] of grouped) {
       if (uid === userId) continue;
       const p = profiles.get(uid);
-      all.push({ user_id: uid, username: p?.username || "user", name: p?.name || p?.username || "User", avatar_url: p?.avatar_url || null, stories: strs, hasUnviewed: strs.some(s => !viewed.has(s.id)) });
+      all.push({ user_id: uid, username: p?.username || "user", name: p?.name || "Hidden profile", avatar_url: p?.avatar_url || null, stories: strs, hasUnviewed: strs.some(s => !viewed.has(s.id)) });
     }
+    const archived = await getArchivedStories(userId);
+    if (started !== generation.current) return;
     setMyGroup(mine);
     setStoryGroups(all);
-    setArchivedStories(getArchivedStories(userId));
+    const focused = searchParams.get("story");
+    if (focused) { const idx = all.findIndex(g => g.stories.some(s => s.id === focused)); if (idx >= 0) setViewerIndex(idx); }
+    setArchivedStories(archived);
     setLoading(false);
-  }, [userId]);
+    } catch { if (started === generation.current) { setError(true); setLoading(false); } }
+  }, [userId, viewerEpoch]);
 
-  useEffect(() => { loadStories(); }, [loadStories]);
+  useEffect(() => { setStoryGroups([]); setMyGroup(null); setArchivedStories([]); setViewerIndex(null); void loadStories(); return () => { generation.current += 1; }; }, [loadStories]);
 
   const cfGroups   = storyGroups.filter(g => g.user_id !== userId && isCloseFriend(g.user_id));
   const freshGroups = storyGroups.filter(g => g.user_id !== userId && g.hasUnviewed && !isCloseFriend(g.user_id));
@@ -179,7 +196,7 @@ export default function Stories() {
 
         {/* My story big banner */}
         {!loading && (
-          <MyStoryBanner group={myGroup} onAddStory={() => setShowCreator(true)} />
+          <MyStoryBanner group={myGroup} onAddStory={() => setShowCreator(true)} onOpen={() => setViewerIndex(storyGroups.findIndex(g => g.user_id === userId))} />
         )}
 
         {loading ? (
@@ -197,7 +214,7 @@ export default function Stories() {
                 />
                 <div className="grid grid-cols-2 gap-3 px-4 pb-2">
                   {cfGroups.map((g, i) => (
-                    <StoryCard key={g.user_id} group={g} viewedIds={viewedIds} index={i} isCF />
+                    <StoryCard key={g.user_id} group={g} onOpen={() => setViewerIndex(storyGroups.findIndex(item => item.user_id === g.user_id))} viewedIds={viewedIds} index={i} isCF />
                   ))}
                 </div>
               </section>
@@ -213,7 +230,7 @@ export default function Stories() {
                 />
                 <div className="grid grid-cols-2 gap-3 px-4 pb-2">
                   {freshGroups.map((g, i) => (
-                    <StoryCard key={g.user_id} group={g} viewedIds={viewedIds} index={i} />
+                    <StoryCard key={g.user_id} group={g} onOpen={() => setViewerIndex(storyGroups.findIndex(item => item.user_id === g.user_id))} viewedIds={viewedIds} index={i} />
                   ))}
                 </div>
               </section>
@@ -229,7 +246,7 @@ export default function Stories() {
                 />
                 <div className="grid grid-cols-2 gap-3 px-4 pb-4">
                   {seenGroups.map((g, i) => (
-                    <StoryCard key={g.user_id} group={g} viewedIds={viewedIds} index={i} seen />
+                    <StoryCard key={g.user_id} group={g} onOpen={() => setViewerIndex(storyGroups.findIndex(item => item.user_id === g.user_id))} viewedIds={viewedIds} index={i} seen />
                   ))}
                 </div>
               </section>
@@ -250,6 +267,8 @@ export default function Stories() {
         )}
       </AnimatePresence>
 
+      {error && <div className="p-4 text-destructive" role="alert">Could not load stories. <Button variant="ghost" onClick={() => void loadStories()}>Retry</Button></div>}
+      {viewerIndex !== null && <StoryViewerComponent groups={storyGroups} initialGroupIndex={viewerIndex} viewedIds={viewedIds} userId={userId ?? ''} onClose={() => { setViewerIndex(null); void loadStories(); }} onMarkViewed={id => setViewedIds(prev => new Set(prev).add(id))} />}
       {/* ── FAB ─────────────────────────────────────────────────────── */}
       <motion.button
         whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.06 }}
@@ -266,7 +285,7 @@ export default function Stories() {
 
 // ─── MyStoryBanner ───────────────────────────────────────────────────────────
 
-function MyStoryBanner({ group, onAddStory }: { group: StoryGroup | null; onAddStory: () => void }) {
+function MyStoryBanner({ group, onAddStory, onOpen }: { group: StoryGroup | null; onAddStory: () => void; onOpen: () => void }) {
   if (!group) {
     return (
       <motion.button
@@ -295,6 +314,7 @@ function MyStoryBanner({ group, onAddStory }: { group: StoryGroup | null; onAddS
   const parsed = parseContent(latest?.content);
   return (
     <motion.div
+      onClick={onOpen}
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       className="mx-4 mt-4 mb-2 h-28 rounded-2xl overflow-hidden relative"
       data-testid="banner-my-story"
@@ -318,11 +338,11 @@ function MyStoryBanner({ group, onAddStory }: { group: StoryGroup | null; onAddS
           <p className="text-white font-bold text-sm">Your Story</p>
           <p className="text-white/60 text-xs">{group.stories.length} part{group.stories.length !== 1 ? "s" : ""} · {ago(latest?.created_at)}</p>
         </div>
-        <button onClick={onAddStory}
+        <Button variant="secondary" onClick={e => { e.stopPropagation(); onAddStory(); }}
           className="shrink-0 flex items-center gap-1.5 bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-3 h-8 rounded-full border border-white/30"
           data-testid="button-add-more-story">
           <Plus className="h-3.5 w-3.5" /> Add
-        </button>
+        </Button>
       </div>
       <div className="absolute top-0 left-0 right-0 flex gap-[3px] p-2">
         {group.stories.map((_, i) => (
@@ -336,9 +356,10 @@ function MyStoryBanner({ group, onAddStory }: { group: StoryGroup | null; onAddS
 // ─── StoryCard ───────────────────────────────────────────────────────────────
 
 function StoryCard({
-  group, viewedIds, index, seen = false, isCF = false,
+  group, onOpen, viewedIds, index, seen = false, isCF = false,
 }: {
   group: StoryGroup;
+  onOpen: () => void;
   viewedIds: Set<string>;
   index: number;
   seen?: boolean;
@@ -356,7 +377,7 @@ function StoryCard({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: index * 0.05, type: "spring", damping: 18 }}
       whileTap={{ scale: 0.95 }}
-      onClick={() => navigate("/chats")}
+      onClick={onOpen}
       className="aspect-[9/16] rounded-2xl overflow-hidden relative text-left group"
       data-testid={`story-card-${group.user_id}`}
     >

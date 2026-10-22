@@ -56,9 +56,7 @@ const EtokSettings = () => {
   }, [blockedUsers]);
 
   const save = async (updated: EtokPrivacySettings) => {
-    await savePrivacySettingsAsync(updated);
-    setSettings(updated);
-    toast.success("Saved");
+    try { await savePrivacySettingsAsync(updated); setSettings(updated); toast.success("Saved"); } catch { toast.error("Could not save settings. Please retry."); }
   };
 
   if (!settings) {
