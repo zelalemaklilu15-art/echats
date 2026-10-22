@@ -11,31 +11,47 @@ async function nameOf(id: string): Promise<string> {
   return `{{profile:${id}}}`;
 }
 
-async function recipientText(text: string, viewer: string): Promise<string> {
+async function recipientText(text: string, viewer: string): Promise<{ text: string; hidden: boolean }> {
   let result = text;
+  let hidden = false;
   for (const match of text.matchAll(/\{\{profile:([0-9a-f-]+)\}\}/g)) {
     const { data, error } = await db.rpc('notification_profile_name', { p_viewer: viewer, p_subject: match[1] });
-    result = result.replaceAll(match[0], !error && typeof data === 'string' ? data : 'Hidden profile');
+    const name = !error && typeof data === 'string' ? data : 'Hidden profile';
+    if (name === 'Hidden profile') hidden = true;
+    result = result.replaceAll(match[0], name);
   }
-  return result;
+  return { text: result, hidden };
 }
 
-function preview(content: string, type: string): string {
-  switch (type) {
-    case 'image': return '📷 Photo';
-    case 'voice': return '🎤 Voice message';
-    case 'video': return '🎥 Video';
-    case 'file': return '📎 File';
-    case 'location': return '📍 Location';
-    default: return clip(content) || 'New message';
-  }
-}
+// Generic lock-screen text when the sender's notification privacy hides them.
+const GENERIC: Record<string, [string | null, string]> = {
+  direct_message: ['Echat', 'New message'],
+  group_message: [null, 'New group message'],
+  gift: ['Echat', 'New gift'],
+  payment_request: ['Echat', 'Payment request'],
+  payment_request_paid: ['Echat', 'Payment request update'],
+  payment_request_declined: ['Echat', 'Payment request update'],
+  missed_call: ['Echat', 'Missed call'],
+  story: ['Echat', 'New story'],
+  etok_like: ['eTok', 'New activity'],
+  etok_comment: ['eTok', 'New comment'],
+  etok_reply: ['eTok', 'New reply'],
+  etok_follow: ['eTok', 'New follower'],
+  etok_video: ['eTok', 'New video'],
+  etok_live: ['eTok', 'Someone is live'],
+};
 
 async function send(ids: string[], actor: string, msg: PushMessage) {
   const targets = [...new Set(ids)].filter((id) => id && id !== actor);
   let sent = 0;
   for (const id of targets) {
-    const [title, body] = await Promise.all([recipientText(msg.title, id), recipientText(msg.body, id)]);
+    const [t, b] = await Promise.all([recipientText(msg.title, id), recipientText(msg.body, id)]);
+    let title = t.text, body = b.text;
+    if (t.hidden || b.hidden) {
+      const g = GENERIC[(msg.data as Rec)?.type] ?? ['Echat', 'New notification'];
+      title = g[0] ?? t.text;
+      body = g[1];
+    }
     sent += (await sendPushToUser(id, { ...msg, title, body })).sent;
   }
   return sent;
