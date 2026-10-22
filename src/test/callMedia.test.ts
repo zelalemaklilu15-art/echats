@@ -141,5 +141,46 @@ describe('call media lifecycle', () => {
       expect(track.readyState).toBe('ended');
       expect(result.current.state.localStream?.getTracks().filter(t => t.kind === kind)).toHaveLength(0);
     });
+
+    it(`stops a pending ${kind} sender replacement immediately on hangup`, async () => {
+      const { result } = renderHook(() => useWebRTC());
+      let peer = new Peer();
+      await act(async () => {
+        const stream = await result.current.getUserMedia('video');
+        peer = await result.current.createPeerConnection(vi.fn()) as unknown as Peer;
+        result.current.addLocalTracks(stream);
+      });
+      const sender = peer.senders.find(s => s.track?.kind === kind);
+      if (!sender) throw new Error('Missing sender');
+      let release: () => void = () => {};
+      sender.replaceTrack.mockImplementationOnce(async track => {
+        await new Promise<void>(resolve => { release = resolve; }); sender.track = track;
+      });
+      const track = new Track(kind);
+      mocks.media.mockResolvedValueOnce(new Stream([track]));
+      let pending = Promise.resolve();
+      await act(async () => {
+        pending = (kind === 'audio' ? result.current.setMicrophoneEnabled(true) : result.current.setCameraEnabled(true)).catch(() => {});
+      });
+      act(() => result.current.cleanup());
+      expect(track.readyState).toBe('ended');
+      await act(async () => { release(); await pending; });
+      expect(result.current.state.localStream).toBeNull();
+    });
   }
+
+  it('does not restore a camera turned off during screen sharing', async () => {
+    const { result } = renderHook(() => useWebRTC());
+    let camera: MediaStreamTrack | undefined;
+    await act(async () => {
+      const stream = await result.current.getUserMedia('video'); camera = stream.getVideoTracks()[0];
+      await result.current.createPeerConnection(vi.fn()); result.current.addLocalTracks(stream);
+      await result.current.startScreenShare();
+      await result.current.setCameraEnabled(false);
+      await result.current.stopScreenShare();
+    });
+    expect(camera?.readyState).toBe('ended');
+    expect(result.current.state.localStream?.getVideoTracks()).toHaveLength(0);
+    expect(mocks.media).toHaveBeenCalledTimes(1);
+  });
 });
