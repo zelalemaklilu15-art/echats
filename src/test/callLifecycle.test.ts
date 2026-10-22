@@ -5,11 +5,13 @@ const mocks = vi.hoisted(() => ({
   media: vi.fn(), createPeer: vi.fn(), cleanup: vi.fn(), offer: vi.fn(),
   sendOffer: vi.fn(), sendState: vi.fn(), createLog: vi.fn(), updateLog: vi.fn(),
   subscribe: vi.fn(),
+  microphone: vi.fn(), camera: vi.fn(),
 }));
 vi.mock('@/hooks/useWebRTC', () => ({ useWebRTC: () => ({
   state: {}, networkStats: {}, getUserMedia: mocks.media, createPeerConnection: mocks.createPeer,
   addLocalTracks: vi.fn(), createOffer: mocks.offer, cleanup: mocks.cleanup,
   setDataMessageHandler: vi.fn(),
+  setMicrophoneEnabled: mocks.microphone, setCameraEnabled: mocks.camera,
 }) }));
 vi.mock('@/hooks/useCallSignaling', () => ({ useCallSignaling: () => ({
   subscribeToSignaling: mocks.subscribe, sendOffer: mocks.sendOffer, sendCallState: mocks.sendState,
@@ -44,6 +46,7 @@ describe('call termination and redial', () => {
     mocks.createPeer.mockResolvedValue({}); mocks.offer.mockResolvedValue({ type: 'offer' });
     mocks.sendOffer.mockResolvedValue('room'); mocks.sendState.mockResolvedValue(undefined);
     mocks.createLog.mockResolvedValue('log'); mocks.updateLog.mockResolvedValue(true);
+    mocks.microphone.mockResolvedValue(undefined); mocks.camera.mockResolvedValue(undefined);
   });
   afterEach(() => vi.useRealTimers());
 
@@ -107,4 +110,20 @@ describe('call termination and redial', () => {
     expect(mocks.cleanup).toHaveBeenCalledTimes(1);
     expect(mocks.sendOffer).not.toHaveBeenCalled();
   });
+
+  for (const kind of ['audio', 'video'] as const) {
+    it(`ignores an old ${kind} toggle error during a new call`, async () => {
+      const oldToggle = deferred<void>();
+      (kind === 'audio' ? mocks.microphone : mocks.camera).mockReturnValueOnce(oldToggle.promise);
+      const { result } = renderHook(() => useCallManager(props));
+      await act(async () => { await result.current.startCall('peer', 'Peer', 'video'); });
+      let pending = Promise.resolve();
+      act(() => { pending = kind === 'audio' ? result.current.toggleMute() : result.current.toggleCamera(); });
+      await act(async () => { await result.current.endCall(); await result.current.startCall('peer', 'Peer', 'video'); });
+      await act(async () => { oldToggle.reject(new Error('old device unavailable')); await pending; });
+      expect(result.current.errorMessage).toBeNull();
+      expect(kind === 'audio' ? result.current.isMuted : result.current.isCameraOff).toBe(false);
+      expect(result.current.callState).toBe('outgoing_calling');
+    });
+  }
 });

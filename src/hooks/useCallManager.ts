@@ -90,6 +90,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
   const logFinalizedRef = useRef(false);
   const mutedRef = useRef(false);
   const cameraOffRef = useRef(false);
+  const mediaControlRef = useRef({ audio: 0, video: 0 });
   const isCurrentCall = useCallback((roomId: string) =>
     activeCallRef.current?.roomId === roomId &&
     ['outgoing_calling', 'incoming_ringing', 'connecting', 'in_call'].includes(callStateRef.current), []);
@@ -644,64 +645,84 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
 
   // True mute: the microphone hardware is released, not just silenced.
   const toggleMute = useCallback(async () => {
+    const roomId = activeCallRef.current?.roomId;
+    if (!roomId || !isCurrentCall(roomId)) return;
+    const operation = ++mediaControlRef.current.audio;
     const next = !mutedRef.current;
     mutedRef.current = next;
     setIsMuted(next);
     try {
       await webRTC.setMicrophoneEnabled(!next);
     } catch (e) {
+      if (!isCurrentCall(roomId) || operation !== mediaControlRef.current.audio) return;
       console.warn('[CallManager] Mic toggle failed:', e);
-      mutedRef.current = !next;
-      setIsMuted(!next);
+      mutedRef.current = true;
+      setIsMuted(true);
       setErrorMessage('Could not access the microphone');
     }
-  }, [webRTC]);
+  }, [webRTC, isCurrentCall]);
 
   // True camera off: the capture device stops so the LED turns off.
   const toggleCamera = useCallback(async () => {
+    const roomId = activeCallRef.current?.roomId;
+    if (!roomId || !isCurrentCall(roomId)) return;
+    const operation = ++mediaControlRef.current.video;
     const next = !cameraOffRef.current;
     cameraOffRef.current = next;
     setIsCameraOff(next);
     try {
       await webRTC.setCameraEnabled(!next);
     } catch (e) {
+      if (!isCurrentCall(roomId) || operation !== mediaControlRef.current.video) return;
       console.warn('[CallManager] Camera toggle failed:', e);
-      cameraOffRef.current = !next;
-      setIsCameraOff(!next);
+      cameraOffRef.current = true;
+      setIsCameraOff(true);
       setErrorMessage('Could not access the camera');
     }
-  }, [webRTC]);
+  }, [webRTC, isCurrentCall]);
 
   const toggleScreenShare = useCallback(async () => {
+    const roomId = activeCallRef.current?.roomId;
+    if (!roomId || !isCurrentCall(roomId)) return;
+    const operation = ++mediaControlRef.current.video;
     try {
       await webRTC.toggleScreenShare();
     } catch (e) {
+      if (!isCurrentCall(roomId) || operation !== mediaControlRef.current.video) return;
       const name = (e as DOMException)?.name;
       if (name !== 'NotAllowedError' && name !== 'AbortError') {
         console.warn('[CallManager] Screen share failed:', e);
         setErrorMessage('Screen sharing is not available on this device');
       }
     }
-  }, [webRTC]);
+  }, [webRTC, isCurrentCall]);
 
   const switchCamera = useCallback(
     async (deviceId?: string) => {
+      const roomId = activeCallRef.current?.roomId;
+      if (!roomId || !isCurrentCall(roomId)) return;
+      const operation = ++mediaControlRef.current.video;
       try {
         if (deviceId) await webRTC.switchVideoInput(deviceId);
         else await webRTC.flipCamera();
       } catch (e) {
+        if (!isCurrentCall(roomId) || operation !== mediaControlRef.current.video) return;
         console.warn('[CallManager] Camera switch failed:', e);
         setErrorMessage('Could not switch camera');
       }
     },
-    [webRTC],
+    [webRTC, isCurrentCall],
   );
 
   const switchMicrophone = useCallback(
     async (deviceId: string) => {
+      const roomId = activeCallRef.current?.roomId;
+      if (!roomId || !isCurrentCall(roomId)) return;
+      const operation = ++mediaControlRef.current.audio;
       try {
         await webRTC.switchAudioInput(deviceId);
       } catch (e) {
+        if (!isCurrentCall(roomId) || operation !== mediaControlRef.current.audio) return;
         console.warn('[CallManager] Mic switch failed:', e);
         setErrorMessage('Could not switch microphone');
       }
