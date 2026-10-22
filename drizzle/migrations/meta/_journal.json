@@ -64,6 +64,13 @@
       "when": 1792648625325,
       "tag": "0008_profile_snapshot_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792653715667,
+      "tag": "0009_notification_privacy",
+      "breakpoints": true
     }
   ]
 }
