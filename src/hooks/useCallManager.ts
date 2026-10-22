@@ -727,7 +727,7 @@ export const useCallManager = ({ userId, userName, userAvatar }: UseCallManagerP
         setErrorMessage('Could not switch microphone');
       }
     },
-    [webRTC],
+    [webRTC, isCurrentCall],
   );
 
 
