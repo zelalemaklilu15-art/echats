@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useChannelSync } from "@/hooks/useChannelSync";
+import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search, MoreVertical, Plus, Loader2, Users, Pin, PinOff, Filter, Check, CheckCheck, Camera, Mic, FileIcon, MessageCircle, ArrowLeft, Archive, FolderOpen, Star, Briefcase, Heart, Hash, Trash2, Pencil, FolderInput, X, Sparkles, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -492,7 +493,7 @@ const Chats = () => {
   const { pinnedIds, togglePin, isPinned } = usePinnedChats();
   
   const { chats, loading, totalUnread } = useChatList();
-  const currentUserId = chatStore.getCurrentUserId();
+  const { userId: currentUserId } = useAuth();
   const { profile: myProfile } = useProfile(currentUserId || "");
 
   const refreshFolders = useCallback(() => {
