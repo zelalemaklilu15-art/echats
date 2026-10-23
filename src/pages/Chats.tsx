@@ -1,14 +1,14 @@
 // @ts-nocheck
 import { useChannelSync } from "@/hooks/useChannelSync";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Search, MoreVertical, Plus, Loader2, Users, Pin, PinOff, Filter, Check, CheckCheck, Camera, Mic, FileIcon, MessageCircle, ArrowLeft, Archive, FolderOpen, Star, Briefcase, Heart, Hash, Trash2, Pencil, FolderInput, X, Sparkles } from "lucide-react";
+import { Search, MoreVertical, Plus, Loader2, Users, Pin, PinOff, Filter, Check, CheckCheck, Camera, Mic, FileIcon, MessageCircle, ArrowLeft, Archive, FolderOpen, Star, Briefcase, Heart, Hash, Trash2, Pencil, FolderInput, X, Sparkles, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { useChatList, useProfile } from "@/hooks/useChatStore";
 import { chatStore, Chat, PublicProfile } from "@/lib/chatStore";
@@ -22,7 +22,9 @@ import { usePinnedChats } from "@/hooks/usePinnedChats";
 import { formatLastSeen, isUserOnline } from "@/lib/formatLastSeen";
 import { getDraft } from "@/lib/draftService";
 import { archiveChat, unarchiveChat, getArchivedChatIds, isChatArchived } from "@/lib/archiveService";
-import { getChatFolders, getFolderChatIds, addChatFolder, removeChatFolder, updateChatFolder, addChatToFolder, removeChatFromFolder, getChatFolderId, type ChatFolder } from "@/lib/chatFolderService";
+import { getChatFolders, getFolderChatIds, addChatFolder, removeChatFolder, updateChatFolder, addChatToFolder, removeChatFromFolder, getChatFolderId, syncChatFolders, FOLDERS_SYNC_EVENT, getFolderCandidates, type ChatFolder, type FolderItem, type FolderCandidate } from "@/lib/chatFolderService";
+import FolderShareDialog from '@/components/FolderShareDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { getChatTags, getAllTags, assignTagToChat, removeTagFromChat, TAG_COLORS, type ChatTag } from "@/lib/chatTagService";
 import { getChannels, getMyChannels, getSubscribedChannels, type Channel } from "@/lib/channelService";
 
@@ -480,7 +482,13 @@ const Chats = () => {
   const [moveToFolderDialogOpen, setMoveToFolderDialogOpen] = useState(false);
   const [movingChatId, setMovingChatId] = useState<string | null>(null);
   const [folderVersion, setFolderVersion] = useState(0);
+  const [folderBusy, setFolderBusy] = useState(false);
+  const folderLock = useRef(false);
+  const [folderItems, setFolderItems] = useState<FolderItem[]>([]);
+  const [folderCandidates, setFolderCandidates] = useState<FolderCandidate[]>([]);
+  const [sharingFolder, setSharingFolder] = useState<ChatFolder | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { pinnedIds, togglePin, isPinned } = usePinnedChats();
   
   const { chats, loading, totalUnread } = useChatList();
@@ -494,7 +502,19 @@ const Chats = () => {
 
   useEffect(() => {
     refreshFolders();
-  }, [refreshFolders]);
+    window.addEventListener(FOLDERS_SYNC_EVENT, refreshFolders);
+    const sync = () => { if (currentUserId) void syncChatFolders().catch(() => toast.error('Could not load folders')); };
+    sync();
+    window.addEventListener('focus', sync);
+    return () => { window.removeEventListener(FOLDERS_SYNC_EVENT, refreshFolders); window.removeEventListener('focus', sync); };
+  }, [refreshFolders, currentUserId]);
+
+  useEffect(() => { if (location.state?.folderId) setActiveFolderId(location.state.folderId); }, [location.state]);
+  useEffect(() => {
+    let current = true;
+    if (folderDialogOpen) void getFolderCandidates().then(data => { if (current) setFolderCandidates(data); }).catch(() => { if (current) toast.error('Could not load conversations'); });
+    return () => { current = false; };
+  }, [folderDialogOpen]);
 
   // Load groups
   useEffect(() => {
@@ -561,6 +581,7 @@ const Chats = () => {
     setFolderName("");
     setFolderIcon("folder");
     setFolderColor("hsl(210, 90%, 60%)");
+    setFolderItems([]);
     setFolderDialogOpen(true);
   };
 
@@ -569,38 +590,49 @@ const Chats = () => {
     setFolderName(folder.name);
     setFolderIcon(folder.icon);
     setFolderColor(folder.color);
+    setFolderItems(folder.items ?? []);
     setFolderManageDialogOpen(false);
     setFolderDialogOpen(true);
   };
 
-  const handleSaveFolder = () => {
+  const handleSaveFolder = async () => {
     if (!folderName.trim()) {
       toast.error("Folder name is required");
       return;
     }
+    if (folderLock.current) return;
+    folderLock.current = true; setFolderBusy(true);
+    try {
     if (editingFolder) {
-      updateChatFolder(editingFolder.id, { name: folderName.trim(), icon: folderIcon, color: folderColor });
+      await updateChatFolder(editingFolder.id, { name: folderName.trim(), icon: folderIcon, color: folderColor, items: folderItems });
       toast.success("Folder updated");
     } else {
       const newFolder: ChatFolder = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         name: folderName.trim(),
         icon: folderIcon,
         color: folderColor,
+        items: folderItems,
       };
-      addChatFolder(newFolder);
+      await addChatFolder(newFolder);
       toast.success("Folder created");
     }
     refreshFolders();
     setFolderDialogOpen(false);
+    } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not save folder'); }
+    finally { folderLock.current = false; setFolderBusy(false); }
   };
 
-  const handleDeleteFolder = (folderId: string) => {
-    removeChatFolder(folderId);
+  const handleDeleteFolder = async (folderId: string) => {
+    if (folderLock.current) return; folderLock.current = true; setFolderBusy(true);
+    try {
+    await removeChatFolder(folderId);
     if (activeFolderId === folderId) setActiveFolderId(null);
     refreshFolders();
     setFolderManageDialogOpen(false);
     toast.success("Folder deleted");
+    } catch { toast.error('Could not delete folder'); }
+    finally { folderLock.current = false; setFolderBusy(false); }
   };
 
   const handleFolderLongPress = (folder: ChatFolder) => {
@@ -613,30 +645,38 @@ const Chats = () => {
     setMoveToFolderDialogOpen(true);
   };
 
-  const handleMoveToFolder = (folderId: string) => {
+  const handleMoveToFolder = async (folderId: string) => {
     if (!movingChatId) return;
+    if (folderLock.current) return; folderLock.current = true; setFolderBusy(true);
+    try {
     const currentFolderId = getChatFolderId(movingChatId);
-    if (currentFolderId) {
-      removeChatFromFolder(currentFolderId, movingChatId);
+    await addChatToFolder(folderId, movingChatId);
+    if (currentFolderId && currentFolderId !== folderId) {
+      await removeChatFromFolder(currentFolderId, movingChatId);
     }
-    addChatToFolder(folderId, movingChatId);
     refreshFolders();
     setMoveToFolderDialogOpen(false);
     setMovingChatId(null);
     const folder = folders.find(f => f.id === folderId);
     toast.success(`Chat moved to ${folder?.name || "folder"}`);
+    } catch { toast.error('Could not move chat'); }
+    finally { folderLock.current = false; setFolderBusy(false); }
   };
 
-  const handleRemoveFromFolder = () => {
+  const handleRemoveFromFolder = async () => {
     if (!movingChatId) return;
+    if (folderLock.current) return; folderLock.current = true; setFolderBusy(true);
+    try {
     const currentFolderId = getChatFolderId(movingChatId);
     if (currentFolderId) {
-      removeChatFromFolder(currentFolderId, movingChatId);
+      await removeChatFromFolder(currentFolderId, movingChatId);
       refreshFolders();
       toast.success("Chat removed from folder");
     }
     setMoveToFolderDialogOpen(false);
     setMovingChatId(null);
+    } catch { toast.error('Could not remove chat'); }
+    finally { folderLock.current = false; setFolderBusy(false); }
   };
 
   const handleArchiveChat = (chatId: string) => {
@@ -1055,6 +1095,11 @@ const Chats = () => {
                 </motion.button>
               )}
 
+              {activeFolderId && allChannels.filter(c => activeFolderChatIds?.includes(c.id)).map(channel => (
+                <Button key={channel.id} variant="ghost" className="w-full h-auto justify-start gap-3 px-4 py-4 rounded-none border-b border-border/30" onClick={() => navigate(`/channel/${channel.id}`)}>
+                  <Hash className="h-5 w-5 shrink-0 text-primary" /><span className="min-w-0 text-left"><span className="block font-semibold truncate">{channel.name}</span><span className="block text-xs text-muted-foreground">Channel</span></span>
+                </Button>
+              ))}
               {filteredConversations.map((item, index) => 
                 item.type === 'chat' ? (
                   <ChatItem
@@ -1380,6 +1425,7 @@ const Chats = () => {
                 data-testid="input-folder-name"
                 placeholder="Folder name"
                 value={folderName}
+                maxLength={80}
                 onChange={(e) => setFolderName(e.target.value)}
                 className="bg-muted border-0"
               />
@@ -1424,10 +1470,20 @@ const Chats = () => {
               </div>
             </div>
           </div>
+          <div className="space-y-2">
+            <Label>Groups & channels</Label>
+            <div className="max-h-40 overflow-y-auto divide-y divide-border">
+              {folderCandidates.map(item => { const selected = folderItems.some(i => i.kind === item.kind && i.id === item.id); return <label key={`${item.kind}:${item.id}`} className="flex items-center gap-3 py-2 text-sm cursor-pointer">
+                <Checkbox disabled={folderBusy} checked={selected} aria-label={`Add ${item.name} to folder`} onCheckedChange={checked => setFolderItems(prev => checked ? [...prev, { kind: item.kind, id: item.id }] : prev.filter(i => i.kind !== item.kind || i.id !== item.id))} />
+                <span className="flex-1 min-w-0 break-words">{item.name}</span>{item.kind === 'group' ? <Users className="h-4 w-4 text-muted-foreground shrink-0" /> : <Hash className="h-4 w-4 text-muted-foreground shrink-0" />}
+              </label>; })}
+            </div>
+          </div>
           <DialogFooter>
             <Button
               data-testid="button-save-folder"
               onClick={handleSaveFolder}
+              disabled={folderBusy}
               className="w-full"
             >
               {editingFolder ? "Save Changes" : "Create Folder"}
@@ -1446,6 +1502,7 @@ const Chats = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
+            <Button variant="ghost" disabled={folderBusy} className="w-full justify-start gap-3" onClick={() => { setSharingFolder(managingFolder); setFolderManageDialogOpen(false); }}><Share2 className="h-4 w-4 text-primary" />Share folder</Button>
             <button
               data-testid="button-edit-folder"
               onClick={() => managingFolder && handleEditFolder(managingFolder)}
@@ -1465,6 +1522,8 @@ const Chats = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <FolderShareDialog folder={sharingFolder} onClose={() => setSharingFolder(null)} />
 
       {/* Move to Folder Dialog */}
       <Dialog open={moveToFolderDialogOpen} onOpenChange={setMoveToFolderDialogOpen}>
