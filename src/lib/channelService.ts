@@ -192,7 +192,7 @@ export async function setChannelCommentsEnabled(channelId: string, postId: strin
 
 export async function sendChannelMessage(channelId: string,content: string,senderId: string,_senderName: string,type = 'text'): Promise<ChannelMessage> {
   const owner = await viewer(); if (owner.id !== senderId) throw new Error('Account changed');
-  const message: ChannelMessage = { id: `msg_${crypto.randomUUID()}`,channelId,content,senderId,senderName: 'Hidden profile',createdAt: new Date().toISOString(),type: type as ChannelMessage['type'],views: 0,edited: false,reactions: {} };
+  const message: ChannelMessage = { id: `msg_${crypto.randomUUID()}`,channelId,content,senderId,senderName: 'Hidden profile',createdAt: new Date().toISOString(),type: type as ChannelMessage['type'],views: 0,edited: false,reactions: {},commentsEnabled: true,commentsCount: 0 };
   await check(await db.from('channel_posts').insert(messageToRow(message)).select('id'),true);
   if (owner.generation !== accessGeneration) throw new Error('Account changed');
   await syncChannelMessages(channelId); return message;
