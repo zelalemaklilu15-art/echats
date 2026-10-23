@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Loader2, Shield, Zap, CreditCard, Landmark, Banknote, Wallet } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Shield, Zap, CreditCard, Landmark, Banknote, Wallet, Bitcoin } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { walletService } from "@/lib/walletService";
 import { toast } from "sonner";
-import { newIdempotencyKey } from "@/lib/walletSecurity";
+import { newIdempotencyKey, getDeviceId } from "@/lib/walletSecurity";
+import { supabase } from "@/integrations/supabase/client";
 
 /* ─── Design tokens ─── */
 const BG    = "hsl(var(--surface-lowest))";
@@ -14,6 +15,7 @@ const P     = "hsl(var(--tertiary))";
 
 /* ─── Payment methods ─── */
 const METHODS = [
+  { id: "crypto",    label: "Crypto",            sub: "USDT, BTC, ETH and more · USD", Icon: Bitcoin,   iconBg: "hsl(var(--cosmic-cyan) / 0.18)",  iconColor: "hsl(var(--cosmic-cyan))" },
   { id: "telebirr",  label: "Telebirr",         sub: "Pending confirmation",              Icon: Wallet,    iconBg: "hsl(var(--tertiary) / 0.25)",  iconColor: "hsl(var(--primary))" },
   { id: "cbebirr",   label: "CBEBirr",           sub: "Commercial Bank of Ethiopia",  Icon: Landmark,  iconBg: "hsl(var(--cosmic-cyan) / 0.15)",   iconColor: "hsl(var(--cosmic-cyan))" },
   { id: "awash",     label: "Awash Bank",        sub: "Secure bank transfer",         Icon: Banknote,  iconBg: "hsl(var(--cosmic-mint) / 0.15)",   iconColor: "hsl(var(--cosmic-mint))" },
@@ -44,6 +46,18 @@ const AddMoney = () => {
       const payload = JSON.stringify([numeric, sel.label]);
       const requestKey = operations.current.get(payload) ?? newIdempotencyKey("deposit");
       operations.current.set(payload, requestKey);
+      if (sel.id === "crypto") {
+        const { data, error } = await supabase.functions.invoke("crypto-deposit", {
+          body: { amount: numeric, idempotency_key: requestKey, device_id: await getDeviceId(), return_url: `${window.location.origin}/wallet` },
+        });
+        if (error || !data?.success || !data.invoice_url) {
+          toast.error(data?.error === "STEP_UP_REQUIRED" ? "Please verify this device first" : (data?.error || "Crypto payment unavailable"));
+          return;
+        }
+        toast.success("Complete the crypto payment. Your balance updates automatically once confirmed.");
+        window.location.href = data.invoice_url;
+        return;
+      }
       const result = await walletService.deposit(numeric, sel.label, requestKey);
       if (result.success && result.transaction) {
         navigate("/transaction-receipt", {
