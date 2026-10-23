@@ -259,7 +259,19 @@ const PrivacySettings = () => {
   const handleDisable2FA = async () => {
     try {
       const { data } = await supabase.auth.mfa.listFactors();
-      if (data?.totp?.length) await supabase.auth.mfa.unenroll({ factorId: data.totp[0].id });
+      const factor = data?.totp?.find((f) => f.status === "verified") ?? data?.totp?.[0];
+      if (factor) {
+        if (factor.status === "verified") {
+          const code = window.prompt("Enter your 6-digit authenticator code to turn off 2FA")?.trim();
+          if (!code || !/^\d{6}$/.test(code)) { toast.error("Code required"); return; }
+          const cr = await supabase.auth.mfa.challenge({ factorId: factor.id });
+          if (cr.error) { toast.error("Challenge failed"); return; }
+          const vr = await supabase.auth.mfa.verify({ factorId: factor.id, challengeId: cr.data.id, code });
+          if (vr.error) { toast.error("Wrong code"); return; }
+        }
+        const ur = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+        if (ur.error) { toast.error("Failed to disable 2FA"); return; }
+      }
       setTwoFAEnabled(false); setTwoFAStep("idle"); toast.success("2FA disabled");
     } catch { toast.error("Failed to disable 2FA"); }
   };
