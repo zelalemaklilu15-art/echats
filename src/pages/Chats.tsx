@@ -448,6 +448,7 @@ const Chats = () => {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); if (snapTimer) clearTimeout(snapTimer); };
   }, [applyOffset]);
+  useEffect(() => { applyOffset(offsetRef.current); }, [storyPeek.length, applyOffset]);
   const [searching, setSearching] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [searchTab, setSearchTab] = useState<SearchTab>("chats");
