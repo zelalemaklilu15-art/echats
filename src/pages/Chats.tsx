@@ -809,6 +809,25 @@ const Chats = () => {
                 {totalUnread > 0 ? `${totalUnread} unread message${totalUnread > 1 ? "s" : ""}` : "Messages & more"}
               </p>
             </div>
+            {storyPeek.length > 0 && (
+              <div
+                ref={storiesStackRef}
+                role="button"
+                aria-label="Show stories"
+                data-testid="stories-stack"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="flex items-center -space-x-2.5 cursor-pointer origin-left"
+                style={{ opacity: 0, pointerEvents: "none" }}
+              >
+                {storyPeek.slice(0, 3).map(g => (
+                  <div key={g.user_id} className="rounded-full p-[1.5px] bg-gradient-primary">
+                    <div className="rounded-full p-[1.5px] bg-background">
+                      <ChatAvatar name={g.name} src={g.avatar_url || undefined} size="xs" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -828,22 +847,15 @@ const Chats = () => {
           </div>
         </div>
 
-        {/* Collapsible: Search + Stories */}
-        <div
-          data-testid="collapsible-header"
-          aria-hidden={headerCollapsed}
-          className="overflow-hidden transition-[height,opacity] duration-200 ease-out motion-reduce:transition-none"
-          style={{ height: headerCollapsed ? 0 : collapsibleHeight || "auto", opacity: headerCollapsed ? 0 : 1 }}
-        >
-          <div
-            ref={collapsibleRef}
-            className="transition-transform duration-200 ease-out motion-reduce:transition-none will-change-transform"
-            style={{ transform: headerCollapsed ? "translateY(-16px)" : "translateY(0)" }}
-          >
-            <div className="px-4 pb-3">
+        {/* Collapsible: Stories + Search (scroll-linked, Telegram-style) */}
+        <div ref={collapseWrapRef} data-testid="collapsible-header" className="overflow-hidden">
+          <div ref={collapseInnerRef} className="will-change-transform">
+            <div ref={storiesWrapRef} data-testid="collapsible-stories">
+              <StoriesBar onGroupsChange={setStoryPeek} />
+            </div>
+            <div ref={searchWrapRef} className="px-4 pb-3" data-testid="collapsible-search">
               <button
                 onClick={() => setSearchActive(true)}
-                tabIndex={headerCollapsed ? -1 : 0}
                 className="w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left transition-all active:scale-[0.98]"
                 style={{ background: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)" }}
                 data-testid="input-chat-search"
@@ -852,7 +864,6 @@ const Chats = () => {
                 <span className="text-[14px] text-muted-foreground/50 flex-1">Search chats…</span>
               </button>
             </div>
-            <StoriesBar />
           </div>
         </div>
       <div>
