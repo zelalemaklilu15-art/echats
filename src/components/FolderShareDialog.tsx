@@ -32,7 +32,7 @@ export default function FolderShareDialog({ folder, onClose }: { folder: ChatFol
     try { await navigator.clipboard.writeText(folderInviteUrl(token)); toast.success('Link copied'); } catch { toast.error('Could not copy link'); }
   };
   return <Dialog open={!!folder} onOpenChange={open => { if (!open && !busy) onClose(); }}>
-    <DialogContent className="max-w-sm"><DialogHeader><DialogTitle className="flex items-center gap-2"><Link2 className="h-5 w-5 text-primary" />Share {folder?.name}</DialogTitle></DialogHeader>
+    <DialogContent className="max-w-sm"><DialogHeader><DialogTitle className="flex items-start gap-2 pr-8"><Link2 className="h-5 w-5 text-primary shrink-0" /><span className="min-w-0 break-words">Share {folder?.name}</span></DialogTitle></DialogHeader>
       <div className="max-h-[55dvh] overflow-y-auto space-y-4">
         {loading ? <Loader2 aria-label="Loading links" className="h-5 w-5 animate-spin text-primary mx-auto" /> : links.filter(l => !l.revoked_at).map(link => <div key={link.token} className="space-y-2">
           <Input aria-label="Folder invite link" readOnly value={folderInviteUrl(link.token)} onFocus={e => e.currentTarget.select()} />
