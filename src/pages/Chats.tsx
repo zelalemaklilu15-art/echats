@@ -368,6 +368,33 @@ const RecentContactCircle = ({ chat, onClick }: { chat: Chat; onClick: () => voi
 
 const Chats = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [collapsibleHeight, setCollapsibleHeight] = useState(0);
+  const collapsibleRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = collapsibleRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setCollapsibleHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    let last = window.scrollY, ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (y < 24) setHeaderCollapsed(false);
+        else if (y - last > 8) setHeaderCollapsed(true);
+        else if (last - y > 8) setHeaderCollapsed(false);
+        if (Math.abs(y - last) > 8 || y < 24) last = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [searching, setSearching] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [searchTab, setSearchTab] = useState<SearchTab>("chats");
@@ -748,19 +775,35 @@ const Chats = () => {
           </div>
         </div>
 
-        {/* Search bar (tap to open overlay) */}
-        <div className="px-4 pb-3">
-          <button
-            onClick={() => setSearchActive(true)}
-            className="w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left transition-all active:scale-[0.98]"
-            style={{ background: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)" }}
-            data-testid="input-chat-search"
+        {/* Collapsible: Search + Stories */}
+        <div
+          data-testid="collapsible-header"
+          aria-hidden={headerCollapsed}
+          className="overflow-hidden transition-[height,opacity] duration-200 ease-out motion-reduce:transition-none"
+          style={{ height: headerCollapsed ? 0 : collapsibleHeight || "auto", opacity: headerCollapsed ? 0 : 1 }}
+        >
+          <div
+            ref={collapsibleRef}
+            className="transition-transform duration-200 ease-out motion-reduce:transition-none will-change-transform"
+            style={{ transform: headerCollapsed ? "translateY(-16px)" : "translateY(0)" }}
           >
-            <Search className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-            <span className="text-[14px] text-muted-foreground/50 flex-1">Search chats…</span>
-          </button>
+            <div className="px-4 pb-3">
+              <button
+                onClick={() => setSearchActive(true)}
+                tabIndex={headerCollapsed ? -1 : 0}
+                className="w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left transition-all active:scale-[0.98]"
+                style={{ background: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)" }}
+                data-testid="input-chat-search"
+              >
+                <Search className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                <span className="text-[14px] text-muted-foreground/50 flex-1">Search chats…</span>
+              </button>
+            </div>
+            <StoriesBar />
+          </div>
         </div>
-      </motion.div>
+      <div>
+
 
 
       {/* Folder Tabs */}
@@ -835,9 +878,8 @@ const Chats = () => {
           ))}
         </div>
       )}
-
-      {/* Stories */}
-      <StoriesBar />
+      </div>
+      </motion.div>
 
       {/* Chat List */}
       {conversations.length === 0 && isLoading ? (
