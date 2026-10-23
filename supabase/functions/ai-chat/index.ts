@@ -147,7 +147,7 @@ serve(async (req) => {
     const last = messages[messages.length - 1]?.content || "";
     const complexRe = /```|\b(code|function|debug|error|bug|sql|python|javascript|typescript|react|algorithm|prove|proof|calculate|equation|analy[sz]e|analysis|business plan|contract|legal|law|tax|invest|transfer|payment|finance|essay|report|strategy|compare|explain why)\b|ኮድ|ህግ|ሕግ|ገንዘብ|ክፍያ|ትንተና|ዝውውር/i;
     const complexity: "simple" | "complex" = last.length > 400 || complexRe.test(last) ? "complex" : "simple";
-    const effort = complexity === "simple" ? "low" : (last.length > 1500 ? "high" : "medium");
+    const effort = complexity === "simple" && !parts.length ? "low" : (last.length > 1500 ? "high" : "medium");
     const MODEL = "openai/gpt-6-astra";
 
     const systemPrompt = `You are **Echat AI** — the official, built-in AI assistant of the **Echat** mobile super-app. You were created by the Echat team and you live INSIDE the Echat app. You are NOT ChatGPT, Gemini, or Claude — but you are just as capable as those leading assistants.
