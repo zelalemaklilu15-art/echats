@@ -152,7 +152,14 @@ class PushNotificationService {
         ...options,
       });
     } else {
-      new Notification(title, options);
+      // Page notifications reject `actions` (only service-worker ones support them),
+      // and a throw here used to crash the incoming-call screen.
+      try {
+        const { actions: _actions, ...pageOptions } = (options ?? {}) as NotificationOptions & { actions?: unknown };
+        new Notification(title, pageOptions);
+      } catch (error) {
+        console.warn('[Push] Local notification unavailable:', error);
+      }
     }
   }
 
