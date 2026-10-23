@@ -769,10 +769,12 @@ const Chats = () => {
     <div className="min-h-screen bg-background pb-nav">
       {/* Header */}
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+        ref={headerRef}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="sticky top-0 z-20"
+        className="fixed top-0 inset-x-0 z-20"
+        data-testid="chats-header"
         style={{
           background: "hsl(var(--background) / 0.97)",
           backdropFilter: "blur(28px) saturate(160%)",
