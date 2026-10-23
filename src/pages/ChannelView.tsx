@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useChannelSync } from "@/hooks/useChannelSync";
 import { syncChannels, syncChannelMessages, recordChannelViews } from "@/lib/channelService";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { shareContent, publicOrigin } from "@/lib/native";
 import {
   ArrowLeft, MoreVertical, Send, Eye, Megaphone, Users, Trash2,
   Pencil, Pin, PinOff, Bell, BellOff, Share2, Info, ChevronRight,
@@ -207,6 +208,9 @@ const ChannelView = () => {
   const sendLock = useRef(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [showJump, setShowJump] = useState(false);
+  const [searchParams] = useSearchParams();
 
   const isOwner = channel?.createdBy === userId;
   const pinnedMsg = messages.find(m => m.id === channel?.pinnedMessageId);
@@ -235,7 +239,22 @@ const ChannelView = () => {
 
 
   useEffect(() => { if (id) recordChannelViews(id); }, [id]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
+  const targetPost = searchParams.get("post");
+  const targetDone = useRef(false);
+  useEffect(() => {
+    if (targetPost && !targetDone.current) {
+      const el = document.getElementById(`msg-${targetPost}`);
+      if (el) { targetDone.current = true; el.scrollIntoView({ block: "center" }); el.classList.add("ring-2", "ring-primary"); setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 2000); }
+      return;
+    }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length, targetPost]);
+  const sharePost = async (msg: ChannelMessage) => {
+    if (!id) return;
+    const url = `${publicOrigin()}/channel/${id}?post=${encodeURIComponent(msg.id)}`;
+    const shared = await shareContent({ title: channel?.name, text: msg.content.slice(0, 120), url });
+    if (!shared) { try { await navigator.clipboard.writeText(url); toast.success("Post link copied"); } catch { toast.error("Could not copy link"); } }
+  };
 
   const handleSend = async (scheduleAt?: string) => {
     if (!newMessage.trim() || !id || !userId || sendLock.current) return;
@@ -374,7 +393,14 @@ const ChannelView = () => {
       </div>
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+      {showJump && (
+        <button onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })} aria-label="Jump to latest"
+          className="fixed right-4 bottom-24 z-30 w-11 h-11 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-foreground">
+          <ChevronRight className="h-5 w-5 rotate-90" />
+        </button>
+      )}
+      <div ref={listRef} onScroll={e => { const el = e.currentTarget; setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 400); }}
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
         {messages.length === 0 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground py-20">
@@ -438,9 +464,9 @@ const ChannelView = () => {
                   </button>
                 )}
 
-                <button onClick={() => { navigator.clipboard.writeText(msg.content); toast.success("Copied"); }}
+                <button onClick={() => sharePost(msg)} aria-label="Share post link"
                   className="flex items-center gap-1 hover:text-foreground transition-colors ml-auto">
-                  <Forward className="h-3.5 w-3.5" /><span className="text-[11px]">Forward</span>
+                  <Forward className="h-3.5 w-3.5" /><span className="text-[11px]">Share</span>
                 </button>
               </div>
             </div>
