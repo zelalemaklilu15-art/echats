@@ -29,7 +29,10 @@ import {
   deleteChannel, updateChannel, subscribeToChannel, unsubscribeFromChannel,
   isSubscribed, getSubscriberCount, addReaction, removeReaction,
   pinMessage, unpinMessage, type Channel, type ChannelMessage,
+  getChannelComments, syncChannelComments, sendChannelComment, deleteChannelComment,
+  setChannelCommentsEnabled, type ChannelComment,
 } from "@/lib/channelService";
+
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -124,14 +127,17 @@ interface PostContextMenuProps {
   channelId: string;
   isOwner: boolean;
   isPinned: boolean;
+  commentsEnabled: boolean;
   onClose: () => void;
   onPin: () => void;
   onDelete: () => void;
   onForward: () => void;
   onSave: () => void;
+  onToggleComments: () => void;
 }
 
-const PostContextMenu = ({ message, isOwner, isPinned, onClose, onPin, onDelete, onForward, onSave }: PostContextMenuProps) => (
+
+const PostContextMenu = ({ message, isOwner, isPinned, commentsEnabled, onClose, onPin, onDelete, onForward, onSave, onToggleComments }: PostContextMenuProps) => (
   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="fixed inset-0 z-50 flex flex-col justify-end" onClick={onClose}>
     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -149,7 +155,9 @@ const PostContextMenu = ({ message, isOwner, isPinned, onClose, onPin, onDelete,
           { icon: Forward, label: "Forward", action: onForward },
           { icon: Bookmark, label: "Save", action: onSave },
           { icon: isPinned ? PinOff : Pin, label: isPinned ? "Unpin" : "Pin", action: onPin, show: isOwner },
+          { icon: MessageCircle, label: commentsEnabled ? "Comments off" : "Comments on", action: onToggleComments, show: isOwner },
           { icon: Trash2, label: "Delete", action: onDelete, show: isOwner, destructive: true },
+
         ].filter(a => a.show !== false).map(action => {
           const Icon = action.icon;
           return (
@@ -190,7 +198,14 @@ const ChannelView = () => {
   const [showScheduled, setShowScheduled] = useState(false);
   const [postType, setPostType] = useState<"text" | "announcement">("text");
   const [busy, setBusy] = useState(false);
+  const [commentsPost, setCommentsPost] = useState<ChannelMessage | null>(null);
+  const [comments, setComments] = useState<ChannelComment[]>([]);
+  const [commentText, setCommentText] = useState("");
+
+  const [commentBusy, setCommentBusy] = useState(false);
+  const commentLock = useRef(false);
   const sendLock = useRef(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isOwner = channel?.createdBy === userId;
@@ -212,6 +227,13 @@ const ChannelView = () => {
 
   const syncVersion = useChannelSync(id);
   useEffect(() => { reload(); }, [id, userId, syncVersion]);
+  const loadComments = async (postId: string) => {
+    try { await syncChannelComments(postId); setComments(getChannelComments(postId)); }
+    catch { toast.error('Could not load comments'); }
+  };
+  useEffect(() => { if (commentsPost) void loadComments(commentsPost.id); }, [commentsPost, syncVersion]);
+
+
   useEffect(() => { if (id) recordChannelViews(id); }, [id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
@@ -234,6 +256,18 @@ const ChannelView = () => {
   const handleDeleteMessage = async (msgId: string) => { if (!id) return; try { await deleteChannelMessage(id,msgId); reload(); } catch { toast.error('Could not delete post'); } };
   const handlePin = async (msgId: string) => { if (!id) return; try { if (channel?.pinnedMessageId === msgId) await unpinMessage(id); else await pinMessage(id,msgId); reload(); } catch { toast.error('Could not change pinned post'); } };
   const handleEditSave = async () => { if (!id || !editName.trim()) return; try { await updateChannel(id,{ name: editName.trim(),description: editDescription.trim() }); setEditDialogOpen(false); reload(); } catch { toast.error('Could not save changes'); } };
+  const openComments = (msg: ChannelMessage) => { setCommentsPost(msg); setComments([]); setCommentText(""); };
+  const handleSendComment = async () => {
+    if (!commentsPost || !id || commentLock.current) return;
+    const text = commentText.trim(); if (!text) return;
+    commentLock.current = true; setCommentBusy(true);
+    try { await sendChannelComment(id, commentsPost.id, text); setCommentText(""); await loadComments(commentsPost.id); }
+    catch { toast.error('Could not send comment'); }
+    finally { commentLock.current = false; setCommentBusy(false); }
+  };
+  const handleDeleteComment = async (commentId: string) => { if (!commentsPost || !id) return; try { await deleteChannelComment(id, commentsPost.id, commentId); await loadComments(commentsPost.id); } catch { toast.error('Could not delete comment'); } };
+  const handleToggleComments = async (msg: ChannelMessage) => { if (!id) return; try { await setChannelCommentsEnabled(id, msg.id, msg.commentsEnabled === false); reload(); } catch { toast.error('Could not change comments'); } };
+
 
   if (!channel) {
     return (
@@ -398,7 +432,12 @@ const ChannelView = () => {
               <ReactionBar message={msg} channelId={id ?? ""} userId={userId ?? ""} onReacted={reload} />
               <div className="flex items-center gap-3 mt-2 text-muted-foreground">
                 <div className="flex items-center gap-1"><Eye className="h-3 w-3" /><span className="text-[11px]">{formatCount(msg.views)}</span></div>
-                <div className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /><span className="text-[11px]">0</span></div>
+                {msg.commentsEnabled && (
+                  <button onClick={() => openComments(msg)} className="flex items-center gap-1 hover:text-foreground transition-colors" data-testid={`button-comments-${msg.id}`}>
+                    <MessageCircle className="h-3 w-3" /><span className="text-[11px]">{formatCount(msg.commentsCount)}</span>
+                  </button>
+                )}
+
                 <button onClick={() => { navigator.clipboard.writeText(msg.content); toast.success("Copied"); }}
                   className="flex items-center gap-1 hover:text-foreground transition-colors ml-auto">
                   <Forward className="h-3.5 w-3.5" /><span className="text-[11px]">Forward</span>
@@ -528,16 +567,77 @@ const ChannelView = () => {
             channelId={id ?? ""}
             isOwner={isOwner}
             isPinned={channel.pinnedMessageId === contextMsg.id}
+            commentsEnabled={contextMsg.commentsEnabled}
             onClose={() => setContextMsg(null)}
             onPin={() => { handlePin(contextMsg.id); setContextMsg(null); }}
             onDelete={() => { handleDeleteMessage(contextMsg.id); setContextMsg(null); }}
             onForward={() => { navigator.clipboard.writeText(contextMsg.content); toast.success("Copied for forwarding"); setContextMsg(null); }}
             onSave={() => { toast.info("Channel bookmarks are not available yet"); setContextMsg(null); }}
+            onToggleComments={() => { handleToggleComments(contextMsg); setContextMsg(null); }}
           />
+
         )}
       </AnimatePresence>
 
+      {/* ── Comments Sheet ── */}
+      <Sheet open={!!commentsPost} onOpenChange={open => { if (!open) { setCommentsPost(null); setCommentText(""); } }}>
+        <SheetContent side="bottom" className="h-[72vh] rounded-t-3xl p-0 flex flex-col gap-0">
+          <SheetHeader className="sr-only"><SheetTitle>Comments</SheetTitle></SheetHeader>
+          {commentsPost && (
+            <>
+              <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-border/50">
+                <p className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-primary" /> Comments
+                  <span className="text-[11px] font-medium text-muted-foreground">{comments.length}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate mt-1">{commentsPost.content}</p>
+              </div>
+              <div className="flex-1 overflow-y-auto py-2">
+                {comments.length === 0 ? (
+                  <p className="text-center text-muted-foreground text-[13px] py-10">No comments yet. Be the first.</p>
+                ) : comments.map((c: ChannelComment) => (
+
+                  <div key={c.id} className="flex items-start gap-2.5 px-4 py-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-[12px] shrink-0">
+                      {(c.authorName || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-foreground">
+                        {c.authorName}
+                        <span className="text-[10px] text-muted-foreground font-normal ml-1.5">{format(new Date(c.createdAt), "MMM d · h:mm a")}</span>
+                      </p>
+                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-wrap break-words">{c.text}</p>
+                    </div>
+                    {(c.authorId === userId || isOwner) && (
+                      <button onClick={() => handleDeleteComment(c.id)} className="text-muted-foreground hover:text-destructive p-1" aria-label="Delete comment">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex-shrink-0 border-t border-border/50 px-4 py-3 flex items-end gap-2">
+                <Textarea
+                  placeholder="Write a comment..."
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
+                  className="resize-none rounded-2xl bg-muted/60 border-border/50 text-[14px] min-h-[44px] max-h-[120px] py-3 flex-1"
+                  rows={1}
+                  data-testid="input-comment"
+                />
+                <Button size="icon" onClick={handleSendComment} disabled={!commentText.trim() || commentBusy}
+                  className="rounded-xl h-9 w-9 text-white" style={{ background: "var(--gradient-primary)" }} data-testid="button-send-comment">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* ── Schedule Post Dialog ── */}
+
       <Dialog open={scheduledOpen} onOpenChange={setScheduledOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" /> Schedule Post</DialogTitle></DialogHeader>

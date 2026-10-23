@@ -162,6 +162,27 @@
       "when": 1792772498798,
       "tag": "0022_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792773767796,
+      "tag": "0023_channel_post_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792773992885,
+      "tag": "0024_channel_comment_guard_definer",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792774104016,
+      "tag": "0025_channel_posts_owner_update_grant",
+      "breakpoints": true
     }
   ]
 }
