@@ -67,7 +67,7 @@ const Features = () => {
       </div>
 
       <div className="p-4">
-        <Card className="p-6 bg-gradient-primary text-primary-foreground mb-6">
+        <div className="p-6 rounded-xl bg-gradient-primary text-primary-foreground mb-6 shadow-lg">
           <div className="text-center">
             <Star className="h-12 w-12 mx-auto mb-4 text-primary-foreground/80" />
             <h2 className="text-2xl font-bold mb-1">Echat</h2>
@@ -75,7 +75,7 @@ const Features = () => {
               {features.filter(f => f.status === "available").length} features fully available
             </p>
           </div>
-        </Card>
+        </div>
 
         <h3 className="font-semibold text-[13px] uppercase tracking-wider text-muted-foreground mb-4">All Features</h3>
         <div className="grid gap-3">
