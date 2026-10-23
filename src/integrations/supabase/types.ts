@@ -674,6 +674,27 @@ export type Database = {
         }
         Relationships: []
       }
+      email_2fa_attempts: {
+        Row: {
+          failed_count: number
+          last_sent_at: string | null
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          failed_count?: number
+          last_sent_at?: string | null
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          failed_count?: number
+          last_sent_at?: string | null
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       etok_blocked_users: {
         Row: {
           blocked_at: string
@@ -2088,6 +2109,24 @@ export type Database = {
           },
         ]
       }
+      session_2fa_verifications: {
+        Row: {
+          session_id: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          session_id: string
+          user_id: string
+          verified_at?: string
+        }
+        Update: {
+          session_id?: string
+          user_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       signup_bonus_claims: {
         Row: {
           amount: number
@@ -2313,6 +2352,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_2fa_settings: {
+        Row: {
+          enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_stories: {
         Row: {
@@ -2815,6 +2872,7 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      is_session_2fa_ok: { Args: never; Returns: boolean }
       mute_group_member: {
         Args: {
           p_group_id: string
