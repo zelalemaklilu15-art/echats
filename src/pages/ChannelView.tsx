@@ -199,7 +199,9 @@ const ChannelView = () => {
   const [postType, setPostType] = useState<"text" | "announcement">("text");
   const [busy, setBusy] = useState(false);
   const [commentsPost, setCommentsPost] = useState<ChannelMessage | null>(null);
+  const [comments, setComments] = useState<ChannelComment[]>([]);
   const [commentText, setCommentText] = useState("");
+
   const [commentBusy, setCommentBusy] = useState(false);
   const commentLock = useRef(false);
   const sendLock = useRef(false);
@@ -225,7 +227,12 @@ const ChannelView = () => {
 
   const syncVersion = useChannelSync(id);
   useEffect(() => { reload(); }, [id, userId, syncVersion]);
-  useEffect(() => { if (commentsPost) void syncChannelComments(commentsPost.id).catch(() => {}); }, [commentsPost, syncVersion]);
+  const loadComments = async (postId: string) => {
+    try { await syncChannelComments(postId); setComments(getChannelComments(postId)); }
+    catch { toast.error('Could not load comments'); }
+  };
+  useEffect(() => { if (commentsPost) void loadComments(commentsPost.id); }, [commentsPost, syncVersion]);
+
 
   useEffect(() => { if (id) recordChannelViews(id); }, [id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
@@ -249,16 +256,16 @@ const ChannelView = () => {
   const handleDeleteMessage = async (msgId: string) => { if (!id) return; try { await deleteChannelMessage(id,msgId); reload(); } catch { toast.error('Could not delete post'); } };
   const handlePin = async (msgId: string) => { if (!id) return; try { if (channel?.pinnedMessageId === msgId) await unpinMessage(id); else await pinMessage(id,msgId); reload(); } catch { toast.error('Could not change pinned post'); } };
   const handleEditSave = async () => { if (!id || !editName.trim()) return; try { await updateChannel(id,{ name: editName.trim(),description: editDescription.trim() }); setEditDialogOpen(false); reload(); } catch { toast.error('Could not save changes'); } };
-  const openComments = (msg: ChannelMessage) => { setCommentsPost(msg); setCommentText(""); void syncChannelComments(msg.id).catch(() => toast.error('Could not load comments')); };
+  const openComments = (msg: ChannelMessage) => { setCommentsPost(msg); setComments([]); setCommentText(""); };
   const handleSendComment = async () => {
     if (!commentsPost || !id || commentLock.current) return;
     const text = commentText.trim(); if (!text) return;
     commentLock.current = true; setCommentBusy(true);
-    try { await sendChannelComment(id, commentsPost.id, text); setCommentText(""); }
+    try { await sendChannelComment(id, commentsPost.id, text); setCommentText(""); await loadComments(commentsPost.id); }
     catch { toast.error('Could not send comment'); }
     finally { commentLock.current = false; setCommentBusy(false); }
   };
-  const handleDeleteComment = async (commentId: string) => { if (!commentsPost || !id) return; try { await deleteChannelComment(id, commentsPost.id, commentId); } catch { toast.error('Could not delete comment'); } };
+  const handleDeleteComment = async (commentId: string) => { if (!commentsPost || !id) return; try { await deleteChannelComment(id, commentsPost.id, commentId); await loadComments(commentsPost.id); } catch { toast.error('Could not delete comment'); } };
   const handleToggleComments = async (msg: ChannelMessage) => { if (!id) return; try { await setChannelCommentsEnabled(id, msg.id, msg.commentsEnabled === false); reload(); } catch { toast.error('Could not change comments'); } };
 
 
@@ -581,14 +588,15 @@ const ChannelView = () => {
               <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-border/50">
                 <p className="text-[13px] font-bold text-foreground flex items-center gap-2">
                   <MessageCircle className="h-4 w-4 text-primary" /> Comments
-                  <span className="text-[11px] font-medium text-muted-foreground">{getChannelComments(commentsPost.id).length}</span>
+                  <span className="text-[11px] font-medium text-muted-foreground">{comments.length}</span>
                 </p>
                 <p className="text-[11px] text-muted-foreground truncate mt-1">{commentsPost.content}</p>
               </div>
               <div className="flex-1 overflow-y-auto py-2">
-                {getChannelComments(commentsPost.id).length === 0 ? (
+                {comments.length === 0 ? (
                   <p className="text-center text-muted-foreground text-[13px] py-10">No comments yet. Be the first.</p>
-                ) : getChannelComments(commentsPost.id).map((c: ChannelComment) => (
+                ) : comments.map((c: ChannelComment) => (
+
                   <div key={c.id} className="flex items-start gap-2.5 px-4 py-2.5">
                     <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-[12px] shrink-0">
                       {(c.authorName || "?").charAt(0).toUpperCase()}

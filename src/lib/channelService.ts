@@ -168,8 +168,8 @@ export async function syncChannelComments(postId: string): Promise<void> {
   await check({ data, error });
   if (owner.generation !== accessGeneration) return;
   comments.set(postId, (data ?? []).map(rowToComment));
-  emit();
 }
+
 export function getChannelComments(postId: string): ChannelComment[] { return comments.get(postId) ?? []; }
 export async function sendChannelComment(channelId: string, postId: string, text: string): Promise<void> {
   const owner = await viewer();
