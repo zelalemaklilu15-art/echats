@@ -242,7 +242,7 @@ const AppRoutes = () => {
           <Route path="/auth" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Auth /></PageTransition>} />
           <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><ForgotPassword /></PageTransition>} />
           <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
-          <Route path="/chats" element={guard(isAuthenticated, <Chats />)} />
+          <Route path="/chats" element={guard(isAuthenticated, <Chats key={user?.id ?? 'signed-out'} />)} />
           <Route path="/folder-invite/:token" element={<FolderInvite key={viewerKey} />} />
           <Route path="/chat" element={isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />} />
           <Route path="/chat/:chatId" element={guard(isAuthenticated, <Chat />)} />
