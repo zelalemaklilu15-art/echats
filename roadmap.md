@@ -37,5 +37,5 @@
 ## Telegram parity features
 - [x] Two-step verification enforced at sign-in: 6-digit authenticator gate before any screen opens; disabling 2FA requires the code.
 - [x] Channel post comments: server-owned counters and authorization, comment panel with delete, owner comments on/off switch, push alerts to the post author and channel owner.
-- [ ] Shareable folder links: move chat folders off this device into the database, then add invite links (private chats excluded at the database level).
+- [x] Shareable folder links: durable account-scoped folders, secure group/channel invite preview and acceptance, owner revocation; 179 tests passed and signed-in create/reload/accept/revoke/delete verified. Private direct chats are excluded by the database. Legacy unscoped device folders are retained locally but not automatically assigned to an account.
 

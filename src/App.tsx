@@ -96,6 +96,7 @@ const Pay = lazy(() => import("./pages/Pay"));
 const Stories = lazy(() => import("./pages/Stories"));
 const CloseFriends = lazy(() => import("./pages/CloseFriends"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+const FolderInvite = lazy(() => import('./pages/FolderInvite'));
 
 // Initialize accent color from localStorage on app load
 initAccentColor();
@@ -241,7 +242,8 @@ const AppRoutes = () => {
           <Route path="/auth" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Auth /></PageTransition>} />
           <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><ForgotPassword /></PageTransition>} />
           <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
-          <Route path="/chats" element={guard(isAuthenticated, <Chats />)} />
+          <Route path="/chats" element={guard(isAuthenticated, <Chats key={user?.id ?? 'signed-out'} />)} />
+          <Route path="/folder-invite/:token" element={<FolderInvite key={viewerKey} />} />
           <Route path="/chat" element={isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />} />
           <Route path="/chat/:chatId" element={guard(isAuthenticated, <Chat />)} />
           <Route path="/profile" element={guard(isAuthenticated, <Profile />)} />
