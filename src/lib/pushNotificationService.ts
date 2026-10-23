@@ -150,7 +150,7 @@ class PushNotificationService {
         badge: '/icon-192.png',
         requireInteraction: true,
         ...options,
-      });
+      }).catch((error) => console.warn('[Push] Local notification unavailable:', error));
     } else {
       // Page notifications reject `actions` (only service-worker ones support them),
       // and a throw here used to crash the incoming-call screen.
