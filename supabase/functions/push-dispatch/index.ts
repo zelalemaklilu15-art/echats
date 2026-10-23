@@ -45,16 +45,32 @@ const GENERIC: Record<string, [string | null, string]> = {
   etok_live: ['eTok', 'Someone is live'],
 };
 
+// Recipient-owned switches from Notification settings (server-side copy).
+const PREF_FOR: Record<string, 'messages' | 'groups' | 'calls'> = {
+  direct_message: 'messages', gift: 'messages', group_message: 'groups', missed_call: 'calls',
+};
+const PREVIEW_TYPES = new Set(['direct_message', 'group_message', 'gift']);
+
 async function send(ids: string[], actor: string, msg: PushMessage) {
   const targets = [...new Set(ids)].filter((id) => id && id !== actor);
+  if (!targets.length) return 0;
+  const type = (msg.data as Rec)?.type as string;
+  const { data: prefRows } = await db.from('notification_preferences')
+    .select('user_id, messages, groups, calls, message_preview').in('user_id', targets);
+  const prefs = new Map((prefRows ?? []).map((p: Rec) => [p.user_id, p]));
   let sent = 0;
   for (const id of targets) {
+    const p = prefs.get(id);
+    const key = PREF_FOR[type];
+    if (p && key && p[key] === false) continue;
     const [t, b] = await Promise.all([recipientText(msg.title, id), recipientText(msg.body, id)]);
     let title = t.text, body = b.text;
     if (t.hidden || b.hidden) {
-      const g = GENERIC[(msg.data as Rec)?.type] ?? ['Echat', 'New notification'];
+      const g = GENERIC[type] ?? ['Echat', 'New notification'];
       title = g[0] ?? t.text;
       body = g[1];
+    } else if (p && p.message_preview === false && PREVIEW_TYPES.has(type)) {
+      body = GENERIC[type]?.[1] ?? 'New message';
     }
     sent += (await sendPushToUser(id, { ...msg, title, body })).sent;
   }
@@ -137,7 +153,8 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
         tag: 'etok-follow', url: `/etok/profile/${r.follower_id}`, data: { type: 'etok_follow' },
       });
     case 'etok_videos':
-      if (r.privacy && r.privacy !== 'public') return 0;
+      // Only videos visible to everyone notify followers ('everyone' is the stored value).
+      if (r.privacy && r.privacy !== 'everyone' && r.privacy !== 'public') return 0;
       return send(await followersOf(r.author_id), r.author_id, {
         title: 'eTok', body: `${await nameOf(r.author_id)} posted a new video`,
         tag: `etok-video-${r.author_id}`, url: '/etok', data: { type: 'etok_video', videoId: r.id },
@@ -155,7 +172,13 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
     case 'user_stories': {
       const { data: c } = await db.from('chats').select('participant_1, participant_2')
         .or(`participant_1.eq.${r.user_id},participant_2.eq.${r.user_id}`).limit(500);
-      const ids = (c ?? []).map((x: Rec) => (x.participant_1 === r.user_id ? x.participant_2 : x.participant_1));
+      const partners = [...new Set((c ?? []).map((x: Rec) => (x.participant_1 === r.user_id ? x.participant_2 : x.participant_1)))];
+      // Only people inside the Story's audience may learn it exists.
+      const ids: string[] = [];
+      for (const id of partners) {
+        const { data: ok } = await db.rpc('story_notification_allowed', { p_story: r.id, p_viewer: id });
+        if (ok === true) ids.push(id);
+      }
       return send(ids, r.user_id, {
         title: 'Stories', body: `${await nameOf(r.user_id)} added a story`,
         tag: `story-${r.user_id}`, url: '/stories', data: { type: 'story' },
