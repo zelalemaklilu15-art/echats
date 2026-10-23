@@ -377,6 +377,7 @@ const Chats = () => {
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const storiesStackRef = useRef<HTMLDivElement>(null);
   const [headerSpacer, setHeaderSpacer] = useState(0);
+  const [collapseTotal, setCollapseTotal] = useState(0);
   const [storyPeek, setStoryPeek] = useState<{ user_id: string; name: string; avatar_url: string | null }[]>([]);
   const dimsRef = useRef({ stories: 0, search: 0 });
   const offsetRef = useRef(0);
@@ -413,6 +414,7 @@ const Chats = () => {
       dimsRef.current = { stories: stories.offsetHeight, search: search.offsetHeight };
       const total = dimsRef.current.stories + dimsRef.current.search;
       setHeaderSpacer(header.offsetHeight - (collapseWrapRef.current?.offsetHeight ?? 0) + total);
+      setCollapseTotal(total);
       applyOffset(Math.min(offsetRef.current, Math.max(0, window.scrollY)));
     };
     const ro = new ResizeObserver(measure);
@@ -427,9 +429,12 @@ const Chats = () => {
       const { stories: sH, search: qH } = dimsRef.current;
       const y = Math.max(0, window.scrollY);
       const o = offsetRef.current;
-      const stops = [0, sH, sH + qH].filter(s => s <= y);
+      const stops = [0, sH, sH + qH];
       const target = stops.reduce((a, b) => (Math.abs(b - o) < Math.abs(a - o) ? b : a), 0);
-      if (target !== o) applyOffset(target, true);
+      if (target === o) return;
+      // Header can only be collapsed as far as the page is scrolled; scroll along so it never leaves a gap.
+      if (target > y) window.scrollTo({ top: target, behavior: "smooth" });
+      else applyOffset(target, true);
     };
     const onScroll = () => {
       if (ticking) return;
@@ -768,7 +773,7 @@ const Chats = () => {
   const isLoading = loading || loadingGroups;
 
   return (
-    <div className="min-h-screen bg-background pb-nav">
+    <div className="min-h-screen bg-background pb-nav" style={{ minHeight: `calc(100vh + ${collapseTotal}px)` }}>
       {/* Header (portaled so page transitions cannot unpin it) */}
       {createPortal(
       <motion.div
