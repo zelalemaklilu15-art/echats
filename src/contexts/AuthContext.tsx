@@ -17,15 +17,25 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<AuthState>("loading");
   const [user, setUser] = useState<User | null>(null);
+  const [needsMfa, setNeedsMfa] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     let subscription: { unsubscribe: () => void } | null = null;
 
+    let gen = 0;
     const applySession = (u: User | null) => {
       if (!mounted) return;
+      const my = ++gen;
       setUser(u);
-      setAuthState(u ? "authenticated" : "unauthenticated");
+      if (!u) { setNeedsMfa(false); setAuthState("unauthenticated"); return; }
+      setAuthState("authenticated");
+      supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        .then(({ data }) => {
+          if (!mounted || my !== gen) return;
+          setNeedsMfa(data?.nextLevel === "aal2" && data?.currentLevel !== "aal2");
+        })
+        .catch(() => {});
     };
 
     // Restore the persisted session before protected routes make auth decisions.
@@ -55,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ authState, user, userId: user?.id ?? null }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ authState, user, userId: user?.id ?? null, needsMfa, clearMfa: () => setNeedsMfa(false) }}>{children}</AuthContext.Provider>
   );
 }
 
