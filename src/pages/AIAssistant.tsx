@@ -258,7 +258,7 @@ const AIAssistant = () => {
         if (convId) saveMessage(convId, errMsg);
       },
     });
-  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId, settings]);
+  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId, settings, pendingFiles, uploading]);
 
   const handleStop = () => {
     abortRef.current = true;
