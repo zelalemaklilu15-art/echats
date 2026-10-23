@@ -422,6 +422,150 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_folder_acceptances: {
+        Row: {
+          folder_id: string | null
+          invite_id: string
+          user_id: string
+        }
+        Insert: {
+          folder_id?: string | null
+          invite_id: string
+          user_id: string
+        }
+        Update: {
+          folder_id?: string | null
+          invite_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_folder_acceptances_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "chat_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_folder_acceptances_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "chat_folder_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_folder_invite_items: {
+        Row: {
+          invite_id: string
+          item_id: string
+          kind: string
+        }
+        Insert: {
+          invite_id: string
+          item_id: string
+          kind: string
+        }
+        Update: {
+          invite_id?: string
+          item_id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_folder_invite_items_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "chat_folder_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_folder_invites: {
+        Row: {
+          created_at: string
+          folder_id: string
+          id: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          folder_id: string
+          id?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          folder_id?: string
+          id?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_folder_invites_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "chat_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_folder_items: {
+        Row: {
+          folder_id: string
+          item_id: string
+          kind: string
+        }
+        Insert: {
+          folder_id: string
+          item_id: string
+          kind: string
+        }
+        Update: {
+          folder_id?: string
+          item_id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_folder_items_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "chat_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_folders: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chats: {
         Row: {
           created_at: string
@@ -2433,6 +2577,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_chat_folder_invite: {
+        Args: { p_items: Json; p_token: string }
+        Returns: string
+      }
       accept_profile_call: { Args: { p_room_id: string }; Returns: boolean }
       airtime_topup:
         | {
@@ -2496,6 +2644,10 @@ export type Database = {
           success: boolean
         }[]
       }
+      create_chat_folder_invite: {
+        Args: { p_folder_id: string }
+        Returns: string
+      }
       crypto_deposit_attach: {
         Args: { p_invoice: string; p_order: string; p_url: string }
         Returns: undefined
@@ -2514,6 +2666,7 @@ export type Database = {
         Returns: Json
       }
       decode_attachment_path: { Args: { p_path: string }; Returns: string }
+      delete_chat_folder: { Args: { p_id: string }; Returns: undefined }
       etok_are_friends: {
         Args: { p_owner: string; p_viewer: string }
         Returns: boolean
@@ -2534,6 +2687,14 @@ export type Database = {
       find_or_create_chat: {
         Args: { user1_id: string; user2_id: string }
         Returns: string
+      }
+      folder_item_access: {
+        Args: { p_id: string; p_kind: string; p_user: string }
+        Returns: boolean
+      }
+      folder_item_shareable: {
+        Args: { p_id: string; p_kind: string; p_owner: string }
+        Returns: boolean
       }
       get_ai_quota_status: {
         Args: { p_user_id?: string }
@@ -2590,6 +2751,8 @@ export type Database = {
           views: number
         }[]
       }
+      get_chat_folder_state: { Args: never; Returns: Json }
+      get_folder_candidates: { Args: never; Returns: Json }
       get_my_private_profile: {
         Args: never
         Returns: {
@@ -2669,6 +2832,7 @@ export type Database = {
         Args: { p_subject: string; p_viewer: string }
         Returns: string
       }
+      preview_chat_folder_invite: { Args: { p_token: string }; Returns: Json }
       profile_access_allowed: {
         Args: { p_subject: string; p_viewer: string }
         Returns: boolean
@@ -2739,6 +2903,20 @@ export type Database = {
       respond_payment_request: {
         Args: { p_action: string; p_id: string }
         Returns: string
+      }
+      revoke_chat_folder_invite: {
+        Args: { p_token: string }
+        Returns: undefined
+      }
+      save_chat_folder: {
+        Args: {
+          p_color: string
+          p_icon: string
+          p_id: string
+          p_items?: Json
+          p_name: string
+        }
+        Returns: undefined
       }
       search_etok_videos: {
         Args: { p_query: string }
