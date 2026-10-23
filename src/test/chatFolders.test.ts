@@ -6,6 +6,13 @@ import { getChatFolders, syncChatFolders, addChatFolder } from '@/lib/chatFolder
 const folder = { id: 'folder', name: 'Mine', icon: 'folder', color: 'primary', items: [] };
 beforeEach(() => { mock.viewer = 'a'; mock.changed?.('SIGNED_OUT', null); mock.changed?.('SIGNED_IN', { user: { id: 'a' } }); mock.rpc.mockReset(); localStorage.clear(); });
 describe('account-scoped folders', () => {
+  it('loads folders when the initial session arrives during the first user read', async () => {
+    mock.changed?.('SIGNED_OUT', null);
+    mock.rpc.mockResolvedValue({ data: [folder], error: null });
+    const pending = syncChatFolders();
+    mock.changed?.('INITIAL_SESSION', { user: { id: 'a' } });
+    await pending; expect(getChatFolders()).toHaveLength(1);
+  });
   it('clears folders immediately when the account changes', async () => { mock.rpc.mockResolvedValue({ data: [folder], error: null }); await syncChatFolders(); mock.viewer = 'b'; mock.changed?.('SIGNED_IN', { user: { id: 'b' } }); expect(getChatFolders()).toEqual([]); });
   it('rejects responses from a previous account', async () => {
     let complete: ((result: any) => void) | undefined;

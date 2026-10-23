@@ -19,8 +19,10 @@ supabase.auth.onAuthStateChange((_event, session) => {
 });
 async function owner() {
   const started = generation;
+  const previous = account;
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || started !== generation || (account && account !== user.id)) throw new Error('Account changed; please try again');
+  const initialSessionHydrated = previous === null && account === user?.id;
+  if (!user || (started !== generation && !initialSessionHydrated) || (account && account !== user.id)) throw new Error('Account changed; please try again');
   account = user.id;
   return { id: user.id, generation };
 }
