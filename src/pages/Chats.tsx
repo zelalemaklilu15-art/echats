@@ -1022,7 +1022,7 @@ const Chats = () => {
         </div>
       ) : (
         <div>
-          {filteredConversations.length === 0 ? (
+          {filteredConversations.length === 0 && !(activeFolderId && allChannels.some(c => activeFolderChatIds?.includes(c.id))) ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1412,8 +1412,8 @@ const Chats = () => {
       </AnimatePresence>
 
       {/* Create/Edit Folder Dialog */}
-      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
-        <DialogContent className="max-w-sm" data-testid="dialog-folder-form">
+      <Dialog open={folderDialogOpen} onOpenChange={open => { if (!folderBusy) setFolderDialogOpen(open); }}>
+        <DialogContent className="max-w-sm max-h-[90dvh] overflow-y-auto" data-testid="dialog-folder-form">
           <DialogHeader>
             <DialogTitle>{editingFolder ? "Edit Folder" : "Create Folder"}</DialogTitle>
           </DialogHeader>
