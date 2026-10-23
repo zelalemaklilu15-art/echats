@@ -168,12 +168,16 @@ const AppRoutes = () => {
   usePresence(user?.id);
   useAppPushNotifications(user?.id ?? null);
 
+  // Only greet a real sign-in (signed-out -> signed-in), not every app open.
+  const sawSignedOutRef = useRef(false);
+  useEffect(() => { if (authState === "unauthenticated") sawSignedOutRef.current = true; }, [authState]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (!loginToastShownRef.current) {
+    if (!loginToastShownRef.current && sawSignedOutRef.current) {
       toast.success("Login successful");
-      loginToastShownRef.current = true;
     }
+    loginToastShownRef.current = true;
     if (redirectToChatsDoneRef.current) return;
     const search = new URLSearchParams(location.search);
     const nextRaw = search.get("next");

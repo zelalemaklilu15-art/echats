@@ -32,4 +32,4 @@
   - [x] 6d. Regression tests and signed-in checks: private eTok upload/reload/playback, comments/replies, favorite/QR, Story publish/view/delete and Channel reload persistence; Live capture/playback/end confirmed in stored state. Audit artifacts cleaned; private media buckets/policies verified.
   - [ ] 6e. Real host-to-viewer Live audio/video and reconnect on two physical phones; blocked by access to user-held devices. Browser capture used simulated camera/microphone, not two-phone delivery.
 - [x] 7. Notifications & privacy — settings now obeyed by server (messages/groups/missed calls/preview), Story alerts only to its audience, eTok new-video alerts fixed. Lock-screen check on two phones pending.
-- [ ] 8. Design & mobile
+- [x] 8. Design & mobile — 51 pages swept at phone size: no overflow or errors; repeated "Login successful" and faded Features banner fixed.
