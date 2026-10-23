@@ -15,7 +15,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
   rpc: mock.rpc,
   from: mock.from,
 } }));
-import { getChannelComments, sendChannelComment, syncChannelComments, syncChannelMessages } from '@/lib/channelService';
+import { getChannelComments, getChannelMessages, sendChannelComment, syncChannelComments, syncChannelMessages } from '@/lib/channelService';
 
 const comment = { id: 'c1', post_id: 'post', channel_id: 'channel', author_id: 'author-a', author_name: 'Zelalem', body: 'Nice post', created_at: '2026-10-23T09:00:00Z' };
 const post = { created_at: '2026-10-22T09:00:00Z', id: 'post', channel_id: 'channel', sender_id: 'author-a', sender_name: 'Zelalem', content: 'Hello', comments_enabled: true, comments_count: 3 };
@@ -58,12 +58,19 @@ describe('channel post comments', () => {
     expect(insert).toHaveBeenCalledWith({ post_id: 'post', channel_id: 'channel', author_id: 'viewer-a', text: 'Hello there' });
   });
 
-  it('takes the comment counter from the server row', async () => {
+  it('takes the comment counter and open state from the server row', async () => {
     mock.rpc.mockResolvedValue({ data: [post], error: null });
     await syncChannelMessages('channel');
-    expect(getChannelComments('post')).toEqual([]);
-    mock.rpc.mockResolvedValue({ data: [post], error: null });
+    const [msg] = getChannelMessages('channel');
+    expect(msg.commentsCount).toBe(3);
+    expect(msg.commentsEnabled).toBe(true);
+  });
+
+  it('reads comment text and author from the server response', async () => {
+    mock.rpc.mockResolvedValue({ data: [comment], error: null });
     await syncChannelComments('post');
     expect(getChannelComments('post')[0].text).toBe('Nice post');
+    expect(getChannelComments('post')[0].authorName).toBe('Zelalem');
   });
+
 });
