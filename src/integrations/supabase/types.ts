@@ -1608,6 +1608,33 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          calls: boolean
+          groups: boolean
+          message_preview: boolean
+          messages: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calls?: boolean
+          groups?: boolean
+          message_preview?: boolean
+          messages?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calls?: boolean
+          groups?: boolean
+          message_preview?: boolean
+          messages?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_privacy: {
         Row: {
           show_identity: string
@@ -2667,6 +2694,10 @@ export type Database = {
       }
       set_wallet_pin: { Args: { p_pin: string }; Returns: undefined }
       story_content_privacy: { Args: { p_content: string }; Returns: string }
+      story_notification_allowed: {
+        Args: { p_story: string; p_viewer: string }
+        Returns: boolean
+      }
       toggle_channel_reaction: {
         Args: { p_add: boolean; p_emoji: string; p_post_id: string }
         Returns: Json
