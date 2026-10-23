@@ -9,6 +9,7 @@ import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { useChatList, useProfile } from "@/hooks/useChatStore";
 import { chatStore, Chat, PublicProfile } from "@/lib/chatStore";
 import { searchByUsername, findOrCreateChat } from "@/lib/supabaseService";
@@ -768,7 +769,8 @@ const Chats = () => {
 
   return (
     <div className="min-h-screen bg-background pb-nav">
-      {/* Header */}
+      {/* Header (portaled so page transitions cannot unpin it) */}
+      {createPortal(
       <motion.div
         ref={headerRef}
         initial={{ opacity: 0 }}
@@ -947,6 +949,7 @@ const Chats = () => {
       )}
       </div>
       </motion.div>
+      , document.body)}
       <div aria-hidden style={{ height: headerSpacer }} data-testid="chats-header-spacer" />
 
       {/* Chat List */}
