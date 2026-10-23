@@ -9,6 +9,7 @@ import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { useChatList, useProfile } from "@/hooks/useChatStore";
 import { chatStore, Chat, PublicProfile } from "@/lib/chatStore";
 import { searchByUsername, findOrCreateChat } from "@/lib/supabaseService";
@@ -368,47 +369,87 @@ const RecentContactCircle = ({ chat, onClick }: { chat: Chat; onClick: () => voi
 
 const Chats = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-  const [collapsibleHeight, setCollapsibleHeight] = useState(0);
-  const collapsibleRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = collapsibleRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setCollapsibleHeight(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
+  // Telegram-style scroll-linked header: fixed header, constant spacer, offset follows the finger.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const collapseWrapRef = useRef<HTMLDivElement>(null);
+  const collapseInnerRef = useRef<HTMLDivElement>(null);
+  const storiesWrapRef = useRef<HTMLDivElement>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+  const storiesStackRef = useRef<HTMLDivElement>(null);
+  const [headerSpacer, setHeaderSpacer] = useState(0);
+  const [storyPeek, setStoryPeek] = useState<{ user_id: string; name: string; avatar_url: string | null }[]>([]);
+  const dimsRef = useRef({ stories: 0, search: 0 });
+  const offsetRef = useRef(0);
+  const applyOffset = useCallback((offset: number, animate = false) => {
+    const wrap = collapseWrapRef.current, inner = collapseInnerRef.current;
+    if (!wrap || !inner) return;
+    const { stories: sH, search: qH } = dimsRef.current;
+    const total = sH + qH;
+    const o = Math.max(0, Math.min(offset, total));
+    offsetRef.current = o;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const t = animate && !reduce ? "220ms cubic-bezier(.2,.8,.2,1)" : "";
+    wrap.style.transition = t ? `height ${t}` : "";
+    inner.style.transition = t ? `transform ${t}` : "";
+    wrap.style.height = `${total - o}px`;
+    inner.style.transform = `translate3d(0,${-o}px,0)`;
+    const sp = sH ? Math.min(o, sH) / sH : 0;
+    const qp = qH ? Math.max(0, o - sH) / qH : 0;
+    const stories = storiesWrapRef.current, search = searchWrapRef.current, stack = storiesStackRef.current;
+    if (stories) { stories.style.transition = t ? `opacity ${t}` : ""; stories.style.opacity = String(1 - sp); }
+    if (search) { search.style.transition = t ? `opacity ${t}` : ""; search.style.opacity = String(1 - qp); search.style.pointerEvents = qp > 0.5 ? "none" : ""; }
+    if (stack) {
+      stack.style.transition = t ? `opacity ${t}, transform ${t}` : "";
+      stack.style.opacity = String(sp);
+      stack.style.transform = `scale(${0.6 + 0.4 * sp})`;
+      stack.style.pointerEvents = sp > 0.5 ? "auto" : "none";
+    }
+    wrap.setAttribute("aria-hidden", String(o >= total && total > 0));
   }, []);
-  const collapsedRef = useRef(false);
-  const heightRef = useRef(0);
-  useEffect(() => { heightRef.current = collapsibleHeight; }, [collapsibleHeight]);
   useEffect(() => {
-    let last = window.scrollY, ticking = false, acc = 0, lockUntil = 0;
-    const set = (v: boolean) => {
-      if (collapsedRef.current === v) return;
-      collapsedRef.current = v;
-      lockUntil = performance.now() + 320;
-      setHeaderCollapsed(v);
+    const header = headerRef.current, stories = storiesWrapRef.current, search = searchWrapRef.current;
+    if (!header || !stories || !search) return;
+    const measure = () => {
+      dimsRef.current = { stories: stories.offsetHeight, search: search.offsetHeight };
+      const total = dimsRef.current.stories + dimsRef.current.search;
+      setHeaderSpacer(header.offsetHeight - (collapseWrapRef.current?.offsetHeight ?? 0) + total);
+      applyOffset(Math.min(offsetRef.current, Math.max(0, window.scrollY)));
+    };
+    const ro = new ResizeObserver(measure);
+    [header, stories, search].forEach(el => ro.observe(el));
+    measure();
+    return () => ro.disconnect();
+  }, [applyOffset]);
+  useEffect(() => {
+    let last = Math.max(0, window.scrollY), ticking = false;
+    let snapTimer: ReturnType<typeof setTimeout> | undefined;
+    const snap = () => {
+      const { stories: sH, search: qH } = dimsRef.current;
+      const y = Math.max(0, window.scrollY);
+      const o = offsetRef.current;
+      const stops = [0, sH, sH + qH].filter(s => s <= y);
+      const target = stops.reduce((a, b) => (Math.abs(b - o) < Math.abs(a - o) ? b : a), 0);
+      if (target !== o) applyOffset(target, true);
     };
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        const y = window.scrollY;
+        const y = Math.max(0, window.scrollY);
         const dy = y - last;
         last = y;
-        if (performance.now() < lockUntil) { acc = 0; return; }
-        const h = heightRef.current || 160;
-        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-        if (y < 24 || scrollable < h + 80) { acc = 0; set(false); return; }
-        acc = (acc > 0) === (dy > 0) ? acc + dy : dy;
-        if (acc > 12 && y > h) { acc = 0; set(true); }
-        else if (acc < -40) { acc = 0; set(false); }
+        const { stories: sH, search: qH } = dimsRef.current;
+        const next = Math.max(0, Math.min(offsetRef.current + dy, sH + qH, y));
+        if (next !== offsetRef.current) applyOffset(next);
+        if (snapTimer) clearTimeout(snapTimer);
+        snapTimer = setTimeout(snap, 140);
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    return () => { window.removeEventListener("scroll", onScroll); if (snapTimer) clearTimeout(snapTimer); };
+  }, [applyOffset]);
+  useEffect(() => { applyOffset(offsetRef.current); }, [storyPeek.length, applyOffset]);
   const [searching, setSearching] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [searchTab, setSearchTab] = useState<SearchTab>("chats");
@@ -728,12 +769,15 @@ const Chats = () => {
 
   return (
     <div className="min-h-screen bg-background pb-nav">
-      {/* Header */}
+      {/* Header (portaled so page transitions cannot unpin it) */}
+      {createPortal(
       <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+        ref={headerRef}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="sticky top-0 z-20"
+        className="fixed top-0 inset-x-0 z-20"
+        data-testid="chats-header"
         style={{
           background: "hsl(var(--background) / 0.97)",
           backdropFilter: "blur(28px) saturate(160%)",
@@ -770,6 +814,25 @@ const Chats = () => {
                 {totalUnread > 0 ? `${totalUnread} unread message${totalUnread > 1 ? "s" : ""}` : "Messages & more"}
               </p>
             </div>
+            {storyPeek.length > 0 && (
+              <div
+                ref={storiesStackRef}
+                role="button"
+                aria-label="Show stories"
+                data-testid="stories-stack"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="flex items-center -space-x-2.5 cursor-pointer origin-left"
+                style={{ opacity: 0, pointerEvents: "none" }}
+              >
+                {storyPeek.slice(0, 3).map(g => (
+                  <div key={g.user_id} className="rounded-full p-[1.5px] bg-gradient-primary">
+                    <div className="rounded-full p-[1.5px] bg-background">
+                      <ChatAvatar name={g.name} src={g.avatar_url || undefined} size="xs" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -789,22 +852,15 @@ const Chats = () => {
           </div>
         </div>
 
-        {/* Collapsible: Search + Stories */}
-        <div
-          data-testid="collapsible-header"
-          aria-hidden={headerCollapsed}
-          className="overflow-hidden transition-[height,opacity] duration-200 ease-out motion-reduce:transition-none"
-          style={{ height: headerCollapsed ? 0 : collapsibleHeight || "auto", opacity: headerCollapsed ? 0 : 1 }}
-        >
-          <div
-            ref={collapsibleRef}
-            className="transition-transform duration-200 ease-out motion-reduce:transition-none will-change-transform"
-            style={{ transform: headerCollapsed ? "translateY(-16px)" : "translateY(0)" }}
-          >
-            <div className="px-4 pb-3">
+        {/* Collapsible: Stories + Search (scroll-linked, Telegram-style) */}
+        <div ref={collapseWrapRef} data-testid="collapsible-header" className="overflow-hidden">
+          <div ref={collapseInnerRef} className="will-change-transform">
+            <div ref={storiesWrapRef} data-testid="collapsible-stories">
+              <StoriesBar onGroupsChange={setStoryPeek} />
+            </div>
+            <div ref={searchWrapRef} className="px-4 pb-3" data-testid="collapsible-search">
               <button
                 onClick={() => setSearchActive(true)}
-                tabIndex={headerCollapsed ? -1 : 0}
                 className="w-full flex items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left transition-all active:scale-[0.98]"
                 style={{ background: "hsl(var(--muted) / 0.8)", border: "1px solid hsl(var(--border) / 0.5)" }}
                 data-testid="input-chat-search"
@@ -813,7 +869,6 @@ const Chats = () => {
                 <span className="text-[14px] text-muted-foreground/50 flex-1">Search chats…</span>
               </button>
             </div>
-            <StoriesBar />
           </div>
         </div>
       <div>
@@ -894,6 +949,8 @@ const Chats = () => {
       )}
       </div>
       </motion.div>
+      , document.body)}
+      <div aria-hidden style={{ height: headerSpacer }} data-testid="chats-header-spacer" />
 
       {/* Chat List */}
       {conversations.length === 0 && isLoading ? (
