@@ -141,6 +141,13 @@
       "when": 1792743135605,
       "tag": "0019_stage7_notification_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792747728508,
+      "tag": "0020_crypto_deposits",
+      "breakpoints": true
     }
   ]
 }

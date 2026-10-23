@@ -410,6 +410,45 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_deposits: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          id: string
+          invoice_url: string | null
+          pay_currency: string | null
+          provider_invoice_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          wallet_transaction_id: string
+        }
+        Insert: {
+          amount_usd: number
+          created_at?: string
+          id?: string
+          invoice_url?: string | null
+          pay_currency?: string | null
+          provider_invoice_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          wallet_transaction_id: string
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          id?: string
+          invoice_url?: string | null
+          pay_currency?: string | null
+          provider_invoice_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wallet_transaction_id?: string
+        }
+        Relationships: []
+      }
       device_tokens: {
         Row: {
           created_at: string
@@ -2405,6 +2444,23 @@ export type Database = {
           stars_added: number
           success: boolean
         }[]
+      }
+      crypto_deposit_attach: {
+        Args: { p_invoice: string; p_order: string; p_url: string }
+        Returns: undefined
+      }
+      crypto_deposit_open: {
+        Args: { p_amount: number; p_device: string; p_key: string }
+        Returns: Json
+      }
+      crypto_deposit_settle: {
+        Args: {
+          p_order: string
+          p_pay_currency: string
+          p_price: number
+          p_status: string
+        }
+        Returns: Json
       }
       decode_attachment_path: { Args: { p_path: string }; Returns: string }
       etok_are_friends: {
