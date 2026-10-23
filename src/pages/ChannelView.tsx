@@ -29,7 +29,10 @@ import {
   deleteChannel, updateChannel, subscribeToChannel, unsubscribeFromChannel,
   isSubscribed, getSubscriberCount, addReaction, removeReaction,
   pinMessage, unpinMessage, type Channel, type ChannelMessage,
+  getChannelComments, syncChannelComments, sendChannelComment, deleteChannelComment,
+  setChannelCommentsEnabled, type ChannelComment,
 } from "@/lib/channelService";
+
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -124,14 +127,17 @@ interface PostContextMenuProps {
   channelId: string;
   isOwner: boolean;
   isPinned: boolean;
+  commentsEnabled: boolean;
   onClose: () => void;
   onPin: () => void;
   onDelete: () => void;
   onForward: () => void;
   onSave: () => void;
+  onToggleComments: () => void;
 }
 
-const PostContextMenu = ({ message, isOwner, isPinned, onClose, onPin, onDelete, onForward, onSave }: PostContextMenuProps) => (
+
+const PostContextMenu = ({ message, isOwner, isPinned, commentsEnabled, onClose, onPin, onDelete, onForward, onSave, onToggleComments }: PostContextMenuProps) => (
   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     className="fixed inset-0 z-50 flex flex-col justify-end" onClick={onClose}>
     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -149,7 +155,9 @@ const PostContextMenu = ({ message, isOwner, isPinned, onClose, onPin, onDelete,
           { icon: Forward, label: "Forward", action: onForward },
           { icon: Bookmark, label: "Save", action: onSave },
           { icon: isPinned ? PinOff : Pin, label: isPinned ? "Unpin" : "Pin", action: onPin, show: isOwner },
+          { icon: MessageCircle, label: commentsEnabled ? "Comments off" : "Comments on", action: onToggleComments, show: isOwner },
           { icon: Trash2, label: "Delete", action: onDelete, show: isOwner, destructive: true },
+
         ].filter(a => a.show !== false).map(action => {
           const Icon = action.icon;
           return (
@@ -190,7 +198,12 @@ const ChannelView = () => {
   const [showScheduled, setShowScheduled] = useState(false);
   const [postType, setPostType] = useState<"text" | "announcement">("text");
   const [busy, setBusy] = useState(false);
+  const [commentsPost, setCommentsPost] = useState<ChannelMessage | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [commentBusy, setCommentBusy] = useState(false);
+  const commentLock = useRef(false);
   const sendLock = useRef(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isOwner = channel?.createdBy === userId;
@@ -212,6 +225,8 @@ const ChannelView = () => {
 
   const syncVersion = useChannelSync(id);
   useEffect(() => { reload(); }, [id, userId, syncVersion]);
+  useEffect(() => { if (commentsPost) void syncChannelComments(commentsPost.id).catch(() => {}); }, [commentsPost, syncVersion]);
+
   useEffect(() => { if (id) recordChannelViews(id); }, [id]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
@@ -234,6 +249,18 @@ const ChannelView = () => {
   const handleDeleteMessage = async (msgId: string) => { if (!id) return; try { await deleteChannelMessage(id,msgId); reload(); } catch { toast.error('Could not delete post'); } };
   const handlePin = async (msgId: string) => { if (!id) return; try { if (channel?.pinnedMessageId === msgId) await unpinMessage(id); else await pinMessage(id,msgId); reload(); } catch { toast.error('Could not change pinned post'); } };
   const handleEditSave = async () => { if (!id || !editName.trim()) return; try { await updateChannel(id,{ name: editName.trim(),description: editDescription.trim() }); setEditDialogOpen(false); reload(); } catch { toast.error('Could not save changes'); } };
+  const openComments = (msg: ChannelMessage) => { setCommentsPost(msg); setCommentText(""); void syncChannelComments(msg.id).catch(() => toast.error('Could not load comments')); };
+  const handleSendComment = async () => {
+    if (!commentsPost || !id || commentLock.current) return;
+    const text = commentText.trim(); if (!text) return;
+    commentLock.current = true; setCommentBusy(true);
+    try { await sendChannelComment(id, commentsPost.id, text); setCommentText(""); }
+    catch { toast.error('Could not send comment'); }
+    finally { commentLock.current = false; setCommentBusy(false); }
+  };
+  const handleDeleteComment = async (commentId: string) => { if (!commentsPost || !id) return; try { await deleteChannelComment(id, commentsPost.id, commentId); } catch { toast.error('Could not delete comment'); } };
+  const handleToggleComments = async (msg: ChannelMessage) => { if (!id) return; try { await setChannelCommentsEnabled(id, msg.id, msg.commentsEnabled === false); reload(); } catch { toast.error('Could not change comments'); } };
+
 
   if (!channel) {
     return (
@@ -398,7 +425,12 @@ const ChannelView = () => {
               <ReactionBar message={msg} channelId={id ?? ""} userId={userId ?? ""} onReacted={reload} />
               <div className="flex items-center gap-3 mt-2 text-muted-foreground">
                 <div className="flex items-center gap-1"><Eye className="h-3 w-3" /><span className="text-[11px]">{formatCount(msg.views)}</span></div>
-                <div className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /><span className="text-[11px]">0</span></div>
+                {msg.commentsEnabled && (
+                  <button onClick={() => openComments(msg)} className="flex items-center gap-1 hover:text-foreground transition-colors" data-testid={`button-comments-${msg.id}`}>
+                    <MessageCircle className="h-3 w-3" /><span className="text-[11px]">{formatCount(msg.commentsCount)}</span>
+                  </button>
+                )}
+
                 <button onClick={() => { navigator.clipboard.writeText(msg.content); toast.success("Copied"); }}
                   className="flex items-center gap-1 hover:text-foreground transition-colors ml-auto">
                   <Forward className="h-3.5 w-3.5" /><span className="text-[11px]">Forward</span>
@@ -528,12 +560,15 @@ const ChannelView = () => {
             channelId={id ?? ""}
             isOwner={isOwner}
             isPinned={channel.pinnedMessageId === contextMsg.id}
+            commentsEnabled={contextMsg.commentsEnabled}
             onClose={() => setContextMsg(null)}
             onPin={() => { handlePin(contextMsg.id); setContextMsg(null); }}
             onDelete={() => { handleDeleteMessage(contextMsg.id); setContextMsg(null); }}
             onForward={() => { navigator.clipboard.writeText(contextMsg.content); toast.success("Copied for forwarding"); setContextMsg(null); }}
             onSave={() => { toast.info("Channel bookmarks are not available yet"); setContextMsg(null); }}
+            onToggleComments={() => { handleToggleComments(contextMsg); setContextMsg(null); }}
           />
+
         )}
       </AnimatePresence>
 
