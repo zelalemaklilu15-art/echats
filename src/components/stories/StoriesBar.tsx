@@ -122,7 +122,7 @@ function getTimeAgo(dateStr: string): string {
 // STORIES BAR (horizontal scroll)
 // =============================================
 
-export function StoriesBar() {
+export function StoriesBar({ onGroupsChange }: { onGroupsChange?: (groups: { user_id: string; name: string; avatar_url: string | null }[]) => void } = {}) {
   const viewerEpoch = useViewerEpoch();
   const generation = useRef(0);
   const { userId } = useAuth();
@@ -180,6 +180,12 @@ export function StoriesBar() {
   }, [userId, viewerEpoch]);
 
   useEffect(() => { setStoryGroups([]); setMyStoryGroup(null); setShowViewer(false); setShowCreator(false); void loadStories(); return () => { generation.current += 1; }; }, [loadStories]);
+
+  const groupsCbRef = useRef(onGroupsChange);
+  groupsCbRef.current = onGroupsChange;
+  useEffect(() => {
+    groupsCbRef.current?.(storyGroups.map(g => ({ user_id: g.user_id, name: g.name, avatar_url: g.avatar_url })));
+  }, [storyGroups]);
 
   const openViewer = (groupIdx: number) => {
     setCurrentGroupIndex(groupIdx);
