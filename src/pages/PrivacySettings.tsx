@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { callEmailTwoStep, twoStepMessage } from "@/lib/emailTwoStep";
 import { getPrivacySettings, updatePrivacySettings, type PrivacySettings as PrivacySettingsType } from "@/lib/privacyService";
 import { getBlockedUsers, unblockUser } from "@/lib/blockService";
 import { getGhostMode, setGhostMode, type GhostModeSettings } from "@/lib/ghostModeService";
