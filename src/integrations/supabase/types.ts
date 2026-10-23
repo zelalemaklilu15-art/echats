@@ -262,9 +262,53 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_post_comments: {
+        Row: {
+          author_id: string
+          channel_id: string
+          created_at: string
+          id: string
+          post_id: string
+          text: string
+        }
+        Insert: {
+          author_id: string
+          channel_id: string
+          created_at?: string
+          id?: string
+          post_id: string
+          text: string
+        }
+        Update: {
+          author_id?: string
+          channel_id?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_post_comments_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "channel_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "channel_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_posts: {
         Row: {
           channel_id: string
+          comments_count: number
+          comments_enabled: boolean
           content: string
           created_at: string
           edited: boolean
@@ -277,6 +321,8 @@ export type Database = {
         }
         Insert: {
           channel_id: string
+          comments_count?: number
+          comments_enabled?: boolean
           content?: string
           created_at?: string
           edited?: boolean
@@ -289,6 +335,8 @@ export type Database = {
         }
         Update: {
           channel_id?: string
+          comments_count?: number
+          comments_enabled?: boolean
           content?: string
           created_at?: string
           edited?: boolean
@@ -2496,10 +2544,24 @@ export type Database = {
           used: number
         }[]
       }
+      get_channel_post_comments: {
+        Args: { p_post_id: string }
+        Returns: {
+          author_id: string
+          author_name: string
+          body: string
+          channel_id: string
+          created_at: string
+          id: string
+          post_id: string
+        }[]
+      }
       get_channel_posts_page: {
         Args: { p_before?: string; p_before_id?: string; p_channel_id: string }
         Returns: {
           channel_id: string
+          comments_count: number
+          comments_enabled: boolean
           content: string
           created_at: string
           edited: boolean
@@ -2515,6 +2577,8 @@ export type Database = {
         Args: { p_channel_id: string }
         Returns: {
           channel_id: string
+          comments_count: number
+          comments_enabled: boolean
           content: string
           created_at: string
           edited: boolean
