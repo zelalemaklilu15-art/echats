@@ -378,18 +378,32 @@ const Chats = () => {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  const collapsedRef = useRef(false);
+  const heightRef = useRef(0);
+  useEffect(() => { heightRef.current = collapsibleHeight; }, [collapsibleHeight]);
   useEffect(() => {
-    let last = window.scrollY, ticking = false;
+    let last = window.scrollY, ticking = false, acc = 0, lockUntil = 0;
+    const set = (v: boolean) => {
+      if (collapsedRef.current === v) return;
+      collapsedRef.current = v;
+      lockUntil = performance.now() + 320;
+      setHeaderCollapsed(v);
+    };
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        const y = window.scrollY;
-        if (y < 24) setHeaderCollapsed(false);
-        else if (y - last > 8) setHeaderCollapsed(true);
-        else if (last - y > 8) setHeaderCollapsed(false);
-        if (Math.abs(y - last) > 8 || y < 24) last = y;
         ticking = false;
+        const y = window.scrollY;
+        const dy = y - last;
+        last = y;
+        if (performance.now() < lockUntil) { acc = 0; return; }
+        const h = heightRef.current || 160;
+        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+        if (y < 24 || scrollable < h + 80) { acc = 0; set(false); return; }
+        acc = (acc > 0) === (dy > 0) ? acc + dy : dy;
+        if (acc > 12 && y > h) { acc = 0; set(true); }
+        else if (acc < -40) { acc = 0; set(false); }
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
