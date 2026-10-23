@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
   const userClient = createClient(url, anon, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } });
   const { data: { user } } = await userClient.auth.getUser();
   const sessionId = sessionIdOf(token);
-  if (!user || !user.email || !sessionId) return reply({ ok: false, error: 'UNAUTHORIZED' }, 401);
+  if (!user || !user.email) return reply({ ok: false, error: 'UNAUTHORIZED' }, 401);
 
   let body: { action?: string; code?: string; purpose?: string } = {};
   try { body = await req.json(); } catch { return reply({ ok: false, error: 'INVALID' }, 400); }
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
 
   const { data: settings } = await admin.from('user_2fa_settings').select('enabled').eq('user_id', user.id).maybeSingle();
   const enabled = !!settings?.enabled;
-  const { data: ver } = await admin.from('session_2fa_verifications').select('session_id').eq('session_id', sessionId).eq('user_id', user.id).maybeSingle();
+  const { data: ver } = await admin.from('session_2fa_verifications').select('session_id').eq('session_id', sessionId ?? '00000000-0000-0000-0000-000000000000').eq('user_id', user.id).maybeSingle();
 
   if (action === 'status') return reply({ ok: true, enabled, verified: !enabled || !!ver, email: user.email });
 
@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
   }
 
   if (action === 'verify') {
+    if (!sessionId) return reply({ ok: false, error: 'UNAUTHORIZED' }, 401);
     const purpose = body.purpose;
     if (!['login', 'enable', 'disable'].includes(purpose ?? '')) return reply({ ok: false, error: 'INVALID' }, 400);
     if (fails >= MAX_FAILS) return reply({ ok: false, error: 'LOCKED' });
