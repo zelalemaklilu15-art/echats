@@ -10,6 +10,9 @@ type AuthContextValue = {
   authState: AuthState;
   user: User | null;
   userId: string | null;
+  /** Signed in with password/OAuth but a TOTP second step is still required. */
+  needsMfa: boolean;
+  clearMfa: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
