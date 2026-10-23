@@ -368,6 +368,33 @@ const RecentContactCircle = ({ chat, onClick }: { chat: Chat; onClick: () => voi
 
 const Chats = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [collapsibleHeight, setCollapsibleHeight] = useState(0);
+  const collapsibleRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = collapsibleRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setCollapsibleHeight(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    let last = window.scrollY, ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (y < 24) setHeaderCollapsed(false);
+        else if (y - last > 8) setHeaderCollapsed(true);
+        else if (last - y > 8) setHeaderCollapsed(false);
+        if (Math.abs(y - last) > 8 || y < 24) last = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [searching, setSearching] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [searchTab, setSearchTab] = useState<SearchTab>("chats");
@@ -775,8 +802,7 @@ const Chats = () => {
             <StoriesBar />
           </div>
         </div>
-      </motion.div>
-      <div className="bg-background">
+      <div>
 
 
 
@@ -853,6 +879,7 @@ const Chats = () => {
         </div>
       )}
       </div>
+      </motion.div>
 
       {/* Chat List */}
       {conversations.length === 0 && isLoading ? (
