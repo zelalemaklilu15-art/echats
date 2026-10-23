@@ -33,3 +33,9 @@
   - [ ] 6e. Real host-to-viewer Live audio/video and reconnect on two physical phones; blocked by access to user-held devices. Browser capture used simulated camera/microphone, not two-phone delivery.
 - [x] 7. Notifications & privacy — settings now obeyed by server (messages/groups/missed calls/preview), Story alerts only to its audience, eTok new-video alerts fixed. Lock-screen check on two phones pending.
 - [x] 8. Design & mobile — 51 pages swept at phone size: no overflow or errors; repeated "Login successful" and faded Features banner fixed.
+
+## Telegram parity features
+- [x] Two-step verification enforced at sign-in: 6-digit authenticator gate before any screen opens; disabling 2FA requires the code.
+- [x] Channel post comments: server-owned counters and authorization, comment panel with delete, owner comments on/off switch, push alerts to the post author and channel owner.
+- [ ] Shareable folder links: move chat folders off this device into the database, then add invite links (private chats excluded at the database level).
+
