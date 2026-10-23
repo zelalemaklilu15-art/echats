@@ -148,6 +148,13 @@
       "when": 1792747728508,
       "tag": "0020_crypto_deposits",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792755741263,
+      "tag": "0021_fix_wallet_pin_search_path",
+      "breakpoints": true
     }
   ]
 }
