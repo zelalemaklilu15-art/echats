@@ -1,19 +1,20 @@
-# Android APK (Capacitor) update
+# መተግበሪያውን ለ Android APK ወደ Capacitor ማዘጋጀት
 
-The app already has Capacitor set up (Echat, `com.echat.app`). This brings everything up to date with all recent changes and makes GitHub build the APK automatically.
+መተግበሪያው Capacitor በከፊል አለው (ስም: Echat)። አሁን ሙሉውን አዘምኜ ለ Android APK ልማት ዝግጁ አደርገዋለሁ፣ GitHub ላይም APK በራሱ እንዲሰራ አደርጋለሁ።
 
-## What will be done
-1. Check the Android setup matches the current app: new Echat logo as the app icon and splash screen, dark splash color, app name "Echat".
-2. Make sure the APK includes the latest app (chat, calls, wallet PIN, crypto, eTok, notifications, new Chats header) — the APK packs the built app, not the preview link.
-3. Add an automatic GitHub build: every time changes reach GitHub, it builds a fresh APK you can download from the GitHub "Actions" page (no computer needed).
-4. Android permissions for camera, microphone, notifications and internet so calls and push work.
-5. Nothing in the web app changes.
+## የምሰራቸው
+1. የ Android ቅንብሩን ከአሁኑ መተግበሪያ ጋር ማስተካከል፦ አዲሱ Echat logo እንደ መተግበሪያ ምልክት (icon) እና መክፈቻ ገፅ (splash)፣ ጥቁር የመክፈቻ ቀለም፣ ስም "Echat"።
+2. APK ውስጥ የቅርብ ጊዜ ለውጦች በሙሉ እንዲካተቱ፦ ቻት፣ voice/video call፣ wallet PIN፣ crypto፣ eTok፣ ማሳወቂያዎች፣ አዲሱ የቻት ገፅ ላይኛው ክፍል። APK የሚይዘው ራሱ መተግበሪያውን ነው እንጂ የ preview ሊንክ አይደለም።
+3. GitHub ላይ ራስ-ሰር APK መስሪያ፦ ለውጥ GitHub በደረሰ ቁጥር አዲስ APK ይሰራል፣ ከ GitHub "Actions" ገፅ ታወርደዋለህ (ኮምፒውተር አያስፈልግም)።
+4. የ Android ፈቃዶች፦ ካሜራ፣ ማይክሮፎን፣ ማሳወቂያ፣ ኢንተርኔት — ጥሪዎችና ማሳወቂያዎች እንዲሰሩ።
+5. የድር (web) መተግበሪያው ምንም አይቀየርም።
 
-## What you'll need to do
-- GitHub sync sends my changes automatically. After it finishes, open your repo → Actions → latest run → download `echat-apk`.
-- For push notifications in the APK, the Firebase `google-services.json` file must be added (as a GitHub secret). I'll tell you exactly where.
+## አንተ የምትሰራው
+- ለውጦቼ በራሳቸው ወደ GitHub ይሄዳሉ። ከዛ repo → Actions → የመጨረሻው → `echat-apk` አውርድ።
+- በ APK ውስጥ push ማሳወቂያ እንዲሰራ የ Firebase `google-services.json` ፋይል እንደ GitHub secret መጨመር አለበት፤ የት እንደምታስገባው በትክክል እነግርሃለሁ።
+- Android Studio ውስጥ ልማት መቀጠል ከፈለግህ፦ repo pull → `npm install` → `npm run build` → `npx cap sync android` → `npx cap open android`።
 
-## Technical details
-- `.github/workflows/android.yml`: Node + JDK 21, `npm ci`, `npm run build`, `npx cap add android` (if missing), `npx @capacitor/assets generate --android` from `src/assets/echat-logo.png`, inject permissions into AndroidManifest, write `google-services.json` from secret `GOOGLE_SERVICES_JSON` if set, `./gradlew assembleDebug`, upload artifact.
-- `resources/icon.png`, `resources/splash.png` from the logo.
-- Debug-signed APK (installable); release signing can be added later with a keystore.
+## ቴክኒካዊ ዝርዝር
+- `.github/workflows/android.yml`: Node + JDK 21, `npm ci`, `npm run build`, `npx cap add android` (ከሌለ), `@capacitor/assets` ከ logo icon/splash, AndroidManifest ፈቃዶች, `GOOGLE_SERVICES_JSON` secret ካለ, `./gradlew assembleDebug`, artifact upload።
+- `resources/icon.png`, `resources/splash.png` ከ logo።
+- Debug-signed APK (መጫን ይቻላል)፤ ለ Play Store release signing በኋላ በ keystore ይጨመራል።
