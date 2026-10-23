@@ -485,6 +485,7 @@ const Chats = () => {
   
   const { chats, loading, totalUnread } = useChatList();
   const currentUserId = chatStore.getCurrentUserId();
+  const { profile: myProfile } = useProfile(currentUserId || "");
 
   const refreshFolders = useCallback(() => {
     setFolders(getChatFolders());
@@ -799,7 +800,7 @@ const Chats = () => {
               className="cursor-pointer relative flex-shrink-0"
             >
               <div className="relative">
-                <ChatAvatar name="You" size="md" status="online" />
+                <ChatAvatar name={myProfile?.name || myProfile?.username || "?"} src={myProfile?.avatar_url || undefined} size="md" status="online" />
                 {totalUnread > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
