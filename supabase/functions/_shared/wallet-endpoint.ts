@@ -17,6 +17,8 @@ export function serveWalletOperation(rpc: string, args: (body: Record<string, un
       });
       const { data: { user }, error: authError } = await client.auth.getUser();
       if (authError || !user) return reply({ success: false, error: 'Unauthorized' }, 401);
+      const { data: twoFaOk } = await client.rpc('is_session_2fa_ok');
+      if (twoFaOk !== true) return reply({ success: false, error: 'TWO_STEP_REQUIRED' });
       const body = await req.json();
       if (!body || typeof body !== 'object' || Array.isArray(body)) return reply({ success: false, error: 'Invalid request' }, 400);
       const { data, error } = await client.rpc(rpc, args(body, req));

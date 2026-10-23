@@ -124,7 +124,7 @@ const guard = (isAuthenticated: boolean, El: JSX.Element, withTransition = true)
 };
 
 const AppRoutes = () => {
-  const { authState, user, needsMfa, clearMfa } = useAuth();
+  const { authState, user, needsMfa, mfaMode, clearMfa } = useAuth();
   const viewerEpoch = useViewerEpoch();
   const viewerKey = `${user?.id ?? "signed-out"}:${viewerEpoch}`;
   const location = useLocation();
@@ -224,7 +224,7 @@ const AppRoutes = () => {
   }
 
   if (isAuthenticated && needsMfa) {
-    return <MfaChallengeScreen onVerified={clearMfa} />;
+    return <MfaChallengeScreen onVerified={clearMfa} mode={mfaMode} email={user?.email} />;
   }
 
   const isEtokRoute = location.pathname.startsWith("/etok");
