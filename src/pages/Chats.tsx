@@ -946,6 +946,7 @@ const Chats = () => {
       )}
       </div>
       </motion.div>
+      <div aria-hidden style={{ height: headerSpacer }} data-testid="chats-header-spacer" />
 
       {/* Chat List */}
       {conversations.length === 0 && isLoading ? (
