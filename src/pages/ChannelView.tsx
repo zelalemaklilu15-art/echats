@@ -572,7 +572,64 @@ const ChannelView = () => {
         )}
       </AnimatePresence>
 
+      {/* ── Comments Sheet ── */}
+      <Sheet open={!!commentsPost} onOpenChange={open => { if (!open) { setCommentsPost(null); setCommentText(""); } }}>
+        <SheetContent side="bottom" className="h-[72vh] rounded-t-3xl p-0 flex flex-col gap-0">
+          <SheetHeader className="sr-only"><SheetTitle>Comments</SheetTitle></SheetHeader>
+          {commentsPost && (
+            <>
+              <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-border/50">
+                <p className="text-[13px] font-bold text-foreground flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-primary" /> Comments
+                  <span className="text-[11px] font-medium text-muted-foreground">{getChannelComments(commentsPost.id).length}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate mt-1">{commentsPost.content}</p>
+              </div>
+              <div className="flex-1 overflow-y-auto py-2">
+                {getChannelComments(commentsPost.id).length === 0 ? (
+                  <p className="text-center text-muted-foreground text-[13px] py-10">No comments yet. Be the first.</p>
+                ) : getChannelComments(commentsPost.id).map((c: ChannelComment) => (
+                  <div key={c.id} className="flex items-start gap-2.5 px-4 py-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-[12px] shrink-0">
+                      {(c.authorName || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-semibold text-foreground">
+                        {c.authorName}
+                        <span className="text-[10px] text-muted-foreground font-normal ml-1.5">{format(new Date(c.createdAt), "MMM d · h:mm a")}</span>
+                      </p>
+                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-wrap break-words">{c.text}</p>
+                    </div>
+                    {(c.authorId === userId || isOwner) && (
+                      <button onClick={() => handleDeleteComment(c.id)} className="text-muted-foreground hover:text-destructive p-1" aria-label="Delete comment">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex-shrink-0 border-t border-border/50 px-4 py-3 flex items-end gap-2">
+                <Textarea
+                  placeholder="Write a comment..."
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendComment(); } }}
+                  className="resize-none rounded-2xl bg-muted/60 border-border/50 text-[14px] min-h-[44px] max-h-[120px] py-3 flex-1"
+                  rows={1}
+                  data-testid="input-comment"
+                />
+                <Button size="icon" onClick={handleSendComment} disabled={!commentText.trim() || commentBusy}
+                  className="rounded-xl h-9 w-9 text-white" style={{ background: "var(--gradient-primary)" }} data-testid="button-send-comment">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* ── Schedule Post Dialog ── */}
+
       <Dialog open={scheduledOpen} onOpenChange={setScheduledOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle className="flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" /> Schedule Post</DialogTitle></DialogHeader>
