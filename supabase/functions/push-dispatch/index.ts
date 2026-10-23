@@ -43,7 +43,9 @@ const GENERIC: Record<string, [string | null, string]> = {
   etok_follow: ['eTok', 'New follower'],
   etok_video: ['eTok', 'New video'],
   etok_live: ['eTok', 'Someone is live'],
+  channel_comment: ['Channel', 'New comment'],
 };
+
 
 // Recipient-owned switches from Notification settings (server-side copy).
 const PREF_FOR: Record<string, 'messages' | 'groups' | 'calls'> = {
@@ -194,6 +196,18 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
         tag: `channel-${r.channel_id}`, url: `/channel/${r.channel_id}`, data: { type: 'channel_post', channelId: r.channel_id },
       });
     }
+    case 'channel_post_comments': {
+      const [{ data: ch }, { data: post }] = await Promise.all([
+        db.from('channels').select('name, created_by').eq('id', r.channel_id).maybeSingle(),
+        db.from('channel_posts').select('sender_id').eq('id', r.post_id).maybeSingle(),
+      ]);
+      const targets = [...new Set([post?.sender_id, ch?.created_by].filter(Boolean) as string[])];
+      return send(targets, r.author_id, {
+        title: ch?.name || 'Channel', body: `${await nameOf(r.author_id)} commented: ${clip(r.text, 100)}`,
+        tag: `channel-comment-${r.post_id}`, url: `/channel/${r.channel_id}`, data: { type: 'channel_comment', channelId: r.channel_id, postId: r.post_id },
+      });
+    }
+
     case 'payment_requests': {
       const amt = `${Number(r.amount).toLocaleString()} ETB`;
       if (op === 'INSERT') {

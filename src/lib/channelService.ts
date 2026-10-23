@@ -26,17 +26,32 @@ export interface ChannelMessage {
   reactions: Record<string, string[]>;
   forwarded?: boolean;
   forwardedFrom?: string;
+  commentsEnabled: boolean;
+  commentsCount: number;
 }
+
+export interface ChannelComment {
+  id: string;
+  postId: string;
+  channelId: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  createdAt: string;
+}
+
 
 // Authorized content and identities never survive account/access changes on disk.
 const channels = new Map<string, Channel>();
 const posts = new Map<string, ChannelMessage[]>();
+const comments = new Map<string, ChannelComment[]>();
+
 const subscriptions = new Set<string>();
 export const CHANNELS_SYNC_EVENT = 'echat:channels-sync';
 const emit = () => window.dispatchEvent(new Event(CHANNELS_SYNC_EVENT));
 let identityViewer: string | null = null;
 let accessGeneration = 0;
-const invalidate = () => { accessGeneration += 1; channels.clear(); posts.clear(); subscriptions.clear(); emit(); };
+const invalidate = () => { accessGeneration += 1; channels.clear(); posts.clear(); comments.clear(); subscriptions.clear(); emit(); };
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED') return;
   const next = session?.user.id ?? null;
@@ -69,7 +84,13 @@ const channelToRow = (c: Channel) => ({
 const rowToMessage = (r: any): ChannelMessage => ({
   id: r.id, channelId: r.channel_id, content: r.content, senderId: r.sender_id, senderName: r.sender_name,
   createdAt: r.created_at, type: r.type, views: r.views, edited: r.edited, reactions: r.reactions || {},
+  commentsEnabled: r.comments_enabled !== false, commentsCount: r.comments_count ?? 0,
 });
+const rowToComment = (r: any): ChannelComment => ({
+  id: r.id, postId: r.post_id, channelId: r.channel_id, authorId: r.author_id,
+  authorName: r.author_name ?? 'Hidden profile', text: r.body ?? '', createdAt: r.created_at,
+});
+
 const messageToRow = (m: ChannelMessage) => ({
   id: m.id, channel_id: m.channelId, sender_id: m.senderId, sender_name: '',
   content: m.content || '', type: m.type || 'text', created_at: m.createdAt,
@@ -141,6 +162,34 @@ export async function unsubscribeFromChannel(channelId: string, userId: string):
 export function isSubscribed(channelId: string,userId: string): boolean { return userId === identityViewer && subscriptions.has(channelId); }
 export function getSubscriberCount(id: string): number { return getChannel(id)?.subscriberCount ?? 0; }
 export function getChannelMessages(id: string): ChannelMessage[] { return posts.get(id) ?? []; }
+export async function syncChannelComments(postId: string): Promise<void> {
+  const owner = await viewer();
+  const { data, error } = await db.rpc('get_channel_post_comments', { p_post_id: postId });
+  await check({ data, error });
+  if (owner.generation !== accessGeneration) return;
+  comments.set(postId, (data ?? []).map(rowToComment));
+  emit();
+}
+export function getChannelComments(postId: string): ChannelComment[] { return comments.get(postId) ?? []; }
+export async function sendChannelComment(channelId: string, postId: string, text: string): Promise<void> {
+  const owner = await viewer();
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  await check(await db.from('channel_post_comments').insert({ post_id: postId, channel_id: channelId, author_id: owner.id, text: trimmed }).select('id'), true);
+  if (owner.generation !== accessGeneration) throw new Error('Account changed');
+  await Promise.all([syncChannelComments(postId), syncChannelMessages(channelId)]);
+}
+export async function deleteChannelComment(channelId: string, postId: string, commentId: string): Promise<void> {
+  await viewer();
+  await check(await db.from('channel_post_comments').delete().eq('id', commentId).select('id'), true);
+  await Promise.all([syncChannelComments(postId), syncChannelMessages(channelId)]);
+}
+export async function setChannelCommentsEnabled(channelId: string, postId: string, enabled: boolean): Promise<void> {
+  await viewer();
+  await check(await db.from('channel_posts').update({ comments_enabled: enabled }).eq('id', postId).eq('channel_id', channelId).select('id'), true);
+  await syncChannelMessages(channelId);
+}
+
 export async function sendChannelMessage(channelId: string,content: string,senderId: string,_senderName: string,type = 'text'): Promise<ChannelMessage> {
   const owner = await viewer(); if (owner.id !== senderId) throw new Error('Account changed');
   const message: ChannelMessage = { id: `msg_${crypto.randomUUID()}`,channelId,content,senderId,senderName: 'Hidden profile',createdAt: new Date().toISOString(),type: type as ChannelMessage['type'],views: 0,edited: false,reactions: {} };
