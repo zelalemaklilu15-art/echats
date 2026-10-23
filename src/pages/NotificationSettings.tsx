@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Bell, BellOff, Volume2, VolumeX, Vibrate, MessageSquare, Users, Phone, Check, Zap, X, Plus } from "lucide-react";
 import { isSmartNotifEnabled, setSmartNotifEnabled, getKeywords, setKeywords } from "@/lib/smartNotifService";
 import { Switch } from "@/components/ui/switch";
@@ -115,8 +116,39 @@ const NotificationSettings = () => {
     unsubscribe: disablePush,
   } = usePushNotifications();
 
+  // Load the server copy (what lock-screen notifications actually obey).
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("notification_preferences")
+        .select("messages, groups, calls, message_preview").eq("user_id", user.id).maybeSingle();
+      if (!active || !data) return;
+      setSettings(prev => {
+        const next = { ...prev, messageNotifications: data.messages, groupNotifications: data.groups,
+          callNotifications: data.calls, messagePreview: data.message_preview };
+        saveSettings(next); return next;
+      });
+    })();
+    return () => { active = false; };
+  }, []);
+
   const update = (partial: Partial<NotificationSettingsData>) => {
-    setSettings(prev => { const next = { ...prev, ...partial }; saveSettings(next); return next; });
+    setSettings(prev => {
+      const next = { ...prev, ...partial };
+      saveSettings(next);
+      void (async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { error } = await supabase.from("notification_preferences").upsert({
+          user_id: user.id, messages: next.messageNotifications, groups: next.groupNotifications,
+          calls: next.callNotifications, message_preview: next.messagePreview, updated_at: new Date().toISOString(),
+        });
+        if (error) toast.error("Could not save notification setting");
+      })();
+      return next;
+    });
   };
 
   const getSoundName = (id: string) => PRESET_SOUNDS.find(s => s.id === id)?.name || "Default";
