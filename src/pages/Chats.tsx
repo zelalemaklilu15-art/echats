@@ -429,9 +429,12 @@ const Chats = () => {
       const { stories: sH, search: qH } = dimsRef.current;
       const y = Math.max(0, window.scrollY);
       const o = offsetRef.current;
-      const stops = [0, sH, sH + qH].filter(s => s <= y);
+      const stops = [0, sH, sH + qH];
       const target = stops.reduce((a, b) => (Math.abs(b - o) < Math.abs(a - o) ? b : a), 0);
-      if (target !== o) applyOffset(target, true);
+      if (target === o) return;
+      // Header can only be collapsed as far as the page is scrolled; scroll along so it never leaves a gap.
+      if (target > y) window.scrollTo({ top: target, behavior: "smooth" });
+      else applyOffset(target, true);
     };
     const onScroll = () => {
       if (ticking) return;
