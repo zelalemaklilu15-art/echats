@@ -39,3 +39,10 @@
 - [x] Channel post comments: server-owned counters and authorization, comment panel with delete, owner comments on/off switch, push alerts to the post author and channel owner.
 - [x] Shareable folder links: durable account-scoped folders, secure group/channel invite preview and acceptance, owner revocation; 179 tests passed and signed-in create/reload/accept/revoke/delete verified. Private direct chats are excluded by the database. Legacy unscoped device folders are retained locally but not automatically assigned to an account.
 
+
+## Telegram parity — round 2
+- [~] Stage 1: Telegram-style channel page (done: share/copy post link, open-at-post links, jump-to-latest; todo: media posts, channel photo, admins, real scheduled posts, media/files/links tabs)
+- [ ] Stage 2: Saved Messages
+- [ ] Stage 3: Sticker & GIF search (needs GIF provider key)
+- [ ] Stage 4: Group voice chat
+- [ ] Stage 5: Multiple accounts
