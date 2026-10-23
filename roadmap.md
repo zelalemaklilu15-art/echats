@@ -31,5 +31,5 @@
   - [x] 6c. Channels fixes: owner-only posting/attribution, private subscription checks, newest-post pagination and synchronized viewer caches; signed-in create/post/reload/delete verified.
   - [x] 6d. Regression tests and signed-in checks: private eTok upload/reload/playback, comments/replies, favorite/QR, Story publish/view/delete and Channel reload persistence; Live capture/playback/end confirmed in stored state. Audit artifacts cleaned; private media buckets/policies verified.
   - [ ] 6e. Real host-to-viewer Live audio/video and reconnect on two physical phones; blocked by access to user-held devices. Browser capture used simulated camera/microphone, not two-phone delivery.
-- [ ] 7. Notifications & privacy
+- [x] 7. Notifications & privacy — settings now obeyed by server (messages/groups/missed calls/preview), Story alerts only to its audience, eTok new-video alerts fixed. Lock-screen check on two phones pending.
 - [ ] 8. Design & mobile
