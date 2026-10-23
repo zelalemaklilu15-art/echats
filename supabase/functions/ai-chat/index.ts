@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateAttachments, checkAttachmentFile } from "../_shared/aiAttachments.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,6 +66,14 @@ serve(async (req) => {
       });
     }
 
+    const attachments = validateAttachments(body.attachments, claimsData.claims.sub as string);
+    if (typeof attachments === "string") {
+      return new Response(JSON.stringify({ error: attachments }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -95,11 +104,50 @@ serve(async (req) => {
     }
     const remaining = quota.is_premium ? -1 : Math.max(0, quota.daily_limit - quota.used);
 
+    // -------- Load attachments (owner-checked paths) into the last user message --------
+    const parts: any[] = [];
+    for (const a of attachments) {
+      const { data: blob, error: dlErr } = await admin.storage.from("ai-attachments").download(a.path);
+      if (dlErr || !blob) {
+        return new Response(JSON.stringify({ error: `Could not read ${a.name}` }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const bad = checkAttachmentFile(a.mime, blob.size);
+      if (bad) {
+        return new Response(JSON.stringify({ error: `${a.name}: ${bad}` }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      if (a.mime.startsWith("text/")) {
+        parts.push({ type: "input_text", text: `[File: ${a.name}]\n${new TextDecoder().decode(bytes).slice(0, 60_000)}` });
+      } else if (a.mime.includes("wordprocessingml")) {
+        try {
+          const mammoth = await import("npm:mammoth@1.8.0");
+          const { value } = await mammoth.extractRawText({ buffer: bytes });
+          parts.push({ type: "input_text", text: `[File: ${a.name}]\n${String(value).slice(0, 60_000)}` });
+        } catch (e) {
+          console.error("docx extract failed", e);
+          return new Response(JSON.stringify({ error: `Could not read ${a.name}` }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        let bin = "";
+        for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        const dataUrl = `data:${a.mime};base64,${btoa(bin)}`;
+        parts.push(a.mime === "application/pdf"
+          ? { type: "input_file", filename: a.name, file_data: dataUrl }
+          : { type: "input_image", image_url: dataUrl });
+      }
+    }
+
     // -------- Complexity routing (no extra AI call) --------
     const last = messages[messages.length - 1]?.content || "";
     const complexRe = /```|\b(code|function|debug|error|bug|sql|python|javascript|typescript|react|algorithm|prove|proof|calculate|equation|analy[sz]e|analysis|business plan|contract|legal|law|tax|invest|transfer|payment|finance|essay|report|strategy|compare|explain why)\b|ኮድ|ህግ|ሕግ|ገንዘብ|ክፍያ|ትንተና|ዝውውር/i;
     const complexity: "simple" | "complex" = last.length > 400 || complexRe.test(last) ? "complex" : "simple";
-    const effort = complexity === "simple" ? "low" : (last.length > 1500 ? "high" : "medium");
+    const effort = complexity === "simple" && !parts.length ? "low" : (last.length > 1500 ? "high" : "medium");
     const MODEL = "openai/gpt-6-astra";
 
     const systemPrompt = `You are **Echat AI** — the official, built-in AI assistant of the **Echat** mobile super-app. You were created by the Echat team and you live INSIDE the Echat app. You are NOT ChatGPT, Gemini, or Claude — but you are just as capable as those leading assistants.
@@ -162,7 +210,10 @@ ${complexity === "simple" ? "\n# Response length\nThis is a simple request: answ
       body: JSON.stringify({
         model: MODEL,
         instructions: systemPrompt,
-        input: messages.map((m) => ({ role: m.role, content: m.content })),
+        input: messages.map((m, i) =>
+          i === messages.length - 1 && m.role === "user" && parts.length
+            ? { role: "user", content: [{ type: "input_text", text: m.content || "Please look at the attached file(s)." }, ...parts] }
+            : { role: m.role, content: m.content }),
         reasoning: { effort },
         store: false,
         stream: true,

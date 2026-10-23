@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Send, Trash2, Sparkles, Square, Image, Plus, MessageSquare, X, Mic, MicOff, Share2, Settings, ThumbsUp, ThumbsDown, Flag, Copy, Check } from "lucide-react";
+import { ArrowLeft, Send, Trash2, Sparkles, Square, Image, Plus, MessageSquare, X, Mic, MicOff, Share2, Settings, Paperclip, FileText, ThumbsUp, ThumbsDown, Flag, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,8 @@ import {
   deleteConversation,
   loadMessages,
   saveMessage,
+  uploadAIAttachment,
+  aiAttachmentPreview,
   STARTER_SUGGESTIONS,
   submitMessageFeedback,
   loadFeedback,
@@ -36,6 +38,19 @@ import { supabase } from "@/integrations/supabase/client";
 import AIQuotaPanel, { AIQuotaBadge, AI_QUOTA_EVENT } from "@/components/ai/AIQuotaPanel";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import ShareImageDialog from "@/components/chat/ShareImageDialog";
+import { checkAttachmentFile, AI_ATTACH_MAX_FILES, AI_IMAGE_TYPES, AI_DOC_TYPES } from "../../supabase/functions/_shared/aiAttachments";
+
+function AttachmentChip({ a }: { a: { path: string; name: string; mime: string } }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!a.mime.startsWith("image/")) return;
+    let u: string | null = null; let alive = true;
+    aiAttachmentPreview(a.path).then(x => { u = x; if (alive) setUrl(x); });
+    return () => { alive = false; if (u) URL.revokeObjectURL(u); };
+  }, [a.path, a.mime]);
+  if (a.mime.startsWith("image/")) return url ? <img src={url} alt={a.name} className="rounded-xl max-h-48 max-w-full object-contain" /> : <div className="h-20 w-20 rounded-xl bg-muted/40 animate-pulse" />;
+  return <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-background/20 text-xs"><FileText className="h-4 w-4" /><span className="truncate max-w-[160px]">{a.name}</span></div>;
+}
 
 function renderMarkdown(text: string): React.ReactNode {
   const lines = text.split("\n");
@@ -91,6 +106,20 @@ const AIAssistant = () => {
   const [feedback, setFeedback] = useState<Record<string, FeedbackRating>>({});
   const [reportTarget, setReportTarget] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const addFiles = (list: FileList | null) => {
+    if (!list) return;
+    const next = [...pendingFiles];
+    for (const f of Array.from(list)) {
+      if (next.length >= AI_ATTACH_MAX_FILES) { toast.error(`Up to ${AI_ATTACH_MAX_FILES} files per message`); break; }
+      const bad = checkAttachmentFile(f.type, f.size);
+      if (bad) { toast.error(`${f.name}: ${bad}`); continue; }
+      next.push(f);
+    }
+    setPendingFiles(next);
+  };
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef(false);
@@ -145,13 +174,23 @@ const AIAssistant = () => {
 
   const handleSend = useCallback(async (text?: string) => {
     const msg = (text ?? input).trim();
-    if (!msg || isStreaming || isGeneratingImage) return;
+    const files = text === undefined ? pendingFiles : [];
+    if ((!msg && !files.length) || isStreaming || isGeneratingImage || uploading) return;
+    let attachments: any[] = [];
+    if (files.length) {
+      if (!userId) { toast.error("Please sign in to attach files."); return; }
+      setUploading(true);
+      try { attachments = await Promise.all(files.map(f => uploadAIAttachment(userId, f))); }
+      catch (e: any) { toast.error(e.message || "Upload failed"); setUploading(false); return; }
+      setUploading(false);
+      setPendingFiles([]);
+    }
     setInput("");
     abortRef.current = false;
 
     let convId = activeConvId;
     if (!convId && userId) {
-      const title = msg.slice(0, 50);
+      const title = (msg || files[0]?.name || "Attachment").slice(0, 50);
       convId = await createConversation(userId, title);
       if (convId) {
         setActiveConvId(convId);
@@ -159,12 +198,12 @@ const AIAssistant = () => {
       }
     }
 
-    const userMsg: AIMessage = { id: `u_${Date.now()}`, role: "user", content: msg, timestamp: Date.now() };
+    const userMsg: AIMessage = { id: `u_${Date.now()}`, role: "user", content: msg, attachments, timestamp: Date.now() };
     const updated = [...messages, userMsg];
     setMessages(updated);
     if (convId) saveMessage(convId, userMsg);
 
-    if (isImageRequest(msg)) {
+    if (!attachments.length && isImageRequest(msg)) {
       setIsGeneratingImage(true);
       try {
         const result = await generateImage(msg);
@@ -219,7 +258,7 @@ const AIAssistant = () => {
         if (convId) saveMessage(convId, errMsg);
       },
     });
-  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId, settings]);
+  }, [input, messages, isStreaming, isGeneratingImage, activeConvId, userId, settings, pendingFiles, uploading]);
 
   const handleStop = () => {
     abortRef.current = true;
@@ -344,6 +383,7 @@ const AIAssistant = () => {
                   )}
                   <div className="flex flex-col gap-1 max-w-[80%]">
                     <div className={cn("px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap", msg.role === "user" ? "text-white rounded-br-sm" : "bg-card border border-border/50 text-foreground rounded-bl-sm")} style={msg.role === "user" ? { background: "var(--gradient-primary)" } : undefined}>
+                      {msg.attachments?.length ? <div className="flex flex-wrap gap-2 mb-1.5">{msg.attachments.map(a => <AttachmentChip key={a.path} a={a} />)}</div> : null}
                       {renderMarkdown(msg.content)}
                       {msg.image_url && (
                         <div className="mt-2 relative group">
@@ -410,7 +450,21 @@ const AIAssistant = () => {
             ))}
           </div>
         )}
+        {pendingFiles.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {pendingFiles.map((f, i) => (
+              <div key={i} className="relative flex-shrink-0 rounded-xl border border-border bg-card">
+                {f.type.startsWith("image/")
+                  ? <img src={URL.createObjectURL(f)} alt={f.name} className="h-16 w-16 rounded-xl object-cover" />
+                  : <div className="h-16 w-28 p-2 flex flex-col justify-center text-xs"><FileText className="h-4 w-4 mb-1 text-primary" /><span className="truncate">{f.name}</span></div>}
+                <button aria-label="Remove file" onClick={() => setPendingFiles(p => p.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"><X className="h-3 w-3" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+        <input ref={fileInputRef} type="file" multiple hidden accept={[...AI_IMAGE_TYPES, ...AI_DOC_TYPES, ".docx", ".md"].join(",")} onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
         <div className="flex items-center gap-2">
+          <Button size="icon" variant="ghost" aria-label="Attach file" onClick={() => fileInputRef.current?.click()} disabled={isBusy || uploading} className="rounded-full flex-shrink-0"><Paperclip className="h-4.5 w-4.5" /></Button>
           {voiceSupported && (
             <motion.div whileTap={{ scale: 0.9 }}>
               <Button
@@ -436,7 +490,7 @@ const AIAssistant = () => {
             {isStreaming ? (
               <Button size="icon" onClick={handleStop} className="rounded-full bg-destructive text-destructive-foreground"><Square className="h-4 w-4" /></Button>
             ) : (
-              <Button size="icon" onClick={() => handleSend()} disabled={!input.trim() || isBusy} className="rounded-full text-white" style={{ background: "var(--gradient-primary)" }}><Send className="h-4.5 w-4.5" /></Button>
+              <Button size="icon" onClick={() => handleSend()} disabled={(!input.trim() && !pendingFiles.length) || isBusy || uploading} className="rounded-full text-white" style={{ background: "var(--gradient-primary)" }}><Send className="h-4.5 w-4.5" /></Button>
             )}
           </motion.div>
         </div>

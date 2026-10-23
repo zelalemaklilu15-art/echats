@@ -8,7 +8,23 @@ export interface AIMessage {
   role: "user" | "assistant";
   content: string;
   image_url?: string | null;
+  attachments?: AIAttachmentRef[];
   timestamp: number;
+}
+
+export type AIAttachmentRef = { path: string; name: string; mime: string; size?: number };
+
+export async function uploadAIAttachment(userId: string, file: File): Promise<AIAttachmentRef> {
+  const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-80) || "file";
+  const path = `${userId}/${crypto.randomUUID()}-${safe}`;
+  const { error } = await supabase.storage.from("ai-attachments").upload(path, file, { contentType: file.type });
+  if (error) throw new Error("Could not upload " + file.name);
+  return { path, name: file.name, mime: file.type, size: file.size };
+}
+
+export async function aiAttachmentPreview(path: string): Promise<string | null> {
+  const { data } = await supabase.storage.from("ai-attachments").download(path);
+  return data ? URL.createObjectURL(data) : null;
 }
 
 export interface AIConversation {
@@ -61,6 +77,7 @@ export async function loadMessages(convId: string): Promise<AIMessage[]> {
     role: m.role,
     content: m.content || "",
     image_url: m.image_url,
+    attachments: Array.isArray(m.attachments) ? m.attachments : [],
     timestamp: new Date(m.created_at).getTime(),
   }));
 }
@@ -71,6 +88,7 @@ export async function saveMessage(convId: string, msg: AIMessage) {
     role: msg.role,
     content: msg.content || null,
     image_url: msg.image_url || null,
+    attachments: msg.attachments || [],
   } as any);
 }
 
@@ -121,6 +139,7 @@ export async function streamAIResponse({
       body: JSON.stringify({
         messages: apiMessages,
         systemAppend: settings?.systemAppend,
+        attachments: slice[slice.length - 1]?.attachments || [],
       }),
       signal,
     });
