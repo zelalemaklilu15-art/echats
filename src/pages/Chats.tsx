@@ -368,47 +368,86 @@ const RecentContactCircle = ({ chat, onClick }: { chat: Chat; onClick: () => voi
 
 const Chats = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [headerCollapsed, setHeaderCollapsed] = useState(false);
-  const [collapsibleHeight, setCollapsibleHeight] = useState(0);
-  const collapsibleRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = collapsibleRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setCollapsibleHeight(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
+  // Telegram-style scroll-linked header: fixed header, constant spacer, offset follows the finger.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const collapseWrapRef = useRef<HTMLDivElement>(null);
+  const collapseInnerRef = useRef<HTMLDivElement>(null);
+  const storiesWrapRef = useRef<HTMLDivElement>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
+  const storiesStackRef = useRef<HTMLDivElement>(null);
+  const [headerSpacer, setHeaderSpacer] = useState(0);
+  const [storyPeek, setStoryPeek] = useState<{ user_id: string; name: string; avatar_url: string | null }[]>([]);
+  const dimsRef = useRef({ stories: 0, search: 0 });
+  const offsetRef = useRef(0);
+  const applyOffset = useCallback((offset: number, animate = false) => {
+    const wrap = collapseWrapRef.current, inner = collapseInnerRef.current;
+    if (!wrap || !inner) return;
+    const { stories: sH, search: qH } = dimsRef.current;
+    const total = sH + qH;
+    const o = Math.max(0, Math.min(offset, total));
+    offsetRef.current = o;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const t = animate && !reduce ? "220ms cubic-bezier(.2,.8,.2,1)" : "";
+    wrap.style.transition = t ? `height ${t}` : "";
+    inner.style.transition = t ? `transform ${t}` : "";
+    wrap.style.height = `${total - o}px`;
+    inner.style.transform = `translate3d(0,${-o}px,0)`;
+    const sp = sH ? Math.min(o, sH) / sH : 0;
+    const qp = qH ? Math.max(0, o - sH) / qH : 0;
+    const stories = storiesWrapRef.current, search = searchWrapRef.current, stack = storiesStackRef.current;
+    if (stories) { stories.style.transition = t ? `opacity ${t}` : ""; stories.style.opacity = String(1 - sp); }
+    if (search) { search.style.transition = t ? `opacity ${t}` : ""; search.style.opacity = String(1 - qp); search.style.pointerEvents = qp > 0.5 ? "none" : ""; }
+    if (stack) {
+      stack.style.transition = t ? `opacity ${t}, transform ${t}` : "";
+      stack.style.opacity = String(sp);
+      stack.style.transform = `scale(${0.6 + 0.4 * sp})`;
+      stack.style.pointerEvents = sp > 0.5 ? "auto" : "none";
+    }
+    wrap.setAttribute("aria-hidden", String(o >= total && total > 0));
   }, []);
-  const collapsedRef = useRef(false);
-  const heightRef = useRef(0);
-  useEffect(() => { heightRef.current = collapsibleHeight; }, [collapsibleHeight]);
   useEffect(() => {
-    let last = window.scrollY, ticking = false, acc = 0, lockUntil = 0;
-    const set = (v: boolean) => {
-      if (collapsedRef.current === v) return;
-      collapsedRef.current = v;
-      lockUntil = performance.now() + 320;
-      setHeaderCollapsed(v);
+    const header = headerRef.current, stories = storiesWrapRef.current, search = searchWrapRef.current;
+    if (!header || !stories || !search) return;
+    const measure = () => {
+      dimsRef.current = { stories: stories.offsetHeight, search: search.offsetHeight };
+      const total = dimsRef.current.stories + dimsRef.current.search;
+      setHeaderSpacer(header.offsetHeight - (collapseWrapRef.current?.offsetHeight ?? 0) + total);
+      applyOffset(Math.min(offsetRef.current, Math.max(0, window.scrollY)));
+    };
+    const ro = new ResizeObserver(measure);
+    [header, stories, search].forEach(el => ro.observe(el));
+    measure();
+    return () => ro.disconnect();
+  }, [applyOffset]);
+  useEffect(() => {
+    let last = Math.max(0, window.scrollY), ticking = false;
+    let snapTimer: ReturnType<typeof setTimeout> | undefined;
+    const snap = () => {
+      const { stories: sH, search: qH } = dimsRef.current;
+      const y = Math.max(0, window.scrollY);
+      const o = offsetRef.current;
+      const stops = [0, sH, sH + qH].filter(s => s <= y);
+      const target = stops.reduce((a, b) => (Math.abs(b - o) < Math.abs(a - o) ? b : a), 0);
+      if (target !== o) applyOffset(target, true);
     };
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         ticking = false;
-        const y = window.scrollY;
+        const y = Math.max(0, window.scrollY);
         const dy = y - last;
         last = y;
-        if (performance.now() < lockUntil) { acc = 0; return; }
-        const h = heightRef.current || 160;
-        const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-        if (y < 24 || scrollable < h + 80) { acc = 0; set(false); return; }
-        acc = (acc > 0) === (dy > 0) ? acc + dy : dy;
-        if (acc > 12 && y > h) { acc = 0; set(true); }
-        else if (acc < -40) { acc = 0; set(false); }
+        const { stories: sH, search: qH } = dimsRef.current;
+        const next = Math.max(0, Math.min(offsetRef.current + dy, sH + qH, y));
+        if (next !== offsetRef.current) applyOffset(next);
+        if (snapTimer) clearTimeout(snapTimer);
+        snapTimer = setTimeout(snap, 140);
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    return () => { window.removeEventListener("scroll", onScroll); if (snapTimer) clearTimeout(snapTimer); };
+  }, [applyOffset]);
   const [searching, setSearching] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
   const [searchTab, setSearchTab] = useState<SearchTab>("chats");
