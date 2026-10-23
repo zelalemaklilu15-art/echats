@@ -176,6 +176,13 @@
       "when": 1792773992885,
       "tag": "0024_channel_comment_guard_definer",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792774104016,
+      "tag": "0025_channel_posts_owner_update_grant",
+      "breakpoints": true
     }
   ]
 }
