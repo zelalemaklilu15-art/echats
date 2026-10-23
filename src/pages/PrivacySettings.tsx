@@ -160,6 +160,7 @@ const PrivacySettings = () => {
   const [twoFAQrUri, setTwoFAQrUri] = useState("");
   const [twoFAFactorId, setTwoFAFactorId] = useState("");
   const [twoFACode, setTwoFACode] = useState("");
+  const [twoFAPurpose, setTwoFAPurpose] = useState<"enable" | "disable">("enable");
 
   const [readReceiptsOff, setReadReceiptsOff] = useState(() => localStorage.getItem("echat_read_receipts_off") === "true");
   const [anonReactions, setAnonReactions] = useState(() => localStorage.getItem("echat_anon_reactions") === "true");
@@ -237,43 +238,27 @@ const PrivacySettings = () => {
     }
   };
 
-  const handleSetup2FA = async () => {
-    try {
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Echat 2FA" });
-      if (error || !data) { toast.error("Failed to start 2FA setup"); return; }
-      setTwoFAFactorId(data.id); setTwoFAQrUri(data.totp.qr_code); setTwoFAStep("qr");
-    } catch { toast.error("Failed to start 2FA setup"); }
+  useEffect(() => {
+    let live = true;
+    callEmailTwoStep({ action: "status" }).then((r) => { if (live && r.ok) setTwoFAEnabled(!!r.enabled); });
+    return () => { live = false; };
+  }, []);
+
+  const startTwoFACode = async (purpose: "enable" | "disable") => {
+    const r = await callEmailTwoStep({ action: "send" });
+    if (!r.ok) { toast.error(twoStepMessage(r.error)); return; }
+    setTwoFAPurpose(purpose); setTwoFACode(""); setTwoFAStep("verify");
+    toast.success("Code sent to your email");
   };
+  const handleSetup2FA = () => startTwoFACode("enable");
+  const handleDisable2FA = () => startTwoFACode("disable");
 
   const handleVerify2FA = async () => {
-    if (twoFACode.length !== 6) { toast.error("Enter the 6-digit code"); return; }
-    try {
-      const cr = await supabase.auth.mfa.challenge({ factorId: twoFAFactorId });
-      if (cr.error) { toast.error("Challenge failed"); return; }
-      const vr = await supabase.auth.mfa.verify({ factorId: twoFAFactorId, challengeId: cr.data.id, code: twoFACode });
-      if (vr.error) { toast.error("Invalid code. Try again."); return; }
-      setTwoFAEnabled(true); setTwoFAStep("done"); toast.success("2FA enabled!");
-    } catch { toast.error("Verification failed"); }
-  };
-
-  const handleDisable2FA = async () => {
-    try {
-      const { data } = await supabase.auth.mfa.listFactors();
-      const factor = data?.totp?.find((f) => f.status === "verified") ?? data?.totp?.[0];
-      if (factor) {
-        if (factor.status === "verified") {
-          const code = window.prompt("Enter your 6-digit authenticator code to turn off 2FA")?.trim();
-          if (!code || !/^\d{6}$/.test(code)) { toast.error("Code required"); return; }
-          const cr = await supabase.auth.mfa.challenge({ factorId: factor.id });
-          if (cr.error) { toast.error("Challenge failed"); return; }
-          const vr = await supabase.auth.mfa.verify({ factorId: factor.id, challengeId: cr.data.id, code });
-          if (vr.error) { toast.error("Wrong code"); return; }
-        }
-        const ur = await supabase.auth.mfa.unenroll({ factorId: factor.id });
-        if (ur.error) { toast.error("Failed to disable 2FA"); return; }
-      }
-      setTwoFAEnabled(false); setTwoFAStep("idle"); toast.success("2FA disabled");
-    } catch { toast.error("Failed to disable 2FA"); }
+    if (!/^\d{6,8}$/.test(twoFACode)) { toast.error("Enter the code from your email"); return; }
+    const r = await callEmailTwoStep({ action: "verify", purpose: twoFAPurpose, code: twoFACode });
+    if (!r.ok) { toast.error(twoStepMessage(r.error, r.remaining)); return; }
+    setTwoFAEnabled(!!r.enabled); setTwoFAStep("idle"); setTwoFACode("");
+    toast.success(r.enabled ? "Two-step verification is on" : "Two-step verification is off");
   };
 
   const maskEmail = (email?: string) => {
@@ -397,14 +382,14 @@ const PrivacySettings = () => {
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5" style={{ color: "hsl(var(--primary))" }} />
-                  <span className="font-semibold text-[15px]">Enter 6-Digit Code</span>
+                  <span className="font-semibold text-[15px]">Enter the code from your email</span>
                 </div>
-                <Input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={twoFACode}
-                  onChange={e => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="text-center text-2xl tracking-[0.5em] font-mono" />
+                <Input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={8} placeholder="000000" value={twoFACode}
+                  onChange={e => setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  className="text-center text-2xl tracking-[0.4em] font-mono" />
                 <div className="flex gap-2">
                   <Button variant="outline" className="flex-1" size="sm" onClick={() => { setTwoFAStep("idle"); setTwoFACode(""); }}>Back</Button>
-                  <Button className="flex-1" size="sm" onClick={handleVerify2FA}>Verify & Enable</Button>
+                  <Button className="flex-1" size="sm" onClick={handleVerify2FA}>{twoFAPurpose === "enable" ? "Verify & Turn On" : "Verify & Turn Off"}</Button>
                 </div>
               </div>
             </Group>
