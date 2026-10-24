@@ -1,5 +1,9 @@
 # Cosmic Obsidian redesign
 
+## Sender email setup
+- [x] Initialize managed email infrastructure, brand auth templates, and deploy the authentication email handler for notify.echat.online; deployment succeeded and setup now waits only on DNS. Public logo upload was blocked by workspace policy, so templates use the Echat wordmark.
+- [ ] Sender activation waits on DNS verification in More → Emails.
+
 ## Strict profile access
 - [x] Enforce established-interaction/contact access on profile reads and username search; protect alternate disclosure paths.
 - [x] Keep hidden names/avatars stable across messaging, call history, channels and contact screens.

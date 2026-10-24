@@ -18,4 +18,5 @@
 - Channel post comments are written only as text by the commenter plus an owner's comments on/off flag; the author, post/channel match, comment-open state and counters are enforced by server-side guards, and comment lists are read through the profile-access RPC. Why: clients must not forge authors, comment on closed posts, or inflate counts.
 - Chat folders persist through owner-bound RPCs with account-scoped memory caches; unscoped legacy device caches are not automatically claimed by a signed-in account. Why: unknown ownership must not leak folders across accounts.
 - Folder invites snapshot only groups authorized by their owner/admin and public or owner-authorized channels; acceptance rechecks authority transactionally, joins as member, and is replay-safe; direct group self-joining is forbidden. Why: invite IDs and direct-chat references must never bypass membership or profile privacy.
+- Authentication emails use the scaffolded managed `auth-email-hook` SDK handler and shared email-brand styles; deploy the hook after template edits and never add queue infrastructure. Why: this project's managed email service owns delivery and has no database email queues.
 
