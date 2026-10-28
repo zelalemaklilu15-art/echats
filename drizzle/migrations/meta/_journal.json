@@ -204,6 +204,13 @@
       "when": 1793213613938,
       "tag": "0028_wallet_delete_keep_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793213910840,
+      "tag": "0029_allow_owner_delete_funded_wallet",
+      "breakpoints": true
     }
   ]
 }
