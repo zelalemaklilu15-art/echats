@@ -3,7 +3,9 @@ import { useState, useRef } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { signUpWithEmail, signInWithEmail, isUsernameUnique } from "@/lib/supabaseAuth";
+import { signUpWithEmail, signInWithEmail } from "@/lib/supabaseAuth";
+import { checkUsername, normalizeUsername, isValidUsernameFormat, usernameMessage, isUsernameConflictError, useUsernameCheck, USERNAME_RULE } from "@/lib/usernameCheck";
+import { UsernameHint } from "@/components/UsernameHint";
 import { toast } from "sonner";
 import logoImage from "@/assets/echat-logo.png";
 
@@ -34,6 +36,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm]   = useState("");
   const [username, setUsername] = useState("");
+  const usernameStatus = useUsernameCheck(username);
   const [showPw, setShowPw]     = useState(false);
   const [isSignUp, setIsSignUp] = useState(true);
   const [loading, setLoading]   = useState(false);
@@ -48,14 +51,18 @@ const Auth = () => {
     try {
       if (!email.trim() || !password.trim()) { toast.error("Please enter email and password"); return; }
       if (isSignUp) {
-        if (!username.trim()) { toast.error("Please enter a username"); return; }
-        if (username.trim().length < 3) { toast.error("Username must be at least 3 characters"); return; }
+        const n = normalizeUsername(username);
+        if (!n) { toast.error("Please enter a username"); return; }
+        if (!isValidUsernameFormat(n)) { toast.error(USERNAME_RULE); return; }
         if (password !== confirm) { toast.error("Passwords do not match"); return; }
         if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-        const n = username.toLowerCase().trim().replace(/\s/g, "");
-        if (!(await isUsernameUnique(n))) { toast.error("Username already taken"); return; }
+        const st = await checkUsername(n);
+        if (st !== "available") { toast.error(usernameMessage(st)); return; }
         const { user, error } = await signUpWithEmail(email, password, n, email.split("@")[0]);
-        if (error) throw error;
+        if (error) {
+          if (isUsernameConflictError(error)) { toast.error("Username already taken"); return; }
+          throw error;
+        }
         if (user && Array.isArray(user.identities) && user.identities.length === 0) {
           toast.error("Email already in use. Sign in instead.");
           setIsSignUp(false);
@@ -169,8 +176,9 @@ const Auth = () => {
             {isSignUp && (
               <motion.div key="username-field" initial={{ opacity: 0, height: 0, marginBottom: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.22 }}>
                 <FieldWrap icon={User} label="Username">
-                  <input value={username} onChange={e => setUsername(e.target.value)} placeholder="@username" autoComplete="username" className={ic} data-testid="input-username" />
+                  <input value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="@username" autoComplete="username" autoCapitalize="none" className={ic} data-testid="input-username" />
                 </FieldWrap>
+                <UsernameHint status={usernameStatus} />
               </motion.div>
             )}
           </AnimatePresence>

@@ -218,6 +218,13 @@
       "when": 1793215116522,
       "tag": "0030_is_username_available",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793215417752,
+      "tag": "0031_check_username",
+      "breakpoints": true
     }
   ]
 }
