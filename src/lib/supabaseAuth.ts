@@ -105,15 +105,12 @@ export const updatePassword = async (newPassword: string): Promise<void> => {
 
 // Verify if username is unique
 export const isUsernameUnique = async (username: string): Promise<boolean> => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('username', username.toLowerCase().trim())
-    .maybeSingle();
-
+  const { data, error } = await supabase.rpc('is_username_available', {
+    p_username: username.toLowerCase().trim(),
+  });
   if (error) {
     console.error('Error checking username:', error);
-    return false;
+    throw new Error("Couldn't check the username. Please try again.");
   }
-  return data === null;
+  return data === true;
 };
