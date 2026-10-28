@@ -4,6 +4,7 @@ import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, Loader2, Sparkles } from "luc
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { signUpWithEmail, signInWithEmail } from "@/lib/supabaseAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { checkUsername, normalizeUsername, isValidUsernameFormat, usernameMessage, isUsernameConflictError, useUsernameCheck, USERNAME_RULE } from "@/lib/usernameCheck";
 import { UsernameHint } from "@/components/UsernameHint";
 import { toast } from "sonner";
@@ -67,7 +68,7 @@ const Auth = () => {
           toast.error("Email already in use. Sign in instead.");
           setIsSignUp(false);
         } else if (user) {
-          const { data } = await import("@/integrations/supabase/client").then((m) => m.supabase.auth.getSession());
+          const { data } = await supabase.auth.getSession();
           if (data.session) { toast.success("Account created!"); navigate(safeNext, { replace: true }); }
           else { toast.success("Account created! Check your email to confirm, then sign in."); setIsSignUp(false); }
         }
