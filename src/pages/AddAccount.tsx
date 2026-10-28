@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { isUsernameUnique, updateProfile } from "@/lib/supabaseService";
+import { updateProfile } from "@/lib/supabaseService";
+import { checkUsername, normalizeUsername, isValidUsernameFormat, usernameMessage, USERNAME_RULE } from "@/lib/usernameCheck";
 import { toast } from "sonner";
 import { getSessionUserSafe } from "@/lib/authSession";
 
@@ -42,19 +43,18 @@ const AddAccount = () => {
     }
 
     // Validate username format
-    const normalizedUsername = username.toLowerCase().trim().replace(/\s/g, '');
-    if (normalizedUsername.length < 3) {
-      toast.error("Username must be at least 3 characters");
+    const normalizedUsername = normalizeUsername(username);
+    if (!isValidUsernameFormat(normalizedUsername)) {
+      toast.error(USERNAME_RULE);
       return;
     }
 
     setLoading(true);
     
     try {
-      // Check username uniqueness
-      const isUnique = await isUsernameUnique(normalizedUsername);
-      if (!isUnique) {
-        toast.error("Username already taken. Please choose another.");
+      const st = await checkUsername(normalizedUsername);
+      if (st !== "available") {
+        toast.error(usernameMessage(st));
         setLoading(false);
         return;
       }

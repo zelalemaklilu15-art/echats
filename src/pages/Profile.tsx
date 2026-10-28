@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { getProfile, updateProfile, Profile as ProfileType } from "@/lib/supabaseService";
-import { isUsernameUnique } from "@/lib/supabaseAuth";
+import { checkUsername, normalizeUsername, isValidUsernameFormat, usernameMessage, USERNAME_RULE } from "@/lib/usernameCheck";
 import { getSessionUserSafe } from "@/lib/authSession";
 import { QRCodeSVG } from "qrcode.react";
 import { getProfileMusic, setProfileMusic, removeProfileMusic, toggleProfileMusic } from "@/lib/profileMusicService";
@@ -86,14 +86,14 @@ const Profile = () => {
     if (!currentUserId) { toast.error("Not authenticated"); return; }
     if (!editName.trim()) { toast.error("Name cannot be empty"); return; }
     if (!editUsername.trim()) { toast.error("Username cannot be empty"); return; }
-    if (editUsername.trim().length < 3) { toast.error("Username must be at least 3 characters"); return; }
+    const normalizedUsername = normalizeUsername(editUsername);
+    if (normalizedUsername !== profile?.username && !isValidUsernameFormat(normalizedUsername)) { toast.error(USERNAME_RULE); return; }
 
     setSaving(true);
     try {
-      const normalizedUsername = editUsername.toLowerCase().trim().replace(/\s/g, '');
       if (normalizedUsername !== profile?.username) {
-        const isUnique = await isUsernameUnique(normalizedUsername);
-        if (!isUnique) { toast.error("Username already taken."); setSaving(false); return; }
+        const st = await checkUsername(normalizedUsername);
+        if (st !== "available") { toast.error(usernameMessage(st)); setSaving(false); return; }
       }
       const updatedProfile = await updateProfile(currentUserId, {
         name: editName.trim(),
