@@ -1,9 +1,15 @@
-# Code-only email 2FA (waiting on DNS)
+# Allow deleting users who used the wallet
 
-Current status: notify.echat.online is "Verifying DNS". Usually a few minutes to a few hours once all 4 records (2 NS + 2 TXT) are added; at most 72 hours.
+## Why it fails
+When a user is deleted, their wallet is deleted automatically. That wallet's transaction history (money sent/received) is protected, so the database refuses and the whole user deletion fails with "still linked to data".
 
-## When DNS is verified
-1. Server creates its own 6-digit code (hashed, 10 min expiry, single use, 5 tries, 60s resend wait).
-2. Email contains only the code — no "Log In" link.
-3. Same flow used for sign-in 2FA and wallet security checks.
-4. Test with a real account: link-free email arrives, wrong code is rejected, right code passes.
+## Fix
+- Keep every financial transaction record, so money history is never lost and the other side of each transfer still sees it.
+- When a user's wallet is removed, its transaction records stay but are no longer tied to the removed wallet.
+- Block deleting a user whose wallet still has money in it, with a clear message, so no balance disappears silently.
+
+## Technical details
+- Migration: change `wallet_transactions` FK to `wallets` to `ON DELETE SET NULL` (make `wallet_id` nullable if needed).
+- Add a `BEFORE DELETE` trigger on `wallets` raising an error when `balance > 0`.
+- Add a PGlite test: deleting a user with a zero-balance wallet and transactions succeeds and transactions remain; with a positive balance it is refused.
+- Retry deleting the user after the migration.
