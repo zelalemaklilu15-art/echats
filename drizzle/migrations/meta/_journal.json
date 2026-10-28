@@ -232,6 +232,13 @@
       "when": 1793216856935,
       "tag": "0032_tighten_etok_social_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1793217209507,
+      "tag": "0033_tighten_etok_catalog_reads",
+      "breakpoints": true
     }
   ]
 }
