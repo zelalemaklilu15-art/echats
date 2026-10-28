@@ -1,15 +1,15 @@
-# Allow deleting users who used the wallet
+# የ Wallet ተጠቃሚ የነበሩ መለያዎችን ማጥፋት እንዲቻል
 
-## Why it fails
-When a user is deleted, their wallet is deleted automatically. That wallet's transaction history (money sent/received) is protected, so the database refuses and the whole user deletion fails with "still linked to data".
+## ለምን አልጠፋም
+ተጠቃሚው ሲጠፋ የሱ Wallet አብሮ ይጠፋል። ነገር ግን የዛ Wallet የገንዘብ ታሪክ (የላከውና የተቀበለው) ጥበቃ ስላለው ዳታቤዙ ማጥፋቱን ይከለክላል። ስለዚህ "still linked to data" የሚለው ስህተት ይመጣል።
 
-## Fix
-- Keep every financial transaction record, so money history is never lost and the other side of each transfer still sees it.
-- When a user's wallet is removed, its transaction records stay but are no longer tied to the removed wallet.
-- Block deleting a user whose wallet still has money in it, with a clear message, so no balance disappears silently.
+## መፍትሄ
+- ሁሉም የገንዘብ ልውውጥ ታሪክ ይቀመጣል — አይጠፋም፤ በሌላኛው ወገን ያለው ሰውም ታሪኩን ማየት ይቀጥላል።
+- የተጠቃሚው Wallet ሲጠፋ ታሪኩ ይቆያል፣ ከጠፋው Wallet ጋር ብቻ መያያዙ ይቋረጣል።
+- Wallet ውስጥ ገንዘብ (ቀሪ ሂሳብ) ያለው ተጠቃሚ እንዲጠፋ አይፈቀድም፤ ግልፅ መልዕክት ይታያል — ገንዘብ በዝምታ እንዳይጠፋ።
+- ከዚያ ያንን ተጠቃሚ (ashinafiaklilu@gmail.com) እንደገና አጥፍቼ እፈትሻለሁ።
 
 ## Technical details
-- Migration: change `wallet_transactions` FK to `wallets` to `ON DELETE SET NULL` (make `wallet_id` nullable if needed).
-- Add a `BEFORE DELETE` trigger on `wallets` raising an error when `balance > 0`.
-- Add a PGlite test: deleting a user with a zero-balance wallet and transactions succeeds and transactions remain; with a positive balance it is refused.
-- Retry deleting the user after the migration.
+- Migration: `wallet_transactions.wallet_id` and `counterparty_wallet_id` FKs to `wallets` → `ON DELETE SET NULL` (drop NOT NULL on `wallet_id`).
+- `BEFORE DELETE` trigger on `wallets` raising when `balance > 0`.
+- PGlite test: zero-balance delete succeeds and keeps transactions; positive balance is refused.
