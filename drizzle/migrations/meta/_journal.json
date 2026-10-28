@@ -225,6 +225,13 @@
       "when": 1793215417752,
       "tag": "0031_check_username",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793216856935,
+      "tag": "0032_tighten_etok_social_reads",
+      "breakpoints": true
     }
   ]
 }
