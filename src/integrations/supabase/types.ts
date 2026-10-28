@@ -2508,7 +2508,7 @@ export type Database = {
           reference_id: string | null
           status: Database["public"]["Enums"]["wallet_transaction_status"]
           type: Database["public"]["Enums"]["wallet_transaction_type"]
-          wallet_id: string
+          wallet_id: string | null
         }
         Insert: {
           amount: number
@@ -2526,7 +2526,7 @@ export type Database = {
           reference_id?: string | null
           status?: Database["public"]["Enums"]["wallet_transaction_status"]
           type: Database["public"]["Enums"]["wallet_transaction_type"]
-          wallet_id: string
+          wallet_id?: string | null
         }
         Update: {
           amount?: number
@@ -2544,7 +2544,7 @@ export type Database = {
           reference_id?: string | null
           status?: Database["public"]["Enums"]["wallet_transaction_status"]
           type?: Database["public"]["Enums"]["wallet_transaction_type"]
-          wallet_id?: string
+          wallet_id?: string | null
         }
         Relationships: [
           {
@@ -3098,6 +3098,13 @@ export type Database = {
           p_request?: string
         }
         Returns: Json
+      }
+      wallet_tx_is_detach: {
+        Args: {
+          n: Database["public"]["Tables"]["wallet_transactions"]["Row"]
+          o: Database["public"]["Tables"]["wallet_transactions"]["Row"]
+        }
+        Returns: boolean
       }
       wallet_verify_own_pin: {
         Args: { p_device: string; p_pin: string }
