@@ -150,17 +150,14 @@ export const searchUsers = async (searchTerm: string): Promise<PublicProfile[]> 
 };
 
 export const isUsernameUnique = async (username: string): Promise<boolean> => {
-  const term = username.toLowerCase().trim();
-  const { data, error } = await supabase.rpc('search_users_public', {
-    search_term: term,
+  const { data, error } = await supabase.rpc('is_username_available', {
+    p_username: username.toLowerCase().trim(),
   });
-
   if (error) {
     console.error('Error checking username:', error);
-    return false;
+    throw new Error("Couldn't check the username. Please try again.");
   }
-  // Check if exact match exists
-  return !data?.some((p: PublicProfile) => p.username === term);
+  return data === true;
 };
 
 export const searchByUsername = async (username: string): Promise<PublicProfile | null> => {

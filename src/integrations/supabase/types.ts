@@ -2873,6 +2873,7 @@ export type Database = {
         Returns: boolean
       }
       is_session_2fa_ok: { Args: never; Returns: boolean }
+      is_username_available: { Args: { p_username: string }; Returns: boolean }
       mute_group_member: {
         Args: {
           p_group_id: string
