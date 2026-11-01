@@ -1,12 +1,16 @@
-ማሳሰቢያ፡ ይህ የኮድ ለውጥ አይደለም፤ ምንም አይቀየርም።
+ማሳሰቢያ፡ ይህ የኮድ ለውጥ አይደለም፤ በመተግበሪያው ውስጥ ምንም አይቀየርም።
 
-ምስሉ yegarahost የላከልዎት የእንኳን ደህና መጡ ኢሜይል ነው። የሚጠቀሙባቸውን nameservers ይነግርዎታል እንጂ ለውጡ መደረጉን አያሳይም።
+## ያዩትን አረጋግጫለሁ
+በ yegarahost ፓነል ላይ ያሉት ሁሉም መዝገቦች ትክክል ናቸው፦ notify → ns3/ns4.lovable.cloud፣ ns5/ns6.private-nameserver.net፣ _dmarc እና _lovable-email። ይህንን አልከራከርም።
 
-አሁን የ .online መዝገብ (registry) ን በቀጥታ ጠይቄዋለሁ፤ echat.online አሁንም cns1/2/3.cloudpit ላይ ነው።
+## ለምን ገና አይሰራም
+ያ ፓነል ውስጥ ያሉት "echat.online NS ns5/ns6" ረድፎች የፓነሉ የራሱ ቅጂ ብቻ ናቸው። ኢንተርኔት የትኛውን ቦታ እንደሚያነብ የሚወስነው ግን የ .online መዝገብ (registry) ነው።
 
-የሚደረጉ ነገሮች፦
-1. ዶሜይኑ በተመዘገበበት መለያ (registrar) ውስጥ ገብተው nameservers ን ወደ ns5 እና ns6.private-nameserver.net ይቀይሩ። ኢሜይሉ ns5 ን ሁለት ጊዜ ይዘረዝራል፤ ሁለተኛው ns6 መሆን አለበት።
-2. የ registrar መለያ ከሌለዎት yegarahost ድጋፍ እንዲቀይሩት ይጠይቁ።
-3. ሲጨርሱ ይንገሩኝ፤ እንደገና እፈትሻለሁ።
+ዛሬ 16:09 ላይ registry ን በቀጥታ ጠይቄዋለሁ፤ አሁንም "echat.online → cloudpit" ነው የሚለው። ስለዚህ ኢንተርኔት የ yegarahost ፓነልን ገና አያየውም።
 
-ደህንነት፦ ምስሉ የ control panel የይለፍ ቃልዎን ያሳያል፤ እባክዎ አሁኑኑ ይቀይሩት።
+## የሚደረጉ ነገሮች
+1. ይህንን ለ yegarahost ድጋፍ ይላኩ፦ "Please update the registrar nameservers for echat.online to ns5.private-nameserver.net and ns6.private-nameserver.net. The .online registry still shows cloudpit." ይህ ገጽ በ zone editor ውስጥ ሳይሆን በ "Domains → Nameservers" ገጽ ውስጥ ነው።
+2. እነሱ ሲቀይሩት ይንገሩኝ፤ ወዲያውኑ እፈትሻለሁ። ከዚያ More → Emails → Verify Domain ይጫኑ።
+
+## ደህንነት
+ቀድሞ የላኩት ምስል የ control panel የይለፍ ቃልዎን ያሳያል። እባክዎ አሁኑኑ ይቀይሩት።
