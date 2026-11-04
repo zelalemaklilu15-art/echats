@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { fitForVideo } from "@/lib/cameraStream";
+import { syncBackdrop } from "@/lib/cameraStream";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, X, Radio, Users, Send, Crown, Gift, Swords, Bell, BellOff, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -191,6 +191,7 @@ const EtokLive = () => {
   const isHostOfCurrent = !!currentStream && currentStream.hostId === currentUserId;
   const [closing, setClosing] = useState(false);
   const [captureStopped, setCaptureStopped] = useState(false);
+  const liveBackdropRef = useRef<HTMLVideoElement>(null);
   const { videoRef, error: broadcastError, isConnected: broadcastConnected, onPlaying } = useEtokLiveBroadcast({
     streamId: currentStream?.isLive && !captureStopped ? currentStream.id : undefined,
     userId: currentUserId,
@@ -206,14 +207,21 @@ const EtokLive = () => {
       <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 100 }}>
         {/* Live video stream */}
         <video
+          ref={liveBackdropRef}
+          autoPlay
+          playsInline
+          muted
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60 pointer-events-none"
+        />
+        <video
           ref={videoRef}
           onPlaying={onPlaying}
           autoPlay
           playsInline
           muted={isHost}
-          onLoadedMetadata={e => { e.currentTarget.style.objectFit = fitForVideo(e.currentTarget); }}
-          onResize={e => { e.currentTarget.style.objectFit = fitForVideo(e.currentTarget); }}
-          className="absolute inset-0 w-full h-full object-cover bg-black"
+          onLoadedMetadata={e => syncBackdrop(e.currentTarget, liveBackdropRef.current)}
+          className="absolute inset-0 w-full h-full object-contain"
         />
         {/* Fallback gradient + emoji while connecting */}
         {!broadcastConnected && (

@@ -1,10 +1,11 @@
-// Portrait-friendly camera capture: let the device pick a supported size,
-// then remove digital zoom and enable auto exposure/focus where supported.
+// Full field-of-view camera capture. Phone sensors are 4:3; requesting a tall
+// 9:16 frame makes the device crop the sides, which looks zoomed in. We ask for
+// the native 4:3 frame, then remove digital zoom and enable auto exposure/focus.
 export async function openPortraitCamera(facingMode: "user" | "environment", audio = true): Promise<MediaStream> {
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, aspectRatio: { ideal: 9 / 16 }, height: { ideal: 1280 } },
+      video: { facingMode, aspectRatio: { ideal: 4 / 3 }, width: { ideal: 1280 } },
       audio,
     });
   } catch {
@@ -19,8 +20,11 @@ export async function openPortraitCamera(facingMode: "user" | "environment", aud
   return stream;
 }
 
-/** Wide frames are shown whole (contain); tall frames fill the screen (cover). */
-export function fitForVideo(v: HTMLVideoElement | null): "contain" | "cover" {
-  if (!v || !v.videoWidth || !v.videoHeight) return "cover";
-  return v.videoWidth > v.videoHeight ? "contain" : "cover";
+/** Mirror a video's stream into a blurred background video element. */
+export function syncBackdrop(main: HTMLVideoElement | null, backdrop: HTMLVideoElement | null) {
+  if (!main || !backdrop) return;
+  if (backdrop.srcObject !== main.srcObject) {
+    backdrop.srcObject = main.srcObject;
+    void backdrop.play().catch(() => {});
+  }
 }

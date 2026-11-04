@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { openPortraitCamera, fitForVideo } from "@/lib/cameraStream";
+import { openPortraitCamera, syncBackdrop } from "@/lib/cameraStream";
 import { useNavigate } from "react-router-dom";
 import { X, RotateCcw, Zap, ZapOff, Timer, Gauge, Music, Mic, Type, Sticker, Scissors, Wand2, CheckCircle2, ChevronDown, Hash, AtSign, Image, Video, CameraOff, AlertCircle, Upload } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -71,7 +71,6 @@ const EtokCamera = () => {
   const [timerSetting, setTimerSetting] = useState<0 | 3 | 10>(0);
   const [countdown, setCountdown] = useState(0);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [cameraFit, setCameraFit] = useState<"contain" | "cover">("cover");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -99,6 +98,7 @@ const EtokCamera = () => {
   const [thumbnailColor, setThumbnailColor] = useState(BG_COLORS[0]);
 
   const cameraRef = useRef<HTMLVideoElement>(null);
+  const backdropRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -340,19 +340,29 @@ const EtokCamera = () => {
               </Button>
             </div>
           ) : (
+            <>
+            <video
+              ref={backdropRef}
+              autoPlay
+              playsInline
+              muted
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60 pointer-events-none"
+              style={{ transform: facingMode === "user" ? "scaleX(-1.1) scaleY(1.1)" : undefined }}
+            />
             <video
               ref={cameraRef}
               autoPlay
               playsInline
               muted
-              onLoadedMetadata={e => setCameraFit(fitForVideo(e.currentTarget))}
-              onResize={e => setCameraFit(fitForVideo(e.currentTarget))}
-              className={cn("absolute inset-0 w-full h-full", cameraFit === "contain" ? "object-contain" : "object-cover")}
+              onLoadedMetadata={e => syncBackdrop(e.currentTarget, backdropRef.current)}
+              className="absolute inset-0 w-full h-full object-contain"
               style={{
                 transform: facingMode === "user" ? "scaleX(-1)" : "none",
                 filter: effectCss,
               }}
             />
+            </>
           )}
           {/* Dark vignette */}
           {!cameraError && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />}
