@@ -93,7 +93,8 @@ const clauses: Clause[] = [
   ]},
   { title: "Disputes and governing law", body: [
     "Before filing any claim, you agree to contact us at support@echats.site and try to resolve the dispute informally for at least 30 days.",
-    "These Terms are governed by the laws applicable at Echats' principal place of business, without regard to conflict-of-law rules, unless the mandatory consumer protection laws of your country of residence provide otherwise. Nothing in these Terms removes rights you have as a consumer that cannot be waived.",
+    "These Terms are governed by the laws of England and Wales in the United Kingdom, without regard to conflict-of-law rules, unless the mandatory consumer protection laws of your country of residence provide otherwise. Nothing in these Terms removes rights you have as a consumer that cannot be waived.",
+    "The parties submit to the non-exclusive jurisdiction of the courts of England and Wales, except where the mandatory law of your country of residence gives your local courts authority.",
     "Any claim must be brought individually, not as part of a class or representative action, to the extent permitted by law.",
   ]},
   { title: "General", body: [

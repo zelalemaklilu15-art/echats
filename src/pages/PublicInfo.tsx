@@ -40,7 +40,7 @@ const pages: Record<"features" | "privacy" | "about", Page> = {
     sections: [
       { title: "Why Echat", text: "Most people jump between many apps to talk, pay and share. Echat puts these everyday things in one fast, simple place." },
       { title: "Built for everyone", text: "Echat works on the web at echats.site and on Android phones." },
-      { title: "Who makes Echat", text: "Echat is built and operated by Echats, an international technology company. Questions or feedback? Email support@echats.site." },
+      { title: "Who makes Echat", text: "Echat is built and operated by Echats, a technology company registered in the United Kingdom. Questions or feedback? Email support@echats.site." },
       { title: "Get started", text: "Create a free account with a username and your email, invite the people you talk to most, and start chatting." },
     ],
   },

@@ -89,7 +89,7 @@ const Landing = () => {
             </Link>
             <button
               onClick={() => navigate("/auth")}
-              className="rounded-xl bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-primary transition-smooth hover:opacity-90"
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-primary transition-smooth hover:opacity-90"
             >
               Get started
             </button>
@@ -130,7 +130,7 @@ const Landing = () => {
           <motion.div {...fade(0.3)} className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <button
               onClick={() => navigate("/auth")}
-              className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-primary px-7 py-3.5 text-base font-semibold text-primary-foreground shadow-primary transition-smooth hover:opacity-90 sm:w-auto"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-7 py-3.5 text-base font-semibold text-primary-foreground shadow-primary transition-smooth hover:opacity-90 sm:w-auto"
             >
               Create your account
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -188,7 +188,7 @@ const Landing = () => {
               transition={{ delay: i * 0.08, duration: 0.5 }}
               className="glass rounded-2xl p-5 text-center"
             >
-              <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-primary text-sm font-bold text-primary-foreground">
+              <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                 {s.n}
               </div>
               <p className="font-semibold text-foreground">{s.title}</p>
@@ -220,7 +220,7 @@ const Landing = () => {
             </p>
             <button
               onClick={() => navigate("/auth")}
-              className="group mt-7 inline-flex items-center gap-2 rounded-2xl bg-gradient-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-primary transition-smooth hover:opacity-90"
+              className="group mt-7 inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3.5 text-base font-semibold text-primary-foreground shadow-primary transition-smooth hover:opacity-90"
             >
               Get started — it's free
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
