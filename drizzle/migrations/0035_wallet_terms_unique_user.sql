@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS wallet_terms_acceptance_user_id_key ON public.wallet_terms_acceptance(user_id);
