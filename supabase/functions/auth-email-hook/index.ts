@@ -148,11 +148,11 @@ const handler = createAuthEmailHandler({
         }),
     },
     magiclink: {
-      subject: 'Your Echat sign-in link',
+      subject: 'Your Echat verification code',
       render: (data) =>
         React.createElement(MagicLinkEmail, {
           siteName: SITE_NAME,
-          confirmationUrl: data.url,
+          token: data.token ?? '',
         }),
     },
     recovery: {
