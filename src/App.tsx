@@ -29,6 +29,7 @@ import OfflineBanner from "@/components/OfflineBanner";
 // Lazy-load every page — massively reduces initial bundle.
 const Splash = lazy(() => import("./pages/Splash"));
 const PublicInfo = lazy(() => import("./pages/PublicInfo"));
+const Terms = lazy(() => import("./pages/Terms"));
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Chats = lazy(() => import("./pages/Chats"));
@@ -243,6 +244,7 @@ const AppRoutes = () => {
           <Route path="/app-features" element={<PublicInfo page="features" />} />
           <Route path="/privacy" element={<PublicInfo page="privacy" />} />
           <Route path="/about" element={<PublicInfo page="about" />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/index" element={isAuthenticated ? <Navigate to="/chats" replace /> : <Navigate to="/" replace />} />
           <Route path="/auth" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><Auth /></PageTransition>} />
           <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/chats" replace /> : <PageTransition><ForgotPassword /></PageTransition>} />

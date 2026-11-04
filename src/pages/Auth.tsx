@@ -228,7 +228,7 @@ const Auth = () => {
         </motion.button>
 
         <p className="text-center text-[11px] text-muted-foreground/70 mt-5 leading-relaxed">
-          {isSignUp ? <>By signing up you agree to our <span className="text-primary cursor-pointer hover:underline font-semibold">Terms of Service</span></> : <><span className="inline-flex items-center gap-1">🔒 End-to-end encrypted · Your data stays private</span></>}
+          {isSignUp ? <>By signing up you agree to our <a href="/terms" target="_blank" rel="noopener" className="text-primary hover:underline font-semibold">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" className="text-primary hover:underline font-semibold">Privacy</a></> : <><span className="inline-flex items-center gap-1">🔒 End-to-end encrypted · Your data stays private</span></>}
         </p>
       </motion.div>
     </div>

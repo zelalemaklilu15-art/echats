@@ -48,6 +48,7 @@ const nav = [
   { to: "/app-features", label: "Features" },
   { to: "/privacy", label: "Privacy" },
   { to: "/about", label: "About" },
+  { to: "/terms", label: "Terms" },
 ];
 
 const PublicInfo = ({ page }: { page: keyof typeof pages }) => {

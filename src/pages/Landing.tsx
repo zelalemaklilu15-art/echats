@@ -240,6 +240,7 @@ const Landing = () => {
             <Link to="/app-features" className="hover:text-foreground">Features</Link>
             <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
             <Link to="/about" className="hover:text-foreground">About</Link>
+            <Link to="/terms" className="hover:text-foreground">Terms</Link>
           </nav>
           <div className="flex items-center gap-5 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
