@@ -236,6 +236,11 @@ const Landing = () => {
             <Globe className="h-4 w-4" />
             <span>Echat — built for everyone, everywhere</span>
           </div>
+          <nav className="flex items-center gap-5 text-sm text-muted-foreground">
+            <Link to="/app-features" className="hover:text-foreground">Features</Link>
+            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link to="/about" className="hover:text-foreground">About</Link>
+          </nav>
           <div className="flex items-center gap-5 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5" /> Fast
