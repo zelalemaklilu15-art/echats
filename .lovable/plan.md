@@ -1,16 +1,13 @@
-ማሳሰቢያ፡ ይህ የኮድ ለውጥ አይደለም፤ በመተግበሪያው ውስጥ ምንም አይቀየርም።
+# አዲስ ሰው Wallet ማንቃት እንዲችል ማስተካከል
 
-## ያዩትን አረጋግጫለሁ
-በ yegarahost ፓነል ላይ ያሉት ሁሉም መዝገቦች ትክክል ናቸው፦ notify → ns3/ns4.lovable.cloud፣ ns5/ns6.private-nameserver.net፣ _dmarc እና _lovable-email። ይህንን አልከራከርም።
+## ችግሩ ምንድነው
+አንድ ሰው ደንቦቹን ተቀብሎ "Activate" ሲጫን፣ ስርዓቱ የተቀበለበትን ቀን ለመመዝገብ ይሞክራል። ያ ምዝገባ "አንድ ሰው አንድ መዝገብ ብቻ" የሚል ህግ ይፈልጋል፤ ግን ያ ህግ በዳታቤዙ ውስጥ የለም። ስለዚህ ማንቃቱ በሙሉ ይከሽፋል፣ እና ሰውየው "Could not complete this wallet operation" የሚል መልዕክት ያያል። የwallet ሁኔታው "pending_activation" ሆኖ ይቀራል። ለምሳሌ tilahungirma4116@gmail.com አሁን ልክ እንደዚህ ተጣብቋል።
 
-## ለምን ገና አይሰራም
-ያ ፓነል ውስጥ ያሉት "echat.online NS ns5/ns6" ረድፎች የፓነሉ የራሱ ቅጂ ብቻ ናቸው። ኢንተርኔት የትኛውን ቦታ እንደሚያነብ የሚወስነው ግን የ .online መዝገብ (registry) ነው።
+## የሚደረገው ለውጥ
+1. "አንድ ሰው አንድ የደንብ መቀበያ መዝገብ" የሚለውን ህግ መጨመር። አሁን ያሉት 4 መዝገቦች አንድም ተደጋጋሚ የላቸውም፤ ስለዚህ ምንም አይጠፋም።
+2. ከለውጡ በኋላ ገንዘብ፣ PIN ወይም ሌላ የደህንነት ፍተሻ አይቀየርም።
+3. ማንቃቱ እንደሚሰራ በአዲስ የሙከራ መለያ መፈተሽ፣ ከዚያ የሙከራ መለያውን ማጥፋት።
 
-ዛሬ 16:09 ላይ registry ን በቀጥታ ጠይቄዋለሁ፤ አሁንም "echat.online → cloudpit" ነው የሚለው። ስለዚህ ኢንተርኔት የ yegarahost ፓነልን ገና አያየውም።
-
-## የሚደረጉ ነገሮች
-1. ይህንን ለ yegarahost ድጋፍ ይላኩ፦ "Please update the registrar nameservers for echat.online to ns5.private-nameserver.net and ns6.private-nameserver.net. The .online registry still shows cloudpit." ይህ ገጽ በ zone editor ውስጥ ሳይሆን በ "Domains → Nameservers" ገጽ ውስጥ ነው።
-2. እነሱ ሲቀይሩት ይንገሩኝ፤ ወዲያውኑ እፈትሻለሁ። ከዚያ More → Emails → Verify Domain ይጫኑ።
-
-## ደህንነት
-ቀድሞ የላኩት ምስል የ control panel የይለፍ ቃልዎን ያሳያል። እባክዎ አሁኑኑ ይቀይሩት።
+## Technical details
+- Migration: `CREATE UNIQUE INDEX wallet_terms_acceptance_user_id_key ON public.wallet_terms_acceptance(user_id);` This matches the `ON CONFLICT(user_id)` clause in `wallet_activate_secure`.
+- No function or client code changes are needed. The fix applies immediately on the live app, so no republish is required.
