@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import logoImage from "@/assets/echat-logo.png";
 
 type Section = { title: string; text: string };
@@ -83,9 +84,11 @@ const PublicInfo = ({ page }: { page: keyof typeof pages }) => {
             </section>
           ))}
         </div>
-        <Link to="/auth" className="gradient-primary mt-10 inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-primary-foreground">
-          Create your account <ArrowRight className="h-4 w-4" />
-        </Link>
+        <Button asChild className="mt-10 rounded-full px-6 py-3">
+          <Link to="/auth">
+            Create your account <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
       </main>
     </div>
   );
