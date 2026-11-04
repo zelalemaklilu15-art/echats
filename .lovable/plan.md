@@ -1,23 +1,47 @@
-# ሁሉንም ወደ echats.site ማዛወር
+# ጎብኚዎችን ማሳደግ — የድረ-ገጽ ማስተካከያ
 
-## አሁን ያለው ሁኔታ
-- ድረ-ገጹ: `echats.site` እና `www.echats.site` ተገናኝተው እየተዘጋጁ ነው (Lovable በራሱ ያስተካክላል፣ ደቂቃዎች ይወስዳል)።
-- ኢሜይል: አሁንም `notify.echat.online` ላይ ነው፣ እና አይሰራም (DNS አልተስተካከለም)።
+## አሁን ያለው ሁኔታ (ተመርምሯል)
+
+- አዲስ ሰው `echats.site` ሲከፍት **3 ሰከንድ አኒሜሽን ብቻ** ያያል፣ ከዚያ ወደ መግቢያ (login) ገጽ ይወረወራል። Echat ምን እንደሆነ፣ ምን እንደሚያደርግና ለምን እንደሚመዘገብ ምንም አልተነገረውም — ስለዚህ አብዛኞቹ ያለ ማድረግ ይወጣሉ።
+- **Invite Friends** በSettings ውስጥ አለና አድራሻ ይላካል፤ ነገር ግን አድራሻው ሲላክ የሚታየው ካርድ ምስሉ **ጊዜያዊ የፈተና አድራሻ** ላይ ነው ያለው — ሲጠፋ ካርዱ ምስል አይኖረውም። እንዲሁም የተሳሳተ የTwitter ስም (`@lovable_dev`) ተመዝግቧል።
+- Google የሚያየው **ባዶ ገጽ** ነው (ምንም ማብራሪያ የለውም) — ስለዚህ በፍለጋ አይገኝም። sitemap እና robots.txt ተስተካክለዋል።
+- ኢሜይል `notify.echats.site` **በማረጋገጥ ላይ** ነው — Lovable ራሱ ስለሚያስተዳድር እጅ ስራ አያስፈልግም።
 
 ## የሚደረገው
-1. **የኢሜይል ዶሜይኑን ወደ `notify.echats.site` መቀየር** — ዶሜይኑ ከLovable ስለተገዛ፣ የሚያስፈልጉት መዝገቦች በራሳቸው ይገባሉ። ምንም ወደ yegarahost መሄድ አያስፈልግም።
-   - ለዚህ ደረጃ "Set up email domain" የሚል መስኮት እከፍትልሃለሁ፣ እዚያ `echats.site` ን ትመርጣለህ።
-2. **ሁሉም ኢሜይሎች ከ echats.site ይላካሉ** — የመመዝገቢያ ማረጋገጫ፣ የይለፍ ቃል መቀየሪያ፣ የመግቢያ ኮድ፣ የwallet ማረጋገጫ ኮዶች፣ የኢሜይል መቀየሪያ — ሁሉም ከ `noreply@notify.echats.site` ይመጣሉ።
-3. **የኢሜይሎቹ ውስጥ ያሉ ሊንኮች እና ስሞች** ወደ `echats.site` ይቀየራሉ (የድሮው echat.online ወይም echats.lovable.app ሊንክ አይቀርም)።
-4. **የመግቢያ እና መመለሻ አድራሻዎች** (ለምሳሌ ከኢሜይል ሊንክ ሲመለሱ) ወደ `https://echats.site` ይስተካከላሉ።
-5. **የድሮው echat.online** ከኢሜይል ማዋቀሩ ይወገዳል (እዚያ ያለው yegarahost ድረ-ገጽህና የ mail.echat.online ሳጥን አይነኩም)።
-6. **ማረጋገጥ** — ዶሜይኑ ሲረጋገጥ የሙከራ ምዝገባ አድርጌ ኢሜይሉ መምጣቱን አያለሁ።
-7. **ማውጣት (Publish)** — ያንተን ፈቃድ ካገኘሁ በኋላ ብቻ። ከዚያ የስልኩ መተግበሪያ (APK) እንደገና መገንባት አለበት።
 
-## ማስታወሻ
-- `echatozf@echat.online` የሚለው የመልዕክት ሳጥን (mailbox) በ yegarahost ላይ ስለሆነ እንደ ነበረ ይቀራል። ወደ echats.site ሳጥን ከፈለግክ ለብቻው መከፈት አለበት (Lovable የመቀበያ ሳጥን አይሰጥም)።
+### 1. የመነሻ ገጽ (Landing page) — ዋናው ስራ
+አዲስ ሰው ወደ login ከመውረድ በፊት Echat ምን እንደሆነ ያየዋል፦
+- ርዕስ + አጭር ማብራሪያ + **Create your account** ቁልፍ
+- ዋና ዋና ነገሮች በካርዶች፦ Messages · Calls · Wallet · eTok videos · Live
+- ታችኛው ክፍል (footer)
+- የቀለምና የፊደል ዘይቤው ከዛሬው Cosmic Obsidian ጋር አንድ ዓይነት
+
+```text
+singed-out visitor          signed-in visitor
+   /  ->  Landing page         /  ->  Chats (እንደነበረ)
+             |
+        Create account -> /auth
+```
+
+### 2. የማጋሪያ ካርድ (share preview)
+- ቋሚ የካርድ ምስል በመተግበሪያው ውስጥ ይቀመጣል (አሁን ያለው ጊዜያዊ አድራሻ ይተለፋል)
+- ትክክለኛ ርዕስ፣ ማብራሪያ፣ `canonical` አድራሻ፣ `og:url`፣ `og:site_name`
+- የተሳሳተው `@lovable_dev` ይወገዳል
+- ውጤት፦ ማንኛውም ሰው አድራሻ ሲልክ ጥሩ ምስል ያለው ካርድ ይታያል
+
+### 3. የጎብኚ መከታተያ (Google)
+- ገጹ ከወጣ በኋላ Google Search Console ማገናኘት (ለእርስዎ የሚቀር አንድ ቁልፍ ስራ)
+- sitemap አለ፤ አዲሱ ገጽበቃው ይካተታል
+
+## ማረጋገጫ
+- ለወጪ ሰው (ያልገባ) የሚታየው ገጽ በስልክና በኮምፒውተር ይታያል
+- ገቢ ሰው ቀድሞውንም ወደ Chats እንደሚሄድ ይፈተሻል
+- የማጋሪያ ካርዱ በፈተና ይታያል
 
 ## ቴክኒካዊ ዝርዝር
-- አዲስ email domain `notify.echats.site` (setup dialog)፤ auth-email-hook ውስጥ `SITE_NAME`/`ROOT_DOMAIN`/`FROM_DOMAIN` እና የ template ሊንኮች ወደ echats.site፤ hook ን deploy።
-- auth `site_url` እና redirect allow-list ላይ `https://echats.site` መጨመር፤ ኮድ ውስጥ የተጻፉ `echats.lovable.app`/`echat.online` አድራሻዎችን (payment links፣ share links) መፈተሽና መቀየር።
-- memory ውስጥ ያለውን email-sender ማስታወሻ ማዘመን።
+- `src/pages/Landing.tsx` አዲስ ገጽ (public, auth guard የለውም)
+- `src/App.tsx`፦ `/` ለያልገባ `Landing`፣ ለገቢ `Navigate /chats`
+- `index.html`፦ og/twitter/canonical metadata + ቋሚ ምስል
+- `public/og-image.png` ቋሚ ምስል
+- ከተጠናቀቀ በኋላ **Publish** ያስፈልጋል (ለቀጥታ ድረ-ገጹ) — ከፈቀዱ
+- የካሜራ ጥሩ ማሻሻያው እስካሁን አልወጠም; ከዚህ ጋር አብሮ ሊወጣ ይችላል
