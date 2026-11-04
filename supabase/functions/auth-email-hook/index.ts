@@ -16,9 +16,9 @@ const corsHeaders = {
 
 // Configuration
 const SITE_NAME = "Echat"
-const SENDER_DOMAIN = "notify.echat.online"
-const ROOT_DOMAIN = "echat.online"
-const FROM_DOMAIN = "notify.echat.online"
+const SENDER_DOMAIN = "notify.echats.site"
+const ROOT_DOMAIN = "echats.site"
+const FROM_DOMAIN = "notify.echats.site"
 const SITE_URL = `https://${ROOT_DOMAIN}`
 
 // Template mapping for preview mode
@@ -36,7 +36,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 // The sample email uses a fixed placeholder (RFC 6761 .test TLD) so the Go backend
 // can always find-and-replace it with the actual recipient when sending test emails,
 // even if the project's domain has changed since the template was scaffolded.
-const SAMPLE_PROJECT_URL = "https://echats.lovable.app"
+const SAMPLE_PROJECT_URL = "https://echats.site"
 const SAMPLE_EMAIL = "user@example.test"
 const SAMPLE_DATA: Record<string, object> = {
   signup: {
