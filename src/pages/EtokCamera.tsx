@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { openPortraitCamera, fitForVideo } from "@/lib/cameraStream";
 import { useNavigate } from "react-router-dom";
 import { X, RotateCcw, Zap, ZapOff, Timer, Gauge, Music, Mic, Type, Sticker, Scissors, Wand2, CheckCircle2, ChevronDown, Hash, AtSign, Image, Video, CameraOff, AlertCircle, Upload } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,6 +71,7 @@ const EtokCamera = () => {
   const [timerSetting, setTimerSetting] = useState<0 | 3 | 10>(0);
   const [countdown, setCountdown] = useState(0);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [cameraFit, setCameraFit] = useState<"contain" | "cover">("cover");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -145,10 +147,7 @@ const EtokCamera = () => {
       }
       setCameraError(null);
       setCameraReady(false);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1080 }, height: { ideal: 1920 } },
-        audio: true,
-      });
+      const stream = await openPortraitCamera(facingMode);
       if (!mounted.current || generation !== cameraGeneration.current) { stream.getTracks().forEach(t => t.stop()); return; }
       streamRef.current = stream;
       if (cameraRef.current) {
@@ -346,7 +345,9 @@ const EtokCamera = () => {
               autoPlay
               playsInline
               muted
-              className="absolute inset-0 w-full h-full object-cover"
+              onLoadedMetadata={e => setCameraFit(fitForVideo(e.currentTarget))}
+              onResize={e => setCameraFit(fitForVideo(e.currentTarget))}
+              className={cn("absolute inset-0 w-full h-full", cameraFit === "contain" ? "object-contain" : "object-cover")}
               style={{
                 transform: facingMode === "user" ? "scaleX(-1)" : "none",
                 filter: effectCss,

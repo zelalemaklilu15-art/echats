@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { openPortraitCamera } from '@/lib/cameraStream';
 import { sendWebRTCSignal, subscribeToWebRTCSignals } from '@/lib/etokLiveService';
 import { getEtokIceServers } from '@/lib/etokIceServers';
 
@@ -21,7 +22,7 @@ export function useEtokLiveBroadcast({ streamId, userId, isHost, hostId }: Broad
       const iceServers = await getEtokIceServers();
       if (!active) return null;
       if (isHost) {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 720 },height: { ideal: 1280 },facingMode: 'user' },audio: true });
+        const stream = await openPortraitCamera('user');
         if (!active) { stream.getTracks().forEach(t => t.stop()); return null; }
         local = stream; attach(stream);
       }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { fitForVideo } from "@/lib/cameraStream";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, X, Radio, Users, Send, Crown, Gift, Swords, Bell, BellOff, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -210,6 +211,8 @@ const EtokLive = () => {
           autoPlay
           playsInline
           muted={isHost}
+          onLoadedMetadata={e => { e.currentTarget.style.objectFit = fitForVideo(e.currentTarget); }}
+          onResize={e => { e.currentTarget.style.objectFit = fitForVideo(e.currentTarget); }}
           className="absolute inset-0 w-full h-full object-cover bg-black"
         />
         {/* Fallback gradient + emoji while connecting */}
