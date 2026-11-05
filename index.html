@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script>
+      // Guard against browser translators (e.g. Chrome Translate) moving text nodes React owns.
+      (function () {
+        if (typeof Node !== "function" || !Node.prototype) return;
+        var origRemove = Node.prototype.removeChild;
+        Node.prototype.removeChild = function (child) {
+          if (child && child.parentNode !== this) {
+            if (child.parentNode) return origRemove.call(child.parentNode, child);
+            return child;
+          }
+          return origRemove.apply(this, arguments);
+        };
+        var origInsert = Node.prototype.insertBefore;
+        Node.prototype.insertBefore = function (newNode, ref) {
+          if (ref && ref.parentNode !== this) return origInsert.call(this, newNode, null);
+          return origInsert.apply(this, arguments);
+        };
+      })();
+    </script>
     <meta name="google-site-verification" content="7K2h2gTDGb1hxbwo1z91WNZkb-HtRzfXDLrznCDmGOY" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
