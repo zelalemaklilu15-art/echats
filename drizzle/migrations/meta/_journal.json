@@ -253,6 +253,13 @@
       "when": 1793782628245,
       "tag": "0035_wallet_terms_unique_user",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793984889639,
+      "tag": "0036_restrict_user_verifications",
+      "breakpoints": true
     }
   ]
 }

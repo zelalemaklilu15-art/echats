@@ -11,7 +11,7 @@ export async function openPortraitCamera(facingMode: "user" | "environment", aud
   } catch {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio });
   }
-  const track = stream.getVideoTracks()[0];
+  const track = stream.getVideoTracks?.()?.[0];
   const caps: any = track?.getCapabilities?.() ?? {};
   const apply = async (c: any) => { try { await track.applyConstraints({ advanced: [c] } as any); } catch { /* unsupported */ } };
   if (caps.zoom && typeof caps.zoom.min === "number") await apply({ zoom: caps.zoom.min });
