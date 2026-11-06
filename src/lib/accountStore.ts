@@ -65,7 +65,7 @@ export class AccountStore {
   static initializeDefaultAccount(): void {
     const accounts = this.getAccounts();
     if (accounts.length === 0) {
-      const defaultAccount = this.addAccount("የእኔ አካውንት", "+251 912 345 678");
+      const defaultAccount = this.addAccount("የእኔ አካውንት", "");
       this.switchAccount(defaultAccount.id);
     }
   }

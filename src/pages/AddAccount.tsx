@@ -9,9 +9,12 @@ import { updateProfile } from "@/lib/supabaseService";
 import { checkUsername, normalizeUsername, isValidUsernameFormat, usernameMessage, USERNAME_RULE } from "@/lib/usernameCheck";
 import { toast } from "sonner";
 import { getSessionUserSafe } from "@/lib/authSession";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { defaultCountry, toInternational } from "@/lib/countries";
 
 const AddAccount = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [country, setCountry] = useState(defaultCountry);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,7 +62,12 @@ const AddAccount = () => {
         return;
       }
 
-      const fullPhoneNumber = `+251${phoneNumber.replace(/\s/g, '')}`;
+      const fullPhoneNumber = toInternational(country, phoneNumber);
+      if (!fullPhoneNumber) {
+        toast.error("Enter a valid phone number");
+        setLoading(false);
+        return;
+      }
       
       await updateProfile(userId, {
         username: normalizedUsername,
@@ -138,30 +146,9 @@ const AddAccount = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                Country
-              </label>
-              <div className="flex items-center space-x-2 p-3 rounded-lg border border-border bg-input">
-                <span className="text-sm">🇪🇹</span>
-                <span className="text-sm text-foreground">Ethiopia</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">
                 Phone Number
               </label>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg">
-                  +251
-                </span>
-                <Input
-                  type="tel"
-                  placeholder="9 XX XXX XXX"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
+              <PhoneInput country={country} onCountryChange={setCountry} value={phoneNumber} onChange={setPhoneNumber} />
             </div>
           </Card>
         </div>

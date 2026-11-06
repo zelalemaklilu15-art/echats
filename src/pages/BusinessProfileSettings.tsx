@@ -7,6 +7,18 @@ import { getBusinessProfile, saveBusinessProfile, isBusinessOpen, isAway, type B
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { defaultCountry, splitInternational, toInternational } from "@/lib/countries";
+
+const BusinessPhone = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const init = splitInternational(value);
+  const [country, setCountry] = useState(() => init.country ?? defaultCountry());
+  const [local, setLocal] = useState(init.local);
+  const emit = (c: typeof country, l: string) => onChange(l.trim() ? toInternational(c, l) ?? `${c.dial} ${l.trim()}` : "");
+  return <PhoneInput country={country} value={local}
+    onCountryChange={c => { setCountry(c); emit(c, local); }}
+    onChange={l => { setLocal(l); emit(country, l); }} />;
+};
 
 const SectionTitle = ({ label }: { label: string }) => (
   <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-2 mt-5">{label}</p>
@@ -103,7 +115,7 @@ const BusinessProfileSettings = () => {
               </div>
               <div>
                 <FieldLabel><span className="flex items-center gap-1.5"><Phone className="h-3 w-3" />Phone</span></FieldLabel>
-                <Input value={profile.phone} onChange={v => update({ phone: v })} placeholder="+251 912 345 678" type="tel" />
+                <BusinessPhone value={profile.phone} onChange={v => update({ phone: v })} />
               </div>
               <div>
                 <FieldLabel><span className="flex items-center gap-1.5"><Globe className="h-3 w-3" />Website</span></FieldLabel>
