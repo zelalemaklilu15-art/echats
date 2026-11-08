@@ -5,3 +5,6 @@ project_id = "ldocprioqcxxzadisoii"
     verify_jwt = false
   [functions.push-dispatch]
     verify_jwt = false
+
+[functions.preview-transactional-email]
+verify_jwt = false

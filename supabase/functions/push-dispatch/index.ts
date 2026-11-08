@@ -1,5 +1,6 @@
 // Internal: called by database triggers (pg_net) whenever app activity is saved.
 // Builds the right notification and sends it via FCM. Not callable by clients.
+import { sendTemplateEmail } from '../_shared/transactional-email-templates/send-email.ts';
 import { sendPushToUser, adminClient, type PushMessage } from '../_shared/fcm.ts';
 
 type Rec = Record<string, any>;
@@ -84,6 +85,19 @@ async function followersOf(id: string) {
   return (data ?? []).map((r: Rec) => r.follower_id);
 }
 
+// Email receipt for the wallet owner; failures never block the push notification.
+async function emailReceipt(userId: string, r: Rec, data: Rec) {
+  try {
+    const { data: u } = await db.auth.admin.getUserById(userId);
+    const email = u?.user?.email;
+    if (!email) return;
+    await sendTemplateEmail('wallet-receipt', email, {
+      templateData: { ...data, receiptUrl: `https://echats.site/transaction-detail/${r.id}` },
+      idempotencyKey: `wallet-receipt-${r.id}-${r.status}`,
+    });
+  } catch (e) { console.error('[push-dispatch] receipt email failed', e); }
+}
+
 async function handle(table: string, op: string, r: Rec): Promise<number> {
   switch (table) {
     case 'wallet_transactions': {
@@ -97,6 +111,9 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
       if (r.type === 'transfer_in' && r.status === 'completed') {
         const actor = r.metadata?.sender_user_id;
         if (!actor) return 0;
+        const from = (await recipientText(await nameOf(actor), wallet.user_id));
+        await emailReceipt(wallet.user_id, r, { action: 'Money received', amount: money(r.amount),
+          counterparty: from.hidden ? undefined : `from ${from.text}`, fee: money(r.fee), balance: money(r.balance_after), date: `${when} UTC`, reference: ref });
         return send([wallet.user_id], actor, {
           title: '💰 Echat Wallet · Money received',
           body: `You received ${money(r.amount)} from ${await nameOf(actor)}. ${tail}`,
@@ -115,10 +132,16 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
         const to = r.type === 'transfer_out' && r.metadata?.recipient_user_id
           ? ` to ${await nameOf(r.metadata.recipient_user_id)}` : (r.description ? ` — ${clip(r.description, 40)}` : '');
         const [t, b] = await Promise.all([recipientText(title, wallet.user_id), recipientText(`${verb} ${money(r.amount)}${to}. ${tail}`, wallet.user_id)]);
+        const cp = await recipientText(to.trim().replace(/^— /, ''), wallet.user_id);
+        await emailReceipt(wallet.user_id, r, { action: title.split('· ')[1], amount: money(r.amount),
+          counterparty: cp.hidden || !cp.text ? undefined : cp.text, fee: money(r.fee), balance: money(r.balance_after), date: `${when} UTC`, reference: ref });
         return (await sendPushToUser(wallet.user_id, {
           title: t.text, body: b.hidden ? `${verb} ${money(r.amount)}. ${tail}` : b.text,
           tag: `wallet-${r.id}`, url, data: { type: 'wallet_activity', transactionId: r.id },
         })).sent;
+      }
+      if (r.type === 'deposit' && r.status === 'completed') {
+        await emailReceipt(wallet.user_id, r, { action: 'Deposit confirmed', amount: money(r.amount), fee: money(r.fee), balance: money(r.balance_after), date: `${when} UTC`, reference: ref });
       }
       if (r.type === 'deposit' && (op === 'INSERT' || r.status === 'completed')) {
         return (await sendPushToUser(wallet.user_id, {
