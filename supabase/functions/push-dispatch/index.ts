@@ -89,13 +89,36 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
     case 'wallet_transactions': {
       const { data: wallet } = await db.from('wallets').select('user_id').eq('id', r.wallet_id).maybeSingle();
       if (!wallet?.user_id) return 0;
+      const money = (v: unknown) => `ETB ${Number(v ?? 0).toFixed(2)}`;
+      const ref = String(r.reference_id || r.id).slice(0, 12).toUpperCase();
+      const when = new Date(r.created_at || Date.now()).toISOString().slice(0, 16).replace('T', ' ');
+      const tail = `Fee: ${money(r.fee)} · Balance: ${money(r.balance_after)} · ${when} UTC · Txn ${ref}`;
+      const url = `/transaction-detail/${r.id}`;
       if (r.type === 'transfer_in' && r.status === 'completed') {
         const actor = r.metadata?.sender_user_id;
         if (!actor) return 0;
         return send([wallet.user_id], actor, {
-          title: 'Money received', body: `${await nameOf(actor)} sent you ${Number(r.amount).toFixed(2)} ETB`,
-          tag: `wallet-${r.id}`, url: '/wallet', data: { type: 'wallet_transfer', transactionId: r.id },
+          title: '💰 Echat Wallet · Money received',
+          body: `You received ${money(r.amount)} from ${await nameOf(actor)}. ${tail}`,
+          tag: `wallet-${r.id}`, url, data: { type: 'wallet_transfer', transactionId: r.id },
         });
+      }
+      const LABEL: Record<string, [string, string]> = {
+        transfer_out: ['✅ Echat Wallet · Money sent', 'You sent'],
+        withdrawal: ['🏦 Echat Wallet · Withdrawal', 'You withdrew'],
+        payment: ['🧾 Echat Wallet · Payment', 'You paid'],
+        refund: ['↩️ Echat Wallet · Refund', 'You were refunded'],
+        bonus: ['🎁 Echat Wallet · Bonus', 'You received a bonus of'],
+      };
+      if (LABEL[r.type] && r.status === 'completed') {
+        const [title, verb] = LABEL[r.type];
+        const to = r.type === 'transfer_out' && r.metadata?.recipient_user_id
+          ? ` to ${await nameOf(r.metadata.recipient_user_id)}` : (r.description ? ` — ${clip(r.description, 40)}` : '');
+        const [t, b] = await Promise.all([recipientText(title, wallet.user_id), recipientText(`${verb} ${money(r.amount)}${to}. ${tail}`, wallet.user_id)]);
+        return (await sendPushToUser(wallet.user_id, {
+          title: t.text, body: b.hidden ? `${verb} ${money(r.amount)}. ${tail}` : b.text,
+          tag: `wallet-${r.id}`, url, data: { type: 'wallet_activity', transactionId: r.id },
+        })).sent;
       }
       if (r.type === 'deposit' && (op === 'INSERT' || r.status === 'completed')) {
         return (await sendPushToUser(wallet.user_id, {
