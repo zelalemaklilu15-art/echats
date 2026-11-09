@@ -26,7 +26,7 @@ export const MagicLinkEmail = ({ siteName, token }: MagicLinkEmailProps) => (
     <Preview>Your {siteName} verification code: {token}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Text style={wordmark}>Echat</Text>
+        <Text style={wordmark}>💬 Echat</Text>
         <Heading style={h1}>Your verification code</Heading>
         <Text style={text}>
           Enter this code in the "Email code" box in {siteName}. It expires shortly.

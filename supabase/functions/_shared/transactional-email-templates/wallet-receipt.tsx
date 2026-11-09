@@ -27,7 +27,7 @@ const WalletReceipt = ({ action = 'Wallet activity', amount = '', counterparty, 
     <Preview>{`${action}: ${amount}`}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Text style={wordmark}>Echat Wallet</Text>
+        <Text style={wordmark}>💬 Echat Wallet</Text>
         <Text style={badge}>✓ {action}</Text>
         <Heading style={{ ...h1, fontSize: '40px', letterSpacing: '-1px', margin: '0 0 28px' }}>{amount}</Heading>
         <Section style={card}>
@@ -47,7 +47,7 @@ const WalletReceipt = ({ action = 'Wallet activity', amount = '', counterparty, 
   </Html>
 )
 
-const card = { backgroundColor: emailBrand.card, borderRadius: '12px', padding: '8px 18px' }
+const card = { backgroundColor: emailBrand.card, border: `1px solid ${emailBrand.border}`, borderRadius: '16px', padding: '8px 18px' }
 const badge = { display: 'inline-block', fontSize: '13px', fontWeight: 600 as const, color: emailBrand.success, backgroundColor: '#E6F6EF', borderRadius: '999px', padding: '5px 12px', margin: '0 0 12px' }
 const rowLabel = { fontSize: '14px', color: emailBrand.mutedForeground, padding: '10px 0' }
 const rowValue = { fontSize: '14px', color: emailBrand.foreground, padding: '10px 0', textAlign: 'right' as const, fontWeight: 'bold' as const }
