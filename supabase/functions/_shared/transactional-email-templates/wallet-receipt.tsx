@@ -53,7 +53,13 @@ const rowValue = { fontSize: '13px', color: emailBrand.foreground, padding: '7px
 
 export const template = {
   component: WalletReceipt,
-  subject: (d: Record<string, any>) => `Echat Wallet receipt · ${d.action ?? 'Activity'} ${d.amount ?? ''}`.trim(),
+  subject: (d: Record<string, any>) => {
+    const amt = d.amount ?? ''
+    const cp = typeof d.counterparty === 'string' ? d.counterparty : ''
+    if (d.action === 'Money sent') return cp.startsWith('to ') ? `You sent ${amt} ${cp}` : `You sent ${amt}`
+    if (d.action === 'Money received') return cp.startsWith('from ') ? `You received ${amt} ${cp}` : `You received ${amt}`
+    return `Echat Wallet receipt · ${d.action ?? 'Activity'} ${amt}`.trim()
+  },
   displayName: 'Wallet receipt',
   previewData: {
     action: 'Money sent', amount: 'ETB 250.00', counterparty: 'to Abebe K.', fee: 'ETB 0.00',
