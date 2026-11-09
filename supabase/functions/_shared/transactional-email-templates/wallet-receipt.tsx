@@ -28,8 +28,8 @@ const WalletReceipt = ({ action = 'Wallet activity', amount = '', counterparty, 
     <Body style={main}>
       <Container style={container}>
         <Text style={wordmark}>Echat Wallet</Text>
-        <Text style={{ ...text, margin: '0 0 6px' }}>{action}</Text>
-        <Heading style={{ ...h1, fontSize: '30px', margin: '0 0 24px' }}>{amount}</Heading>
+        <Text style={badge}>✓ {action}</Text>
+        <Heading style={{ ...h1, fontSize: '40px', letterSpacing: '-1px', margin: '0 0 28px' }}>{amount}</Heading>
         <Section style={card}>
           <Row label={counterparty?.startsWith('to ') ? 'Recipient' : 'Details'} value={counterparty?.replace(/^(to|from) /, '')} />
           <Row label="Fee" value={fee} />
@@ -37,8 +37,8 @@ const WalletReceipt = ({ action = 'Wallet activity', amount = '', counterparty, 
           <Row label="Date" value={date} />
           <Row label="Transaction ID" value={reference} />
         </Section>
-        <Button href={receiptUrl} style={{ ...button, marginTop: '24px' }}>View receipt</Button>
-        <Hr style={{ borderColor: 'hsl(267, 20%, 20%)', margin: '28px 0 16px' }} />
+        <Button href={receiptUrl} style={{ ...button, marginTop: '28px' }}>View receipt</Button>
+        <Hr style={{ borderColor: emailBrand.border, margin: '32px 0 16px' }} />
         <Text style={{ ...text, fontSize: '12px', margin: 0 }}>
           If you did not make this transaction, change your wallet PIN and contact support@echats.site.
         </Text>
@@ -47,9 +47,10 @@ const WalletReceipt = ({ action = 'Wallet activity', amount = '', counterparty, 
   </Html>
 )
 
-const card = { backgroundColor: 'hsl(267, 24%, 13%)', borderRadius: emailBrand.radius, padding: '12px 16px' }
-const rowLabel = { fontSize: '13px', color: emailBrand.mutedForeground, padding: '7px 0' }
-const rowValue = { fontSize: '13px', color: emailBrand.foreground, padding: '7px 0', textAlign: 'right' as const, fontWeight: 'bold' as const }
+const card = { backgroundColor: emailBrand.card, borderRadius: '12px', padding: '8px 18px' }
+const badge = { display: 'inline-block', fontSize: '13px', fontWeight: 600 as const, color: emailBrand.success, backgroundColor: '#E6F6EF', borderRadius: '999px', padding: '5px 12px', margin: '0 0 12px' }
+const rowLabel = { fontSize: '14px', color: emailBrand.mutedForeground, padding: '10px 0' }
+const rowValue = { fontSize: '14px', color: emailBrand.foreground, padding: '10px 0', textAlign: 'right' as const, fontWeight: 'bold' as const }
 
 export const template = {
   component: WalletReceipt,
