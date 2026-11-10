@@ -1,8 +1,9 @@
 /// <reference types="npm:@types/react@18.3.1" />
 import * as React from 'npm:react@18.3.1'
-import { Body, Button, Container, Head, Heading, Hr, Html, Preview, Section, Text } from 'npm:@react-email/components@0.0.22'
+import { Button, Section, Text } from 'npm:@react-email/components@0.0.22'
 import type { TemplateEntry } from './registry.ts'
-import { emailBrand, main, container, h1, text, button, wordmark } from '../email-templates/brand.ts'
+import { emailBrand } from '../email-templates/brand.ts'
+import { EmailShell, paragraph, gradientButton } from '../email-templates/layout.tsx'
 
 interface Props {
   action?: string
@@ -22,33 +23,21 @@ const Row = ({ label, value }: { label: string; value?: string }) => value ? (
 ) : null
 
 const WalletReceipt = ({ action = 'Wallet activity', amount = '', counterparty, fee, balance, date, reference, receiptUrl = 'https://echats.site/wallet' }: Props) => (
-  <Html lang="en" dir="ltr">
-    <Head />
-    <Preview>{`${action}: ${amount}`}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Text style={wordmark}>💬 Echat Wallet</Text>
-        <Text style={badge}>✓ {action}</Text>
-        <Heading style={{ ...h1, fontSize: '40px', letterSpacing: '-1px', margin: '0 0 28px' }}>{amount}</Heading>
-        <Section style={card}>
-          <Row label={counterparty?.startsWith('to ') ? 'Recipient' : 'Details'} value={counterparty?.replace(/^(to|from) /, '')} />
-          <Row label="Fee" value={fee} />
-          <Row label="Balance after" value={balance} />
-          <Row label="Date" value={date} />
-          <Row label="Transaction ID" value={reference} />
-        </Section>
-        <Button href={receiptUrl} style={{ ...button, marginTop: '28px' }}>View receipt</Button>
-        <Hr style={{ borderColor: emailBrand.border, margin: '32px 0 16px' }} />
-        <Text style={{ ...text, fontSize: '12px', margin: 0 }}>
-          If you did not make this transaction, change your wallet PIN and contact support@echats.site.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
+  <EmailShell preview={`${action}: ${amount}`} icon="wallet" title={action} brandLabel="Echat Wallet"
+    note="If you did not make this transaction, change your wallet PIN and contact support@echats.site.">
+    <Text style={{ ...paragraph, fontSize: '40px', fontWeight: 800, letterSpacing: '-1px', textAlign: 'center', margin: '0 0 20px' }}>{amount}</Text>
+    <Section style={card}>
+      <Row label={counterparty?.startsWith('to ') ? 'Recipient' : 'Details'} value={counterparty?.replace(/^(to|from) /, '')} />
+      <Row label="Fee" value={fee} />
+      <Row label="Balance after" value={balance} />
+      <Row label="Date" value={date} />
+      <Row label="Transaction ID" value={reference} />
+    </Section>
+    <Button className="dm-btn" href={receiptUrl} style={{ ...gradientButton, marginTop: '24px' }}>View receipt</Button>
+  </EmailShell>
 )
 
-const card = { backgroundColor: emailBrand.card, border: `1px solid ${emailBrand.border}`, borderRadius: '16px', padding: '8px 18px' }
-const badge = { display: 'inline-block', fontSize: '13px', fontWeight: 600 as const, color: emailBrand.success, backgroundColor: '#E6F6EF', borderRadius: '999px', padding: '5px 12px', margin: '0 0 12px' }
+const card = { backgroundColor: '#ffffff', border: '1px solid #E4E1EC', borderRadius: '16px', padding: '8px 18px' }
 const rowLabel = { fontSize: '14px', color: emailBrand.mutedForeground, padding: '10px 0' }
 const rowValue = { fontSize: '14px', color: emailBrand.foreground, padding: '10px 0', textAlign: 'right' as const, fontWeight: 'bold' as const }
 
