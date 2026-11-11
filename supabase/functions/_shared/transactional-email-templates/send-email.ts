@@ -11,10 +11,10 @@ const SITE_NAME = "Echat"
 // SENDER_DOMAIN is the verified sender FQDN: a delegated subdomain (e.g., "notify.example.com"), or, on a
 // domain registered through Lovable, the domain itself or a name under it (e.g., "example.com", "app.example.com").
 // It MUST match the sender verified in Lovable's email setup.
-const SENDER_DOMAIN = "echats.site"
+const SENDER_DOMAIN = "notify.echats.site"
 // FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
 // Can be the root domain when display_from_root is enabled — this is cosmetic only.
-const FROM_DOMAIN = "echats.site"
+const FROM_DOMAIN = "notify.echats.site"
 
 export type SendTemplateEmailResult =
   | { sent: true }

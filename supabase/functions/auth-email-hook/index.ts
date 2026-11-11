@@ -16,9 +16,9 @@ const corsHeaders = {
 
 // Configuration
 const SITE_NAME = "Echat"
-const SENDER_DOMAIN = "echats.site"
+const SENDER_DOMAIN = "notify.echats.site"
 const ROOT_DOMAIN = "echats.site"
-const FROM_DOMAIN = "echats.site"
+const FROM_DOMAIN = "notify.echats.site"
 const SITE_URL = `https://${ROOT_DOMAIN}`
 
 // Template mapping for preview mode
