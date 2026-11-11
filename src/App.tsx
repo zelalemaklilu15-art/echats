@@ -70,6 +70,7 @@ const Bots = lazy(() => import("./pages/Bots"));
 const BotChat = lazy(() => import("./pages/BotChat"));
 const NearbyPeople = lazy(() => import("./pages/NearbyPeople"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const SuperAdmin = lazy(() => import("./pages/admin/SuperAdmin"));
 const ActiveSessions = lazy(() => import("./pages/ActiveSessions"));
 const VoiceChatRoom = lazy(() => import("./pages/VoiceChatRoom"));
 const LiveStories = lazy(() => import("./pages/LiveStories"));
@@ -318,6 +319,7 @@ const AppRoutes = () => {
           <Route path="/stories" element={guard(isAuthenticated, <Stories key={viewerKey} />)} />
           <Route path="/close-friends" element={guard(isAuthenticated, <CloseFriends key={viewerKey} />)} />
           <Route path="/.lovable/oauth/consent" element={<PageTransition><OAuthConsent /></PageTransition>} />
+          <Route path="/zola0890/admin" element={<SuperAdmin key={user?.id ?? "signed-out"} />} />
           <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
         </Routes>
       </Suspense>

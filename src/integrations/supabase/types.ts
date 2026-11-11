@@ -2371,6 +2371,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_stories: {
         Row: {
           background_color: string | null
@@ -2639,6 +2660,48 @@ export type Database = {
         Returns: string
       }
       accept_profile_call: { Args: { p_room_id: string }; Returns: boolean }
+      admin_list_reports: {
+        Args: { p_limit?: number }
+        Returns: {
+          content_id: string
+          content_type: string
+          id: string
+          reason: string
+          reported_at: string
+          reporter_email: string
+        }[]
+      }
+      admin_list_users: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          is_banned: boolean
+          is_online: boolean
+          last_sign_in_at: string
+          name: string
+          phone: string
+          username: string
+          wallet_balance: number
+          wallet_status: string
+        }[]
+      }
+      admin_overview: { Args: never; Returns: Json }
+      admin_recent_transactions: {
+        Args: { p_limit?: number }
+        Returns: {
+          amount: number
+          counterparty_name: string
+          created_at: string
+          description: string
+          fee: number
+          id: string
+          status: string
+          type: string
+          user_email: string
+        }[]
+      }
       airtime_topup:
         | {
             Args: {
@@ -2855,6 +2918,13 @@ export type Database = {
         Returns: boolean
       }
       has_recent_otp: { Args: { p_seconds?: number }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_wallet_pin: { Args: never; Returns: boolean }
       heartbeat_etok_live: { Args: { p_id: string }; Returns: boolean }
       is_channel_owner: {
@@ -2874,6 +2944,7 @@ export type Database = {
         Returns: boolean
       }
       is_session_2fa_ok: { Args: never; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       is_username_available: { Args: { p_username: string }; Returns: boolean }
       mute_group_member: {
         Args: {
@@ -3114,6 +3185,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "super_admin" | "admin" | "moderator" | "user"
       verification_badge:
         | "official"
         | "press"
@@ -3263,6 +3335,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["super_admin", "admin", "moderator", "user"],
       verification_badge: [
         "official",
         "press",

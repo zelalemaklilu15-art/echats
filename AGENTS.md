@@ -20,3 +20,4 @@
 - Folder invites snapshot only groups authorized by their owner/admin and public or owner-authorized channels; acceptance rechecks authority transactionally, joins as member, and is replay-safe; direct group self-joining is forbidden. Why: invite IDs and direct-chat references must never bypass membership or profile privacy.
 - Authentication emails use the scaffolded managed `auth-email-hook` SDK handler and shared email-brand styles; deploy the hook after template edits and never add queue infrastructure. Why: this project's managed email service owns delivery and has no database email queues.
 
+- Super admin access uses `public.user_roles` + `is_super_admin()`; admin data comes only from `admin_*` SECURITY DEFINER RPCs and the hidden admin route renders 404 for everyone else. Why: client-side checks can be forged and the panel must not reveal it exists.
