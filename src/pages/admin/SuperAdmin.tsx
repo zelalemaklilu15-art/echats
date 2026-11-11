@@ -11,14 +11,18 @@ import { Loader2, RefreshCw, Shield } from "lucide-react";
 
 type Overview = Record<string, number>;
 type Row = Record<string, any>;
-const rpc = supabase.rpc as unknown as (fn: string, args?: object) => Promise<{ data: any; error: any }>;
+const rpc = (fn: string, args?: object): Promise<{ data: any; error: any }> =>
+  (supabase.rpc as any).call(supabase, fn, args) as Promise<{ data: any; error: any }>;
 
 const fmt = (d?: string) => (d ? new Date(d).toLocaleString() : "—");
 const money = (n?: number | null) => (n == null ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 }));
 
 export default function SuperAdmin() {
   const { user } = useAuth();
-  const [state, setState] = useState<"checking" | "denied" | "ok">("checking");
+  const [state, setState] = useState<"checking" | "denied" | "ok" | "login">("checking");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
   const [overview, setOverview] = useState<Overview | null>(null);
   const [users, setUsers] = useState<Row[]>([]);
   const [txs, setTxs] = useState<Row[]>([]);
@@ -29,7 +33,7 @@ export default function SuperAdmin() {
   useEffect(() => {
     let alive = true;
     setState("checking");
-    if (!user) { setState("denied"); return; }
+    if (!user) { setState("login"); return; }
     rpc("is_super_admin").then(({ data, error }) => {
       if (alive) setState(!error && data === true ? "ok" : "denied");
     });
@@ -53,6 +57,20 @@ export default function SuperAdmin() {
 
   if (state === "checking") return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   if (state === "denied") return <NotFound />;
+  if (state === "login") return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <form className="w-full max-w-sm space-y-3" onSubmit={async (e) => {
+        e.preventDefault(); setErr("");
+        const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
+        if (error) setErr("Sign-in failed");
+      }}>
+        <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Input type="password" placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} required />
+        {err && <p className="text-sm text-destructive">{err}</p>}
+        <Button type="submit" className="w-full">Sign in</Button>
+      </form>
+    </div>
+  );
 
   const stats: [string, string][] = overview ? [
     ["Total users", String(overview.users)], ["New (7 days)", String(overview.users_7d)], ["Online now", String(overview.online)],

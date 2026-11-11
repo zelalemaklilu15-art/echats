@@ -274,6 +274,13 @@
       "when": 1794396771350,
       "tag": "0038_grant_owner_super_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794398250552,
+      "tag": "0039_grant_second_owner_super_admin",
+      "breakpoints": true
     }
   ]
 }
