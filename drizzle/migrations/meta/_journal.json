@@ -288,6 +288,13 @@
       "when": 1794461321376,
       "tag": "0040_support_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794461514050,
+      "tag": "0041_scope_etok_sounds_select",
+      "breakpoints": true
     }
   ]
 }
