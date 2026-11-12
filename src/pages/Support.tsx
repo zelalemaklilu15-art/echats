@@ -38,10 +38,11 @@ export default function Support() {
     const parsed = schema.safeParse({ subject, message });
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     setSending(true);
-    const { error } = await supabase.from("support_tickets").insert({ user_id: user!.id, subject: parsed.data.subject, message: parsed.data.message, category });
+    const { data: row, error } = await supabase.from("support_tickets").insert({ user_id: user!.id, subject: parsed.data.subject, message: parsed.data.message, category }).select("id").single();
+    if (!error && row) supabase.functions.invoke("support-email", { body: { event: "created", ticket_id: row.id } }).catch(() => {});
     setSending(false);
     if (error) { toast.error("Could not send. Try again."); return; }
-    toast.success("Sent! Our team will reply here.");
+    toast.success("Sent! A confirmation was emailed to you.");
     setSubject(""); setMessage(""); load();
   };
 

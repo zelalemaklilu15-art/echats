@@ -121,6 +121,7 @@ export default function SuperAdmin() {
                     <Button key={st} size="sm" variant={st === "replied" ? "default" : "outline"} disabled={!(replies[t.id] ?? "").trim()} onClick={async () => {
                       const { error } = await rpc("admin_reply_ticket", { p_id: t.id, p_reply: replies[t.id], p_status: st });
                       if (error) { alert("Reply failed"); return; }
+                      supabase.functions.invoke("support-email", { body: { event: "replied", ticket_id: t.id } }).catch(() => {});
                       setReplies((p) => ({ ...p, [t.id]: "" })); load();
                     }}>{st === "replied" ? "Send reply" : "Reply & close"}</Button>
                   ))}
