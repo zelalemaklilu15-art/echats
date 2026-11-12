@@ -31,6 +31,7 @@ import OfflineBanner from "@/components/OfflineBanner";
 const Splash = lazy(() => import("./pages/Splash"));
 const PublicInfo = lazy(() => import("./pages/PublicInfo"));
 const Terms = lazy(() => import("./pages/Terms"));
+const Support = lazy(() => import("./pages/Support"));
 const Landing = lazy(() => import("./pages/Landing"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Chats = lazy(() => import("./pages/Chats"));
@@ -274,6 +275,7 @@ const AppRoutes = () => {
           <Route path="/scheduled-payments" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><ScheduledPayments /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/wallet/qr" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><WalletQR /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/features" element={guard(isAuthenticated, <Features />)} />
+          <Route path="/support" element={guard(isAuthenticated, <Support />)} />
           <Route path="/add-money" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><AddMoney /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/send-money" element={guard(isAuthenticated, <WalletSecurityGate><SendMoney /></WalletSecurityGate>)} />
           <Route path="/airtime" element={guard(isAuthenticated, <WalletSecurityGate><Airtime /></WalletSecurityGate>)} />

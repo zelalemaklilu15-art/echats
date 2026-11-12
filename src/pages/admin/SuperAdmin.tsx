@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2, RefreshCw, Shield } from "lucide-react";
 
 type Overview = Record<string, number>;
@@ -28,6 +29,8 @@ export default function SuperAdmin() {
   const [txs, setTxs] = useState<Row[]>([]);
   const [reports, setReports] = useState<Row[]>([]);
   const [search, setSearch] = useState("");
+  const [tickets, setTickets] = useState<Row[]>([]);
+  const [replies, setReplies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -42,14 +45,15 @@ export default function SuperAdmin() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [o, u, t, r] = await Promise.all([
+    const [o, u, t, r, s] = await Promise.all([
       rpc("admin_overview"),
       rpc("admin_list_users", { p_search: search || null, p_limit: 100 }),
       rpc("admin_recent_transactions", { p_limit: 100 }),
       rpc("admin_list_reports", { p_limit: 100 }),
+      rpc("admin_list_tickets", { p_limit: 200 }),
     ]);
     if (o.error) { setState("denied"); setLoading(false); return; }
-    setOverview(o.data); setUsers(u.data ?? []); setTxs(t.data ?? []); setReports(r.data ?? []);
+    setOverview(o.data); setUsers(u.data ?? []); setTxs(t.data ?? []); setReports(r.data ?? []); setTickets(s.data ?? []);
     setLoading(false);
   }, [search]);
 
@@ -95,7 +99,35 @@ export default function SuperAdmin() {
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="wallet">Wallet</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="support">Support{tickets.filter((x) => x.status === "open").length ? ` (${tickets.filter((x) => x.status === "open").length})` : ""}</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="support" className="mt-4 space-y-3">
+            {tickets.length === 0 && <p className="text-sm text-muted-foreground">No support requests.</p>}
+            {tickets.map((t) => (
+              <Card key={t.id} className="p-4 text-sm space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold">{t.subject}</span>
+                  <Badge variant={t.status === "open" ? "destructive" : "secondary"}>{t.status}</Badge>
+                  <Badge variant="outline">{t.category}</Badge>
+                  <span className="ml-auto text-xs text-muted-foreground">{fmt(t.created_at)}</span>
+                </div>
+                <p className="text-muted-foreground break-all">{t.user_name || "—"} · {t.user_email}</p>
+                <p className="whitespace-pre-wrap">{t.message}</p>
+                {t.admin_reply && <div className="rounded-lg border border-primary/30 bg-primary/10 p-3"><p className="text-xs text-primary mb-1">Your reply · {fmt(t.replied_at)}</p><p className="whitespace-pre-wrap">{t.admin_reply}</p></div>}
+                <Textarea rows={3} placeholder="Write a reply" value={replies[t.id] ?? ""} onChange={(e) => setReplies((p) => ({ ...p, [t.id]: e.target.value }))} />
+                <div className="flex gap-2">
+                  {(["replied", "resolved"] as const).map((st) => (
+                    <Button key={st} size="sm" variant={st === "replied" ? "default" : "outline"} disabled={!(replies[t.id] ?? "").trim()} onClick={async () => {
+                      const { error } = await rpc("admin_reply_ticket", { p_id: t.id, p_reply: replies[t.id], p_status: st });
+                      if (error) { alert("Reply failed"); return; }
+                      setReplies((p) => ({ ...p, [t.id]: "" })); load();
+                    }}>{st === "replied" ? "Send reply" : "Reply & close"}</Button>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </TabsContent>
 
           <TabsContent value="overview" className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
             {stats.map(([k, v]) => (

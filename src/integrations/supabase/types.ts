@@ -2314,6 +2314,42 @@ export type Database = {
           },
         ]
       }
+      support_tickets: {
+        Row: {
+          admin_reply: string | null
+          category: string
+          created_at: string
+          id: string
+          message: string
+          replied_at: string | null
+          status: string
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          admin_reply?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          message: string
+          replied_at?: string | null
+          status?: string
+          subject: string
+          user_id?: string
+        }
+        Update: {
+          admin_reply?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          message?: string
+          replied_at?: string | null
+          status?: string
+          subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       typing_indicators: {
         Row: {
           chat_id: string
@@ -2671,6 +2707,21 @@ export type Database = {
           reporter_email: string
         }[]
       }
+      admin_list_tickets: {
+        Args: { p_limit?: number }
+        Returns: {
+          admin_reply: string
+          category: string
+          created_at: string
+          id: string
+          message: string
+          replied_at: string
+          status: string
+          subject: string
+          user_email: string
+          user_name: string
+        }[]
+      }
       admin_list_users: {
         Args: { p_limit?: number; p_search?: string }
         Returns: {
@@ -2701,6 +2752,10 @@ export type Database = {
           type: string
           user_email: string
         }[]
+      }
+      admin_reply_ticket: {
+        Args: { p_id: string; p_reply: string; p_status?: string }
+        Returns: undefined
       }
       airtime_topup:
         | {

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect } from "react";
-import { ArrowLeft, User, Wallet, Users, BookOpen, Phone, Bookmark, Settings as SettingsIcon, Share, Star, LogOut, Plus, Check, Loader2, Bell, BellOff, Sun, Moon, Palette, Volume2, Image as ImageIcon, Shield, Database, AtSign, FileDown, Smartphone, Zap, Briefcase, Gift, Radio, ChevronRight, BadgeCheck } from "lucide-react";
+import { ArrowLeft, User, Wallet, Users, BookOpen, Phone, Bookmark, Settings as SettingsIcon, Share, Star, LogOut, Plus, Check, Loader2, Bell, BellOff, Sun, Moon, Palette, Volume2, Image as ImageIcon, Shield, Database, AtSign, FileDown, Smartphone, Zap, Briefcase, Gift, Radio, ChevronRight, BadgeCheck, LifeBuoy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
@@ -320,6 +320,7 @@ const Settings = () => {
           shareContent({ title: "Join me on Echat", text: "Fast, simple, and secure messaging", url: publicOrigin() }).then((ok) => { if (!ok) toast.success(publicOrigin()); });
         }} />
         <SettingsRow icon={Star}      iconBg="bg-primary/80"   label="Echat Features" onClick={() => go("/features")} />
+        <SettingsRow icon={LifeBuoy}  iconBg="bg-emerald-600"  label="Help & Support"   onClick={() => go("/support")} />
       </div>
 
       {/* ── Admin: Grant Verification ── */}
