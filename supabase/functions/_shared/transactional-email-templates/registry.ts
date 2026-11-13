@@ -1,5 +1,6 @@
 import type { ComponentType } from 'npm:react@18.3.1'
 import { template as walletReceipt } from './wallet-receipt.tsx'
+import { adminMessage } from './admin-message.tsx'
 import { supportReceived, supportAlert, supportReply } from './support-templates.tsx'
 
 export interface TemplateEntry {
@@ -24,6 +25,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'support-received': supportReceived,
   'support-alert': supportAlert,
   'support-reply': supportReply,
+  'admin-message': adminMessage,
   // Add templates here as they are created, e.g.:
   // 'welcome': welcomeTemplate,
 }

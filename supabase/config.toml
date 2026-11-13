@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.support-email]
 verify_jwt = false
+
+[functions.admin-send-email]
+verify_jwt = true
