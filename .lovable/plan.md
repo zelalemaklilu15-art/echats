@@ -1,19 +1,21 @@
-# ImprovMX ን ማግበር (support@ / info@ / contact@ / admin@echats.site)
+# Google Ads (701-769-1076) — ቀጣይ እቅድ
 
-## ሁኔታ
-- አዲሱ ላኪ noreply@notify.echats.site ኮዱ ተቀይሮ ተሰማርቷል (ተጠናቋል)።
-- ቀሪው፦ echats.site DNS ላይ የImprovMX MX መዝገቦች መጨመር።
-- AI ኤጀንቱ የDNS መዝገቦችን የሚቀይርበት መሳሪያ የለውም፤ ፈቃድ ቢሰጥም አይቻልም። ስለዚህ ይህ ደረጃ በእርስዎ እጅ ብቻ ይሰራል።
+## አሁን ያለው ሁኔታ
+Submit ቢጫኑም Google እስካሁን አካውንቱን ለAPI አላሳየኝም (የአካውንት ዝርዝሩ ባዶ ነው)። አዲስ አካውንት ለመታየት አንዳንዴ ጥቂት ደቂቃዎች ይወስዳል። ሌላው ምክንያት፦ Lovable ላይ ያገናኙት Gmail እና አካውንቱን የከፈቱበት Gmail ተመሳሳይ ላይሆኑ ይችላሉ።
 
-## እርስዎ የሚያደርጉት (አንድ ጊዜ ብቻ)
-1. More → Emails ላይ notify.echats.site "Active" መሆኑን ያረጋግጡ (ከዚያ በፊት MX ይቆለፋል)።
-2. Settings → Workspace domains → echats.site → Advanced → DNS records።
-3. የድሮ mxa/mxb.eu.mailgun.org MX ካለ ያጥፉ።
-4. + Add record፦ MX, Host @, Answer mx1.improvmx.com, Priority 10, TTL 300።
-5. + Add record፦ MX, Host @, Answer mx2.improvmx.com, Priority 20, TTL 300።
-6. TXT (SPF) @ ን ወደ `v=spf1 include:mailgun.org include:spf.improvmx.com ~all` ያስተካክሉ።
-7. ImprovMX ላይ "Check again" ይጫኑ። "Go Premium" አያስፈልግም።
+## ደረጃዎች
+1. **አካውንቱን ማገናኘት** — ደግሜ እፈልገዋለሁ፤ ሲገኝ 701-769-1076ን ከፕሮጀክቱ ጋር ለማገናኘት የማረጋገጫ ካርድ ይመጣልዎታል። ካልተገኘ ትክክለኛውን Gmail እንዲያገናኙ እጠይቅዎታለሁ።
+2. **Google የፈጠረውን ማስታወቂያ ማየት** — Submit ሲሉ የተፈጠረውን ዘመቻ አንብቤ ጽሁፎቹን፣ ሀገራቱን እና በጀቱን አሳይዎታለሁ። ገንዘብ እንዳይቆርጥ በቅድሚያ ፓውዝ (Paused) እንዲሆን እጠይቅዎታለሁ።
+3. **የምዝገባ መለኪያ (Conversion tracking)** — የGoogle tag በechats.site ላይ ጨምሬ፣ አንድ ሰው ሲመዘገብ Google እንዲያውቅ አደርጋለሁ። ለዚህ Publish ያስፈልጋል (ያለ እርስዎ ፍቃድ አላደርግም)።
+4. **የዘመቻ ዝርዝር (Brief)** — ሀገራት፣ ቋንቋ፣ የዕለት በጀት እና አይነት (Google Search ወይም All Google channels) አብረን እንወስናለን። ርዕሶችን፣ ማብራሪያዎችን እና ቁልፍ ቃላትን እኔ አዘጋጅቼ እርስዎ ያጸድቃሉ።
+5. **ዘመቻውን መፍጠር** — በAPI ፈጥሬ በPaused ሁኔታ አስቀምጠዋለሁ፤ ካርድ ከጨመሩ በኋላ እርስዎ ሲፈቅዱ ብቻ ይጀምራል።
 
-## ኤጀንቱ የሚያደርገው (ካጸደቁ በኋላ)
-- የDNS ሁኔታውን ፈትሾ ትክክል መሆኑን ያረጋግጣል፣ ስህተት ካለ በትክክል ይነግርዎታል።
-- noreply@notify.echats.site ኢሜይሎች መላካቸውን ያረጋግጣል።
+## እርስዎ ብቻ የሚሰሩት
+- በads.google.com ላይ የክፍያ ካርድ መጨመር
+- Google ማንነት ማረጋገጫ ከጠየቀ ሰነድ ማቅረብ
+
+## Technical details
+- google_ads--setup_account (inspect → setup with account_id 7017691076) after list_accounts returns it.
+- Read existing campaign via google_ads--search; pause via mutate with approval.
+- Add gtag + sign-up conversion event in index.html / signup success path; verify send_to matches the account conversion action.
+- Follow ad-campaign-create skill for the brief; create_campaign with status PAUSED.
