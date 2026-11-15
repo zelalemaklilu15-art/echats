@@ -35,6 +35,8 @@ Deno.serve(async (req) => {
     if (event === 'created') {
       await sendTemplateEmail('support-alert', '', { templateData: data, idempotencyKey: `support-alert-${t.id}`, replyTo: email })
       if (email) await sendTemplateEmail('support-received', email, { templateData: data, idempotencyKey: `support-received-${t.id}`, replyTo: 'support@echats.site' })
+      // @ts-ignore EdgeRuntime is provided by the runtime
+      EdgeRuntime.waitUntil(autoReply(admin, t.id))
     } else if (email) {
       await sendTemplateEmail('support-reply', email, { templateData: data, idempotencyKey: `support-reply-${t.id}-${t.replied_at}`, replyTo: 'support@echats.site' })
     }
@@ -44,3 +46,50 @@ Deno.serve(async (req) => {
     return json({ error: 'send failed' }, 500)
   }
 })
+
+const SUPPORT_PROMPT = `You are a senior member of the Echats Support Team replying by email to a customer.
+Echats is an international super app: private chat, voice/video calls, groups and channels, eTok short videos and live streams, Echat AI assistant (15 free questions per day), Stars, and a wallet (send money, QR payments, PIN on every payment).
+Rules:
+- Write as a human support specialist. Never say or imply you are an AI, bot, assistant, model or automated system.
+- Reply in the same language the customer wrote in.
+- Be warm, concise and practical: acknowledge the issue, give clear numbered steps when useful.
+- Never promise refunds, balance changes, account deletion or unbans; say the team is reviewing and will follow up.
+- Never ask for passwords, PINs or verification codes.
+- Do not add a greeting line with a name placeholder or a signature; end with: "Best regards,\nEchats Support Team".
+- Plain text only, no markdown.`
+
+async function autoReply(admin: any, id: string) {
+  try {
+    await new Promise((r) => setTimeout(r, 120_000))
+    const { data: t } = await admin.from('support_tickets').select('*').eq('id', id).maybeSingle()
+    if (!t || t.admin_reply || t.status !== 'open') return
+    const key = Deno.env.get('LOVABLE_API_KEY')
+    if (!key) return
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/responses', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Lovable-API-Key': key, 'X-Lovable-AIG-SDK': 'fetch', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'openai/gpt-6-astra',
+        instructions: SUPPORT_PROMPT,
+        input: [{ role: 'user', content: `Category: ${t.category}\nSubject: ${t.subject}\n\n${t.message}` }],
+        store: false,
+      }),
+    })
+    if (!res.ok) { console.error('auto reply gateway', res.status, await res.text()); return }
+    const out = await res.json()
+    const reply = String(out?.output_text ?? (out?.output ?? []).flatMap((o: any) => o?.content ?? []).filter((c: any) => c?.type === 'output_text').map((c: any) => c.text).join('') ?? '').trim()
+    if (!reply) return
+    const { data: upd } = await admin.from('support_tickets')
+      .update({ admin_reply: reply, status: 'replied', replied_at: new Date().toISOString(), auto_replied: true })
+      .eq('id', id).is('admin_reply', null).select('*').maybeSingle()
+    if (!upd) return
+    const { data: owner } = await admin.auth.admin.getUserById(upd.user_id)
+    const email = owner?.user?.email
+    if (!email) return
+    const { data: prof } = await admin.from('profiles').select('name, username').eq('id', upd.user_id).maybeSingle()
+    await sendTemplateEmail('support-reply', email, {
+      templateData: { name: prof?.name || prof?.username || '', subject: upd.subject, message: upd.message, reply, ticketRef: upd.id.slice(0, 8).toUpperCase() },
+      idempotencyKey: `support-reply-${upd.id}-auto`, replyTo: 'support@echats.site',
+    })
+  } catch (e) { console.error('auto reply failed', e) }
+}

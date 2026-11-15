@@ -9,6 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, RefreshCw, Shield } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
+
+const SENDERS = ["support", "info", "contact", "admin"] as const;
 
 type Overview = Record<string, number>;
 type Row = Record<string, any>;
@@ -32,6 +36,48 @@ export default function SuperAdmin() {
   const [tickets, setTickets] = useState<Row[]>([]);
   const [replies, setReplies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [detail, setDetail] = useState<Row | null>(null);
+  const [adj, setAdj] = useState({ amount: "", reason: "", dir: "credit" as "credit" | "debit" });
+  const [busy, setBusy] = useState(false);
+  const [mail, setMail] = useState({ from: "support" as (typeof SENDERS)[number], to: "", subject: "", message: "" });
+
+  const openUser = async (id: string) => {
+    const { data, error } = await rpc("admin_user_detail", { p_user: id });
+    if (error) { toast.error("Could not load user"); return; }
+    setDetail(data); setAdj({ amount: "", reason: "", dir: "credit" });
+  };
+  const userAction = async (action: "ban" | "unban") => {
+    if (!detail || !confirm(`${action === "ban" ? "Ban" : "Unban"} ${detail.email}?`)) return;
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("admin-user-action", { body: { action, user_id: detail.id } });
+    setBusy(false);
+    if (error || data?.error) { toast.error(data?.error || "Action failed"); return; }
+    toast.success(action === "ban" ? "User banned" : "User unbanned"); openUser(detail.id); load();
+  };
+  const walletStatus = async (st: "active" | "suspended") => {
+    if (!detail) return;
+    const { error } = await rpc("admin_set_wallet_status", { p_user: detail.id, p_status: st });
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Wallet ${st}`); openUser(detail.id); load();
+  };
+  const adjust = async () => {
+    if (!detail) return;
+    const amount = Number(adj.amount);
+    if (!(amount > 0) || adj.reason.trim().length < 3) { toast.error("Enter amount and reason"); return; }
+    if (!confirm(`${adj.dir === "credit" ? "Add" : "Remove"} ${money(amount)} ${adj.dir === "credit" ? "to" : "from"} ${detail.email}?`)) return;
+    setBusy(true);
+    const { error } = await rpc("admin_wallet_adjust", { p_user: detail.id, p_amount: amount, p_direction: adj.dir, p_reason: adj.reason, p_key: crypto.randomUUID() });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Wallet updated"); openUser(detail.id); load();
+  };
+  const sendMail = async () => {
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("admin-send-email", { body: mail });
+    setBusy(false);
+    if (error || data?.error) { toast.error(typeof data?.error === "string" ? data.error : "Send failed"); return; }
+    toast.success("Email sent"); setMail((m) => ({ ...m, to: "", subject: "", message: "" }));
+  };
 
   useEffect(() => {
     let alive = true;
@@ -99,8 +145,26 @@ export default function SuperAdmin() {
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="wallet">Wallet</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="compose">Compose</TabsTrigger>
             <TabsTrigger value="support">Support{tickets.filter((x) => x.status === "open").length ? ` (${tickets.filter((x) => x.status === "open").length})` : ""}</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="compose" className="mt-4">
+            <Card className="p-4 space-y-3 max-w-2xl">
+              <div className="flex flex-wrap gap-2">
+                {SENDERS.map((f) => (
+                  <Button key={f} size="sm" variant={mail.from === f ? "default" : "outline"} onClick={() => setMail((m) => ({ ...m, from: f }))}>{f}@echats.site</Button>
+                ))}
+              </div>
+              <Input type="email" placeholder="To (email address)" value={mail.to} onChange={(e) => setMail((m) => ({ ...m, to: e.target.value }))} />
+              <Input placeholder="Subject" value={mail.subject} onChange={(e) => setMail((m) => ({ ...m, subject: e.target.value }))} />
+              <Textarea rows={10} placeholder="Message" value={mail.message} onChange={(e) => setMail((m) => ({ ...m, message: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">Replies go to {mail.from}@echats.site and arrive in your Gmail.</p>
+              <Button disabled={busy || !mail.to.trim() || !mail.subject.trim() || !mail.message.trim()} onClick={sendMail}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Send email
+              </Button>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="support" className="mt-4 space-y-3">
             {tickets.length === 0 && <p className="text-sm text-muted-foreground">No support requests.</p>}
@@ -142,7 +206,7 @@ export default function SuperAdmin() {
               <Button type="submit">Search</Button>
             </form>
             {users.map((u) => (
-              <Card key={u.id} className="p-3 text-sm">
+              <Card key={u.id} className="p-3 text-sm cursor-pointer hover:border-primary/50 transition-colors" onClick={() => openUser(u.id)}>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium">{u.name || u.username || "—"}</span>
                   {u.username && <span className="text-muted-foreground">@{u.username}</span>}
@@ -183,6 +247,58 @@ export default function SuperAdmin() {
           </TabsContent>
         </Tabs>
       </main>
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {detail && (<>
+            <DialogHeader><DialogTitle>{detail.name || detail.username || detail.email}</DialogTitle></DialogHeader>
+            <div className="text-sm space-y-1">
+              <p className="break-all">{detail.email}{detail.username ? ` · @${detail.username}` : ""}</p>
+              {detail.phone && <p>{detail.phone}</p>}
+              <p className="text-xs text-muted-foreground">Joined {fmt(detail.created_at)} · Last sign-in {fmt(detail.last_sign_in_at)}</p>
+              <div className="flex gap-2 pt-1">
+                {detail.is_banned ? <Badge variant="destructive">banned</Badge> : <Badge variant="secondary">active</Badge>}
+                {detail.is_online && <Badge>online</Badge>}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant={detail.is_banned ? "outline" : "destructive"} disabled={busy} onClick={() => userAction(detail.is_banned ? "unban" : "ban")}>{detail.is_banned ? "Unban user" : "Ban user"}</Button>
+              <Button size="sm" variant="outline" onClick={() => { setMail((m) => ({ ...m, to: detail.email })); setDetail(null); toast("Open the Compose tab to write your email"); }}>Email user</Button>
+            </div>
+            <Card className="p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold">Wallet</p>
+                {detail.wallet ? <>
+                  <span className="ml-auto text-lg font-bold">{money(detail.wallet.balance)} {detail.wallet.currency}</span>
+                </> : <span className="ml-auto text-xs text-muted-foreground">No wallet yet</span>}
+              </div>
+              {detail.wallet && <div className="flex gap-2 items-center">
+                <Badge variant={detail.wallet.status === "active" ? "secondary" : "destructive"}>{detail.wallet.status}</Badge>
+                <Button size="sm" variant="outline" className="ml-auto" onClick={() => walletStatus(detail.wallet.status === "suspended" ? "active" : "suspended")}>{detail.wallet.status === "suspended" ? "Activate wallet" : "Suspend wallet"}</Button>
+              </div>}
+              <div className="flex gap-2">
+                {(["credit", "debit"] as const).map((d) => <Button key={d} size="sm" variant={adj.dir === d ? "default" : "outline"} onClick={() => setAdj((a) => ({ ...a, dir: d }))}>{d === "credit" ? "Add money" : "Remove money"}</Button>)}
+              </div>
+              <Input type="number" min="0" step="0.01" placeholder="Amount" value={adj.amount} onChange={(e) => setAdj((a) => ({ ...a, amount: e.target.value }))} />
+              <Input placeholder="Reason (shown in the user's history)" value={adj.reason} onChange={(e) => setAdj((a) => ({ ...a, reason: e.target.value }))} />
+              <Button size="sm" disabled={busy} onClick={adjust}>Apply adjustment</Button>
+            </Card>
+            <div className="space-y-1">
+              <p className="font-semibold text-sm">Recent transactions</p>
+              {(detail.transactions ?? []).map((t: Row) => (
+                <div key={t.id} className="flex justify-between text-xs border-b border-border py-1 gap-2">
+                  <span className="truncate">{t.type} · {t.description || "—"} · {fmt(t.created_at)}</span>
+                  <span className="font-medium whitespace-nowrap">{money(t.amount)}</span>
+                </div>
+              ))}
+              {!(detail.transactions ?? []).length && <p className="text-xs text-muted-foreground">None</p>}
+            </div>
+            {(detail.tickets ?? []).length > 0 && <div className="space-y-1">
+              <p className="font-semibold text-sm">Support tickets</p>
+              {detail.tickets.map((t: Row) => <p key={t.id} className="text-xs">{t.subject} · {t.status} · {fmt(t.created_at)}</p>)}
+            </div>}
+          </>)}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.admin-send-email]
 verify_jwt = true
+
+[functions.admin-user-action]
+verify_jwt = true

@@ -2317,6 +2317,7 @@ export type Database = {
       support_tickets: {
         Row: {
           admin_reply: string | null
+          auto_replied: boolean
           category: string
           created_at: string
           id: string
@@ -2328,6 +2329,7 @@ export type Database = {
         }
         Insert: {
           admin_reply?: string | null
+          auto_replied?: boolean
           category?: string
           created_at?: string
           id?: string
@@ -2339,6 +2341,7 @@ export type Database = {
         }
         Update: {
           admin_reply?: string | null
+          auto_replied?: boolean
           category?: string
           created_at?: string
           id?: string
@@ -2756,6 +2759,21 @@ export type Database = {
       admin_reply_ticket: {
         Args: { p_id: string; p_reply: string; p_status?: string }
         Returns: undefined
+      }
+      admin_set_wallet_status: {
+        Args: { p_status: string; p_user: string }
+        Returns: undefined
+      }
+      admin_user_detail: { Args: { p_user: string }; Returns: Json }
+      admin_wallet_adjust: {
+        Args: {
+          p_amount: number
+          p_direction: string
+          p_key: string
+          p_reason: string
+          p_user: string
+        }
+        Returns: Json
       }
       airtime_topup:
         | {
