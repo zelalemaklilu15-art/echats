@@ -199,6 +199,26 @@ ${complexity === "simple" ? "\n# Response length\nThis is a simple request: answ
                 : ""
             }`;
 
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (GEMINI_API_KEY && !parts.length) {
+      try {
+        const g = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gemini-2.5-flash",
+            messages: [{ role: "system", content: systemPrompt }, ...messages.map((m) => ({ role: m.role, content: m.content }))],
+            stream: true,
+          }),
+          signal: req.signal,
+        });
+        if (g.ok && g.body) {
+          return new Response(g.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "X-Echat-AI-Remaining": String(remaining) } });
+        }
+        console.error("gemini error, falling back:", g.status, await g.text());
+      } catch (e) { console.error("gemini fetch failed, falling back", e); }
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
       method: "POST",
       headers: {

@@ -63,6 +63,21 @@ async function autoReply(admin: any, id: string) {
     await new Promise((r) => setTimeout(r, 120_000))
     const { data: t } = await admin.from('support_tickets').select('*').eq('id', id).maybeSingle()
     if (!t || t.admin_reply || t.status !== 'open') return
+    const userText = `Category: ${t.category}\nSubject: ${t.subject}\n\n${t.message}`
+    let reply = ''
+    const gkey = Deno.env.get('GEMINI_API_KEY')
+    if (gkey) {
+      try {
+        const g = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${gkey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'gemini-2.5-flash', messages: [{ role: 'system', content: SUPPORT_PROMPT }, { role: 'user', content: userText }] }),
+        })
+        if (g.ok) reply = String((await g.json())?.choices?.[0]?.message?.content ?? '').trim()
+        else console.error('auto reply gemini', g.status, await g.text())
+      } catch (e) { console.error('auto reply gemini failed', e) }
+    }
+    if (!reply) {
     const key = Deno.env.get('LOVABLE_API_KEY')
     if (!key) return
     const res = await fetch('https://ai.gateway.lovable.dev/v1/responses', {
@@ -77,7 +92,8 @@ async function autoReply(admin: any, id: string) {
     })
     if (!res.ok) { console.error('auto reply gateway', res.status, await res.text()); return }
     const out = await res.json()
-    const reply = String(out?.output_text ?? (out?.output ?? []).flatMap((o: any) => o?.content ?? []).filter((c: any) => c?.type === 'output_text').map((c: any) => c.text).join('') ?? '').trim()
+    reply = String(out?.output_text ?? (out?.output ?? []).flatMap((o: any) => o?.content ?? []).filter((c: any) => c?.type === 'output_text').map((c: any) => c.text).join('') ?? '').trim()
+    }
     if (!reply) return
     const { data: upd } = await admin.from('support_tickets')
       .update({ admin_reply: reply, status: 'replied', replied_at: new Date().toISOString(), auto_replied: true })
