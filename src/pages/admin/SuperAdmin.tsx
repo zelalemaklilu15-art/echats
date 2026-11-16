@@ -56,8 +56,8 @@ export default function SuperAdmin() {
   };
   const walletStatus = async (st: "active" | "suspended") => {
     if (!detail) return;
-    const { error } = await rpc("admin_set_wallet_status", { p_user: detail.id, p_status: st });
-    if (error) { toast.error(error.message); return; }
+    const { data, error } = await supabase.functions.invoke("admin-user-action", { body: { action: st === "active" ? "wallet_active" : "wallet_suspended", user_id: detail.id } });
+    if (error || data?.error) { toast.error(data?.error || "Action failed"); return; }
     toast.success(`Wallet ${st}`); openUser(detail.id); load();
   };
   const adjust = async () => {

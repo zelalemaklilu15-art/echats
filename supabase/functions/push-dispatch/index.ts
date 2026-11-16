@@ -126,6 +126,7 @@ async function handle(table: string, op: string, r: Rec): Promise<number> {
         payment: ['🧾 Echat Wallet · Payment', 'You paid'],
         refund: ['↩️ Echat Wallet · Refund', 'You were refunded'],
         bonus: ['🎁 Echat Wallet · Bonus', 'You received a bonus of'],
+        fee: ['🧾 Echat Wallet · Account adjustment', 'An adjustment was applied to your wallet:'],
       };
       if (LABEL[r.type] && r.status === 'completed') {
         const [title, verb] = LABEL[r.type];

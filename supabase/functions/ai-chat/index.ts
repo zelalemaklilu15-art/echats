@@ -206,7 +206,7 @@ ${complexity === "simple" ? "\n# Response length\nThis is a simple request: answ
           method: "POST",
           headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "gemini-2.5-flash",
+            model: "gemini-flash-lite-latest",
             messages: [{ role: "system", content: systemPrompt }, ...messages.map((m) => ({ role: m.role, content: m.content }))],
             stream: true,
           }),

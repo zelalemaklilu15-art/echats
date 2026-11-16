@@ -71,7 +71,7 @@ async function autoReply(admin: any, id: string) {
         const g = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
           method: 'POST',
           headers: { Authorization: `Bearer ${gkey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'gemini-2.5-flash', messages: [{ role: 'system', content: SUPPORT_PROMPT }, { role: 'user', content: userText }] }),
+          body: JSON.stringify({ model: 'gemini-flash-lite-latest', messages: [{ role: 'system', content: SUPPORT_PROMPT }, { role: 'user', content: userText }] }),
         })
         if (g.ok) reply = String((await g.json())?.choices?.[0]?.message?.content ?? '').trim()
         else console.error('auto reply gemini', g.status, await g.text())
