@@ -100,6 +100,16 @@ async function emailReceipt(userId: string, r: Rec, data: Rec) {
 
 async function handle(table: string, op: string, r: Rec): Promise<number> {
   switch (table) {
+    case 'admin_broadcasts': {
+      if (op !== 'INSERT') return 0;
+      const { data: rows } = await db.from('device_tokens').select('user_id');
+      const ids = [...new Set((rows ?? []).map((x: Rec) => x.user_id as string))];
+      let sent = 0;
+      for (const id of ids) {
+        sent += (await sendPushToUser(id, { title: clip(r.title, 80), body: clip(r.body, 300), data: { type: 'announcement', url: '/' } } as PushMessage)).sent;
+      }
+      return sent;
+    }
     case 'wallet_transactions': {
       const { data: wallet } = await db.from('wallets').select('user_id').eq('id', r.wallet_id).maybeSingle();
       if (!wallet?.user_id) return 0;

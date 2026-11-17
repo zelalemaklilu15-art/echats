@@ -40,6 +40,9 @@ export default function SuperAdmin() {
   const [detail, setDetail] = useState<Row | null>(null);
   const [adj, setAdj] = useState({ amount: "", reason: "", dir: "credit" as "credit" | "debit" });
   const [busy, setBusy] = useState(false);
+  const [bc, setBc] = useState({ title: "", body: "" });
+  const [broadcasts, setBroadcasts] = useState<Row[]>([]);
+  const [thread, setThread] = useState<string | null>(null);
   const [mail, setMail] = useState({ from: "support" as (typeof SENDERS)[number], to: "", subject: "", message: "" });
 
   const openUser = async (id: string) => {
@@ -80,6 +83,13 @@ export default function SuperAdmin() {
     if (error) { toast.error(error.message); return; }
     toast.success("Wallet updated"); openUser(detail.id); load();
   };
+  const sendBroadcast = async () => {
+    setBusy(true);
+    const { error } = await rpc("admin_send_broadcast", { p_title: bc.title, p_body: bc.body });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Announcement sent"); setBc({ title: "", body: "" }); load();
+  };
   const sendMail = async () => {
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("admin-send-email", { body: mail });
@@ -100,13 +110,15 @@ export default function SuperAdmin() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [o, u, t, r, s] = await Promise.all([
+    const [o, u, t, r, s, b] = await Promise.all([
       rpc("admin_overview"),
       rpc("admin_list_users", { p_search: search || null, p_limit: 100 }),
       rpc("admin_recent_transactions", { p_limit: 100 }),
       rpc("admin_list_reports", { p_limit: 100 }),
       rpc("admin_list_tickets", { p_limit: 200 }),
+      rpc("admin_list_broadcasts", { p_limit: 50 }),
     ]);
+    setBroadcasts(b.data ?? []);
     if (o.error) { setState("denied"); setLoading(false); return; }
     setOverview(o.data); setUsers(u.data ?? []); setTxs(t.data ?? []); setReports(r.data ?? []); setTickets(s.data ?? []);
     setLoading(false);
@@ -155,6 +167,7 @@ export default function SuperAdmin() {
             <TabsTrigger value="wallet">Wallet</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="compose">Compose</TabsTrigger>
+            <TabsTrigger value="broadcast">Announce</TabsTrigger>
             <TabsTrigger value="support">Support{tickets.filter((x) => x.status === "open").length ? ` (${tickets.filter((x) => x.status === "open").length})` : ""}</TabsTrigger>
           </TabsList>
 
@@ -175,9 +188,33 @@ export default function SuperAdmin() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="support" className="mt-4 space-y-3">
+          <TabsContent value="support" className="mt-4">
             {tickets.length === 0 && <p className="text-sm text-muted-foreground">No support requests.</p>}
-            {tickets.map((t) => (
+            {(() => {
+              const groups = new Map<string, Row[]>();
+              tickets.forEach((t) => { const k = t.user_email || "unknown"; groups.set(k, [...(groups.get(k) ?? []), t]); });
+              const list = [...groups.entries()];
+              return (
+                <div className="grid md:grid-cols-[280px_1fr] gap-3">
+                  <div className={`space-y-2 ${thread ? "hidden md:block" : ""}`}>
+                    {list.map(([em, ts]) => {
+                      const open = ts.filter((x) => x.status === "open").length;
+                      return (
+                        <Card key={em} onClick={() => setThread(em)} className={`p-3 text-sm cursor-pointer transition-colors hover:border-primary/50 ${thread === em ? "border-primary" : ""}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{ts[0].user_name || em}</span>
+                            {open > 0 && <Badge variant="destructive" className="ml-auto">{open}</Badge>}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{em}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{ts.length} request{ts.length > 1 ? "s" : ""} · {fmt(ts[0].created_at)}</p>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                  <div className={`space-y-3 ${thread ? "" : "hidden md:block"}`}>
+                    {!thread && <p className="text-sm text-muted-foreground">Select a user to see the conversation.</p>}
+                    {thread && <Button size="sm" variant="ghost" className="md:hidden" onClick={() => setThread(null)}>← Back</Button>}
+            {tickets.filter((x) => x.user_email === thread).slice().reverse().map((t) => (
               <Card key={t.id} className="p-4 text-sm space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold">{t.subject}</span>
@@ -193,13 +230,31 @@ export default function SuperAdmin() {
                   {(["replied", "resolved"] as const).map((st) => (
                     <Button key={st} size="sm" variant={st === "replied" ? "default" : "outline"} disabled={!(replies[t.id] ?? "").trim()} onClick={async () => {
                       const { error } = await rpc("admin_reply_ticket", { p_id: t.id, p_reply: replies[t.id], p_status: st });
-                      if (error) { alert("Reply failed"); return; }
+                      if (error) { toast.error("Reply failed"); return; }
                       supabase.functions.invoke("support-email", { body: { event: "replied", ticket_id: t.id } }).catch(() => {});
                       setReplies((p) => ({ ...p, [t.id]: "" })); load();
                     }}>{st === "replied" ? "Send reply" : "Reply & close"}</Button>
                   ))}
                 </div>
               </Card>
+            ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </TabsContent>
+
+          <TabsContent value="broadcast" className="mt-4 space-y-3">
+            <Card className="p-4 space-y-3 max-w-2xl">
+              <p className="text-sm text-muted-foreground">Sends a phone notification to every user with notifications enabled.</p>
+              <Input maxLength={80} placeholder="Title" value={bc.title} onChange={(e) => setBc((m) => ({ ...m, title: e.target.value }))} />
+              <Textarea maxLength={300} rows={4} placeholder="Message (max 300)" value={bc.body} onChange={(e) => setBc((m) => ({ ...m, body: e.target.value }))} />
+              <Button disabled={busy || !bc.title.trim() || !bc.body.trim()} onClick={() => setAsk({ title: "Send announcement", text: `Send "${bc.title}" to all users?`, run: sendBroadcast })}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin mr-2" />}Send to all users
+              </Button>
+            </Card>
+            {broadcasts.map((x) => (
+              <Card key={x.id} className="p-3 text-sm max-w-2xl"><div className="flex gap-2"><span className="font-medium">{x.title}</span><span className="ml-auto text-xs text-muted-foreground">{fmt(x.created_at)}</span></div><p className="text-muted-foreground whitespace-pre-wrap">{x.body}</p></Card>
             ))}
           </TabsContent>
 

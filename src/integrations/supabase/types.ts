@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_broadcasts: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by: string
+          id?: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       ai_conversations: {
         Row: {
           created_at: string
@@ -2699,6 +2723,22 @@ export type Database = {
         Returns: string
       }
       accept_profile_call: { Args: { p_room_id: string }; Returns: boolean }
+      admin_list_broadcasts: {
+        Args: { p_limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "admin_broadcasts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_list_reports: {
         Args: { p_limit?: number }
         Returns: {
@@ -2759,6 +2799,10 @@ export type Database = {
       admin_reply_ticket: {
         Args: { p_id: string; p_reply: string; p_status?: string }
         Returns: undefined
+      }
+      admin_send_broadcast: {
+        Args: { p_body: string; p_title: string }
+        Returns: string
       }
       admin_set_wallet_status: {
         Args: { p_status: string; p_user: string }
