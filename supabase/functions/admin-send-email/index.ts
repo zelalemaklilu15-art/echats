@@ -8,9 +8,11 @@ const MAILBOXES = {
   info: 'Echat Info',
   contact: 'Echat Contact',
   admin: 'Echat Admin',
+  partnerships: 'Echats Partnerships',
+  sales: 'Echats Sales',
 } as const
 const Body = z.object({
-  from: z.enum(['support', 'info', 'contact', 'admin']),
+  from: z.enum(['support', 'info', 'contact', 'admin', 'partnerships', 'sales']),
   to: z.string().trim().email().max(255),
   subject: z.string().trim().min(1).max(200),
   message: z.string().trim().min(1).max(10000),

@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, RefreshCw, Shield } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-const SENDERS = ["support", "info", "contact", "admin"] as const;
+const SENDERS = ["support", "info", "contact", "admin", "partnerships", "sales"] as const;
 
 type Overview = Record<string, number>;
 type Row = Record<string, any>;
@@ -46,8 +47,13 @@ export default function SuperAdmin() {
     if (error) { toast.error("Could not load user"); return; }
     setDetail(data); setAdj({ amount: "", reason: "", dir: "credit" });
   };
-  const userAction = async (action: "ban" | "unban") => {
-    if (!detail || !confirm(`${action === "ban" ? "Ban" : "Unban"} ${detail.email}?`)) return;
+  const [ask, setAsk] = useState<{ title: string; text: string; run: () => void } | null>(null);
+  const userAction = (action: "ban" | "unban") => {
+    if (!detail) return;
+    setAsk({ title: action === "ban" ? "Ban user" : "Unban user", text: `${action === "ban" ? "Ban" : "Unban"} ${detail.email}?`, run: () => doUserAction(action) });
+  };
+  const doUserAction = async (action: "ban" | "unban") => {
+    if (!detail) return;
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("admin-user-action", { body: { action, user_id: detail.id } });
     setBusy(false);
@@ -64,7 +70,10 @@ export default function SuperAdmin() {
     if (!detail) return;
     const amount = Number(adj.amount);
     if (!(amount > 0) || adj.reason.trim().length < 3) { toast.error("Enter amount and reason"); return; }
-    if (!confirm(`${adj.dir === "credit" ? "Add" : "Remove"} ${money(amount)} ${adj.dir === "credit" ? "to" : "from"} ${detail.email}?`)) return;
+    setAsk({ title: "Confirm wallet adjustment", text: `${adj.dir === "credit" ? "Add" : "Remove"} ${money(amount)} ${adj.dir === "credit" ? "to" : "from"} ${detail.email}?`, run: () => doAdjust(amount) });
+  };
+  const doAdjust = async (amount: number) => {
+    if (!detail) return;
     setBusy(true);
     const { error } = await rpc("admin_wallet_adjust", { p_user: detail.id, p_amount: amount, p_direction: adj.dir, p_reason: adj.reason, p_key: crypto.randomUUID() });
     setBusy(false);
@@ -299,6 +308,18 @@ export default function SuperAdmin() {
           </>)}
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!ask} onOpenChange={(o) => !o && setAsk(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{ask?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{ask?.text}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { const r = ask?.run; setAsk(null); r?.(); }}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

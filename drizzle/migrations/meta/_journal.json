@@ -302,6 +302,13 @@
       "when": 1794729201201,
       "tag": "0042_admin_full_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1794815601201,
+      "tag": "0043_admin_adjust_balance",
+      "breakpoints": true
     }
   ]
 }
