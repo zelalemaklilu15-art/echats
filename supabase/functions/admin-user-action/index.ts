@@ -3,7 +3,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { z } from 'npm:zod@3'
 import { sendTemplateEmail } from '../_shared/transactional-email-templates/send-email.ts'
 
-const Body = z.object({ action: z.enum(['ban', 'unban', 'wallet_active', 'wallet_suspended']), user_id: z.string().uuid() })
+const Body = z.object({ action: z.enum(['ban', 'unban', 'wallet_active', 'wallet_suspended', 'password_reset']), user_id: z.string().uuid() })
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
 const NOTICES: Record<string, [string, string]> = {
@@ -28,6 +28,14 @@ Deno.serve(async (req) => {
     if (!parsed.success) return json({ error: 'bad request' }, 400)
     const { action, user_id } = parsed.data
     const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    if (action === 'password_reset') {
+      const { data: u } = await admin.auth.admin.getUserById(user_id)
+      const email = u?.user?.email
+      if (!email) return json({ error: 'User has no email' }, 400)
+      const { error } = await admin.auth.resetPasswordForEmail(email, { redirectTo: 'https://echats.site/reset-password' })
+      if (error) return json({ error: error.message }, 400)
+      return json({ ok: true })
+    }
     if (action === 'ban' || action === 'unban') {
       if (user_id === user.id) return json({ error: 'You cannot ban yourself' }, 400)
       const { error } = await admin.auth.admin.updateUserById(user_id, { ban_duration: action === 'ban' ? '876000h' : 'none' })

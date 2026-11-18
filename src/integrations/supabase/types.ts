@@ -2809,11 +2809,16 @@ export type Database = {
         Args: { p_body: string; p_title: string }
         Returns: string
       }
+      admin_set_verification: {
+        Args: { p_badge: string; p_user: string }
+        Returns: undefined
+      }
       admin_set_wallet_status: {
         Args: { p_status: string; p_user: string }
         Returns: undefined
       }
       admin_user_detail: { Args: { p_user: string }; Returns: Json }
+      admin_user_security: { Args: { p_user: string }; Returns: Json }
       admin_wallet_adjust: {
         Args: {
           p_amount: number
