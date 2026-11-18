@@ -43,6 +43,16 @@ export default function SuperAdmin() {
   const [bc, setBc] = useState({ title: "", body: "" });
   const [broadcasts, setBroadcasts] = useState<Row[]>([]);
   const [thread, setThread] = useState<string | null>(null);
+  const [videos, setVideos] = useState<Row[]>([]);
+  const [comm, setComm] = useState<{ channels: Row[]; groups: Row[] }>({ channels: [], groups: [] });
+  const removeItem = (kind: "video" | "channel" | "group", id: string, label: string) => {
+    setAsk({ title: `Delete ${kind}`, text: `Permanently delete "${label || id}"? This cannot be undone.`, run: async () => {
+      const fn = kind === "video" ? "admin_delete_etok_video" : kind === "channel" ? "admin_delete_channel" : "admin_delete_group";
+      const { error } = await rpc(fn, { p_id: id });
+      if (error) { toast.error(error.message); return; }
+      toast.success(`${kind[0].toUpperCase() + kind.slice(1)} deleted`); load();
+    } });
+  };
   const [mail, setMail] = useState({ from: "support" as (typeof SENDERS)[number], to: "", subject: "", message: "" });
 
   const openUser = async (id: string) => {
@@ -118,6 +128,8 @@ export default function SuperAdmin() {
       rpc("admin_list_tickets", { p_limit: 200 }),
       rpc("admin_list_broadcasts", { p_limit: 50 }),
     ]);
+    const [v, c] = await Promise.all([rpc("admin_list_etok_videos", { p_limit: 200 }), rpc("admin_list_communities")]);
+    setVideos(v.data ?? []); setComm({ channels: c.data?.channels ?? [], groups: c.data?.groups ?? [] });
     setBroadcasts(b.data ?? []);
     if (o.error) { setState("denied"); setLoading(false); return; }
     setOverview(o.data); setUsers(u.data ?? []); setTxs(t.data ?? []); setReports(r.data ?? []); setTickets(s.data ?? []);
@@ -166,6 +178,8 @@ export default function SuperAdmin() {
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="wallet">Wallet</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
+            <TabsTrigger value="etok">eTok</TabsTrigger>
+            <TabsTrigger value="communities">Channels & Groups</TabsTrigger>
             <TabsTrigger value="compose">Compose</TabsTrigger>
             <TabsTrigger value="broadcast">Announce</TabsTrigger>
             <TabsTrigger value="support">Support{tickets.filter((x) => x.status === "open").length ? ` (${tickets.filter((x) => x.status === "open").length})` : ""}</TabsTrigger>
@@ -305,9 +319,47 @@ export default function SuperAdmin() {
                 <p className="font-medium">{r.content_type}: {r.reason}</p>
                 <p className="text-muted-foreground break-all">By {r.reporter_email} · {r.content_id}</p>
                 <p className="text-xs text-muted-foreground">{fmt(r.reported_at)}</p>
+                {(() => { const v = videos.find((x) => x.id === r.content_id); return v ? <Button size="sm" variant="destructive" className="mt-2" onClick={() => removeItem("video", v.id, v.description)}>Delete reported video</Button> : null; })()}
               </Card>
             ))}
             {!reports.length && <p className="text-muted-foreground text-sm">No reports.</p>}
+          </TabsContent>
+          <TabsContent value="etok" className="mt-4 grid gap-3 sm:grid-cols-2">
+            {videos.map((v) => (
+              <Card key={v.id} className="p-3 text-sm space-y-2">
+                <video src={v.video_url} poster={v.thumbnail_url ?? undefined} controls preload="none" className="w-full max-h-72 rounded-md bg-muted" />
+                <p className="font-medium line-clamp-2">{v.description || "(no caption)"}</p>
+                <p className="text-muted-foreground break-all">{v.author_email}</p>
+                <p className="text-xs text-muted-foreground">{fmt(v.created_at)} · {v.views} views · {v.likes} likes · {v.comments} comments · {v.privacy}</p>
+                <Button size="sm" variant="destructive" onClick={() => removeItem("video", v.id, v.description)}>Delete video</Button>
+              </Card>
+            ))}
+            {!videos.length && <p className="text-muted-foreground text-sm">No videos.</p>}
+          </TabsContent>
+
+          <TabsContent value="communities" className="mt-4 space-y-4">
+            <p className="font-semibold">Channels ({comm.channels.length})</p>
+            {comm.channels.map((c) => (
+              <Card key={c.id} className="p-3 text-sm flex justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{c.name} <Badge variant="secondary" className="ml-1">{c.is_public ? "public" : "private"}</Badge></p>
+                  <p className="text-muted-foreground truncate">{c.owner_email} · {c.subscriber_count} subscribers · {c.posts} posts</p>
+                  <p className="text-xs text-muted-foreground">{fmt(c.created_at)}</p>
+                </div>
+                <Button size="sm" variant="destructive" onClick={() => removeItem("channel", c.id, c.name)}>Delete</Button>
+              </Card>
+            ))}
+            <p className="font-semibold pt-2">Groups ({comm.groups.length})</p>
+            {comm.groups.map((g) => (
+              <Card key={g.id} className="p-3 text-sm flex justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium">{g.name}</p>
+                  <p className="text-muted-foreground truncate">{g.owner_email} · {g.members} members · {g.messages} messages</p>
+                  <p className="text-xs text-muted-foreground">{fmt(g.created_at)}</p>
+                </div>
+                <Button size="sm" variant="destructive" onClick={() => removeItem("group", g.id, g.name)}>Delete</Button>
+              </Card>
+            ))}
           </TabsContent>
         </Tabs>
       </main>

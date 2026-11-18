@@ -2723,6 +2723,9 @@ export type Database = {
         Returns: string
       }
       accept_profile_call: { Args: { p_room_id: string }; Returns: boolean }
+      admin_delete_channel: { Args: { p_id: string }; Returns: undefined }
+      admin_delete_etok_video: { Args: { p_id: string }; Returns: undefined }
+      admin_delete_group: { Args: { p_id: string }; Returns: undefined }
       admin_list_broadcasts: {
         Args: { p_limit?: number }
         Returns: {
@@ -2739,6 +2742,8 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_list_communities: { Args: never; Returns: Json }
+      admin_list_etok_videos: { Args: { p_limit?: number }; Returns: Json }
       admin_list_reports: {
         Args: { p_limit?: number }
         Returns: {
