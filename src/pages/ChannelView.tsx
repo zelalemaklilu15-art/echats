@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useChannelSync } from "@/hooks/useChannelSync";
 import { syncChannels, syncChannelMessages, recordChannelViews } from "@/lib/channelService";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { CommunityUsername } from "@/components/community/CommunityUsername";
 import { shareContent, publicOrigin } from "@/lib/native";
 import {
   ArrowLeft, MoreVertical, Send, Eye, Megaphone, Users, Trash2,
@@ -543,6 +544,7 @@ const ChannelView = () => {
               </div>
             </div>
           </div>
+          {id && <CommunityUsername kind="channel" id={id} canEdit={isOwner} />}
           <div className="px-5 py-4 space-y-5">
             {channel.description && (
               <div>

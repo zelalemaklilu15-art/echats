@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CommunityUsername } from "@/components/community/CommunityUsername";
 import { ChatAvatar } from "@/components/ui/chat-avatar";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -1014,6 +1015,8 @@ const GroupChat = () => {
               <p className="text-[14px] text-foreground leading-relaxed">{group.description}</p>
             </div>
           )}
+
+          {groupId && <CommunityUsername kind="group" id={groupId} canEdit={userIsAdmin} />}
 
           {/* Invite link */}
           {inviteLink && (

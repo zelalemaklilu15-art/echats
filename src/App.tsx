@@ -30,6 +30,7 @@ import OfflineBanner from "@/components/OfflineBanner";
 // Lazy-load every page — massively reduces initial bundle.
 const Splash = lazy(() => import("./pages/Splash"));
 const PublicInfo = lazy(() => import("./pages/PublicInfo"));
+const CommunityLink = lazy(() => import("./pages/CommunityLink"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Support = lazy(() => import("./pages/Support"));
 const Landing = lazy(() => import("./pages/Landing"));
@@ -284,6 +285,8 @@ const AppRoutes = () => {
           <Route path="/transaction-receipt" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><TransactionReceipt /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/transaction-detail/:transactionId" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><TransactionDetail /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/add-account" element={guard(isAuthenticated, <AddAccount />)} />
+          <Route path="/c/:username" element={guard(isAuthenticated, <CommunityLink />)} />
+          <Route path="/g/:username" element={guard(isAuthenticated, <CommunityLink />)} />
           <Route path="/channels" element={guard(isAuthenticated, <Channels key={viewerKey} />)} />
           <Route path="/channel/:id" element={guard(isAuthenticated, <ChannelView key={viewerKey} />)} />
           <Route path="/bots" element={guard(isAuthenticated, <Bots />)} />

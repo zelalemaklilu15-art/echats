@@ -134,7 +134,7 @@ const Channels = () => {
         <div className="relative px-4 pb-3">
           <Search className="absolute left-7 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <input
-            placeholder="Search channels…"
+            placeholder="Search channels or @username…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-2xl pl-10 pr-4 py-2.5 text-[14px] text-foreground placeholder:text-muted-foreground/50 outline-none transition-all"
@@ -175,6 +175,7 @@ const Channels = () => {
         <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
           <Search className="h-12 w-12 text-muted-foreground/30 mb-4" />
           <p className="text-[14px] text-muted-foreground">No channels match "{searchQuery}"</p>
+          <Button className="mt-4" variant="outline" onClick={() => navigate(`/c/${searchQuery.trim().replace(/^@/, "").toLowerCase()}`)}>Find @{searchQuery.trim().replace(/^@/, "")}</Button>
         </div>
       )}
 
