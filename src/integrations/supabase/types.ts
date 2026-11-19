@@ -419,6 +419,7 @@ export type Database = {
           name: string
           pinned_message_id: string | null
           subscriber_count: number
+          username: string | null
         }
         Insert: {
           avatar_color?: string
@@ -431,6 +432,7 @@ export type Database = {
           name: string
           pinned_message_id?: string | null
           subscriber_count?: number
+          username?: string | null
         }
         Update: {
           avatar_color?: string
@@ -443,6 +445,7 @@ export type Database = {
           name?: string
           pinned_message_id?: string | null
           subscriber_count?: number
+          username?: string | null
         }
         Relationships: []
       }
@@ -1739,6 +1742,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1748,6 +1752,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -1757,6 +1762,7 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -2875,6 +2881,10 @@ export type Database = {
       chat_attachment_path: { Args: { p_source: string }; Returns: string }
       check_username: { Args: { p_username: string }; Returns: string }
       check_wallet_device: { Args: { p_device_id: string }; Returns: string }
+      community_username_available: {
+        Args: { p_username: string }
+        Returns: boolean
+      }
       consume_ai_quota: {
         Args: { p_user_id: string }
         Returns: {
@@ -3154,6 +3164,10 @@ export type Database = {
         Args: { p_platform?: string; p_token: string; p_user_agent?: string }
         Returns: string
       }
+      resolve_community_username: {
+        Args: { p_username: string }
+        Returns: Json
+      }
       resolve_payment_destination: {
         Args: { p_request?: string; p_user?: string; p_username?: string }
         Returns: Json
@@ -3246,6 +3260,10 @@ export type Database = {
           balance: number
           success: boolean
         }[]
+      }
+      set_community_username: {
+        Args: { p_id: string; p_kind: string; p_username: string }
+        Returns: string
       }
       set_etok_like: {
         Args: { p_liked: boolean; p_video: string }
