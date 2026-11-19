@@ -55,9 +55,27 @@ export default function SuperAdmin() {
   };
   const [mail, setMail] = useState({ from: "support" as (typeof SENDERS)[number], to: "", subject: "", message: "" });
 
+  const [sec, setSec] = useState<any>(null);
+  const [uFilter, setUFilter] = useState<"all" | "online" | "banned" | "suspended">("all");
+  const loadSec = async (id: string) => { const { data } = await rpc("admin_user_security", { p_user: id }); setSec(data ?? null); };
+  const setBadge = async (badge: string) => {
+    if (!detail) return;
+    const { error } = await rpc("admin_set_verification", { p_user: detail.id, p_badge: badge || null });
+    if (error) { toast.error("Could not update badge"); return; }
+    toast.success(badge ? "Badge given" : "Badge removed"); loadSec(detail.id);
+  };
+  const doReset = async () => {
+    if (!detail) return;
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("admin-user-action", { body: { action: "password_reset", user_id: detail.id } });
+    setBusy(false);
+    if (error || data?.error) { toast.error(data?.error || "Reset failed"); return; }
+    toast.success("Password reset email sent");
+  };
   const openUser = async (id: string) => {
     const { data, error } = await rpc("admin_user_detail", { p_user: id });
     if (error) { toast.error("Could not load user"); return; }
+    setSec(null); loadSec(id);
     setDetail(data); setAdj({ amount: "", reason: "", dir: "credit" });
   };
   const [ask, setAsk] = useState<{ title: string; text: string; run: () => void } | null>(null);
@@ -283,7 +301,14 @@ export default function SuperAdmin() {
               <Input placeholder="Search name, username, email, phone" value={search} onChange={(e) => setSearch(e.target.value)} />
               <Button type="submit">Search</Button>
             </form>
-            {users.map((u) => (
+            <div className="flex gap-2 flex-wrap">
+              {(["all", "online", "banned", "suspended"] as const).map((f) => (
+                <Button key={f} size="sm" variant={uFilter === f ? "default" : "outline"} onClick={() => setUFilter(f)}>
+                  {f === "all" ? "All" : f === "online" ? "Online" : f === "banned" ? "Banned" : "Wallet suspended"}
+                </Button>
+              ))}
+            </div>
+            {users.filter((u) => uFilter === "all" || (uFilter === "online" && u.is_online) || (uFilter === "banned" && u.is_banned) || (uFilter === "suspended" && u.wallet_status === "suspended")).map((u) => (
               <Card key={u.id} className="p-3 text-sm cursor-pointer hover:border-primary/50 transition-colors" onClick={() => openUser(u.id)}>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium">{u.name || u.username || "—"}</span>
@@ -379,7 +404,26 @@ export default function SuperAdmin() {
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant={detail.is_banned ? "outline" : "destructive"} disabled={busy} onClick={() => userAction(detail.is_banned ? "unban" : "ban")}>{detail.is_banned ? "Unban user" : "Ban user"}</Button>
               <Button size="sm" variant="outline" onClick={() => { setMail((m) => ({ ...m, to: detail.email })); setDetail(null); toast("Open the Compose tab to write your email"); }}>Email user</Button>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => setAsk({ title: "Reset password", text: `Send a password reset link to ${detail.email}?`, run: doReset })}>Send password reset</Button>
             </div>
+            <Card className="p-3 space-y-2 text-sm">
+              <p className="font-semibold">Security</p>
+              {sec ? <>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge variant={sec.email_confirmed ? "secondary" : "destructive"}>{sec.email_confirmed ? "email confirmed" : "email not confirmed"}</Badge>
+                  <Badge variant="secondary">2-step {sec.two_fa ? "on" : "off"}</Badge>
+                  <Badge variant="secondary">{sec.devices} device(s)</Badge>
+                  {(sec.roles ?? []).map((r: string) => <Badge key={r}>{r}</Badge>)}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>Verified badge</span>
+                  <select className="ml-auto rounded-md border border-input bg-background px-2 py-1" value={sec.badge ?? ""} onChange={(e) => setBadge(e.target.value)}>
+                    <option value="">None</option>
+                    {["official", "press", "business", "government", "premium"].map((b) => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              </> : <p className="text-muted-foreground">Loading…</p>}
+            </Card>
             <Card className="p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <p className="font-semibold">Wallet</p>
