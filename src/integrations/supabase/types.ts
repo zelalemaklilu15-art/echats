@@ -2344,6 +2344,47 @@ export type Database = {
           },
         ]
       }
+      support_ticket_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          mailbox: string
+          sender_email: string
+          sender_type: string
+          subject: string | null
+          ticket_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          mailbox?: string
+          sender_email: string
+          sender_type: string
+          subject?: string | null
+          ticket_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          mailbox?: string
+          sender_email?: string
+          sender_type?: string
+          subject?: string | null
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           admin_reply: string | null
@@ -2729,6 +2770,15 @@ export type Database = {
         Returns: string
       }
       accept_profile_call: { Args: { p_room_id: string }; Returns: boolean }
+      admin_add_ticket_message: {
+        Args: {
+          p_body: string
+          p_email: string
+          p_mailbox: string
+          p_ticket: string
+        }
+        Returns: string
+      }
       admin_delete_channel: { Args: { p_id: string }; Returns: undefined }
       admin_delete_etok_video: { Args: { p_id: string }; Returns: undefined }
       admin_delete_group: { Args: { p_id: string }; Returns: undefined }
@@ -2760,6 +2810,25 @@ export type Database = {
           reported_at: string
           reporter_email: string
         }[]
+      }
+      admin_list_ticket_messages: {
+        Args: { p_limit?: number }
+        Returns: {
+          body: string
+          created_at: string
+          id: string
+          mailbox: string
+          sender_email: string
+          sender_type: string
+          subject: string | null
+          ticket_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "support_ticket_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       admin_list_tickets: {
         Args: { p_limit?: number }
@@ -3275,6 +3344,7 @@ export type Database = {
         Args: { p_story: string; p_viewer: string }
         Returns: boolean
       }
+      support_find_user_by_email: { Args: { p_email: string }; Returns: string }
       toggle_channel_reaction: {
         Args: { p_add: boolean; p_emoji: string; p_post_id: string }
         Returns: Json

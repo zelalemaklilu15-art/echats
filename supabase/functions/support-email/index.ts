@@ -99,6 +99,7 @@ async function autoReply(admin: any, id: string) {
       .update({ admin_reply: reply, status: 'replied', replied_at: new Date().toISOString(), auto_replied: true })
       .eq('id', id).is('admin_reply', null).select('*').maybeSingle()
     if (!upd) return
+    await admin.from('support_ticket_messages').insert({ ticket_id: upd.id, sender_type: 'ai', sender_email: 'support@echats.site', mailbox: 'support', body: reply })
     const { data: owner } = await admin.auth.admin.getUserById(upd.user_id)
     const email = owner?.user?.email
     if (!email) return

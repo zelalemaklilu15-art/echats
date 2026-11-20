@@ -43,6 +43,7 @@ export default function SuperAdmin() {
   const [bc, setBc] = useState({ title: "", body: "" });
   const [broadcasts, setBroadcasts] = useState<Row[]>([]);
   const [thread, setThread] = useState<string | null>(null);
+  const [msgs, setMsgs] = useState<Row[]>([]);
   const [videos, setVideos] = useState<Row[]>([]);
   const [comm, setComm] = useState<{ channels: Row[]; groups: Row[] }>({ channels: [], groups: [] });
   const removeItem = (kind: "video" | "channel" | "group", id: string, label: string) => {
@@ -147,6 +148,7 @@ export default function SuperAdmin() {
       rpc("admin_list_broadcasts", { p_limit: 50 }),
     ]);
     const [v, c] = await Promise.all([rpc("admin_list_etok_videos", { p_limit: 200 }), rpc("admin_list_communities")]);
+    rpc("admin_list_ticket_messages", { p_limit: 1000 }).then((m) => setMsgs((m.data ?? []).slice().reverse()));
     setVideos(v.data ?? []); setComm({ channels: c.data?.channels ?? [], groups: c.data?.groups ?? [] });
     setBroadcasts(b.data ?? []);
     if (o.error) { setState("denied"); setLoading(false); return; }
@@ -225,6 +227,7 @@ export default function SuperAdmin() {
             {(() => {
               const groups = new Map<string, Row[]>();
               tickets.forEach((t) => { const k = t.user_email || "unknown"; groups.set(k, [...(groups.get(k) ?? []), t]); });
+              msgs.filter((m) => !m.ticket_id && m.sender_type === "user" && !groups.has(m.sender_email)).forEach((m) => groups.set(m.sender_email, [{ id: `email-${m.sender_email}`, user_email: m.sender_email, subject: m.subject || "Email", status: "email", category: m.mailbox, created_at: m.created_at, message: "", orphan: true }]));
               const list = [...groups.entries()];
               return (
                 <div className="grid md:grid-cols-[280px_1fr] gap-3">
@@ -255,19 +258,32 @@ export default function SuperAdmin() {
                   <span className="ml-auto text-xs text-muted-foreground">{fmt(t.created_at)}</span>
                 </div>
                 <p className="text-muted-foreground break-all">{t.user_name || "—"} · {t.user_email}</p>
-                <p className="whitespace-pre-wrap">{t.message}</p>
-                {t.admin_reply && <div className="rounded-lg border border-primary/30 bg-primary/10 p-3"><p className="text-xs text-primary mb-1">Your reply · {fmt(t.replied_at)}</p><p className="whitespace-pre-wrap">{t.admin_reply}</p></div>}
+                {t.message && <p className="whitespace-pre-wrap">{t.message}</p>}
+                {(() => {
+                  const tm = t.orphan ? msgs.filter((m) => !m.ticket_id && (m.sender_email === t.user_email || m.sender_type !== "user")) : msgs.filter((m) => m.ticket_id === t.id);
+                  const bubbles = [...tm];
+                  if (t.admin_reply && !tm.some((m) => m.sender_type !== "user")) bubbles.unshift({ id: "legacy", sender_type: "admin", sender_email: "support@echats.site", mailbox: "support", body: t.admin_reply, created_at: t.replied_at });
+                  return <div className="space-y-2">{bubbles.map((m) => (
+                    <div key={m.id} className={`flex ${m.sender_type === "user" ? "justify-start" : "justify-end"}`}>
+                      <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${m.sender_type === "user" ? "bg-muted" : "bg-primary/15 border border-primary/30"}`}>
+                        <p className="text-[11px] text-muted-foreground mb-0.5">{m.sender_type === "user" ? `Customer email` : m.sender_type === "ai" ? `Auto reply · ${m.mailbox}@` : `Admin · ${m.mailbox}@`} · {fmt(m.created_at)}</p>
+                        <p className="whitespace-pre-wrap">{m.body}</p>
+                      </div>
+                    </div>))}</div>;
+                })()}
+                {!t.orphan && <>
                 <Textarea rows={3} placeholder="Write a reply" value={replies[t.id] ?? ""} onChange={(e) => setReplies((p) => ({ ...p, [t.id]: e.target.value }))} />
                 <div className="flex gap-2">
                   {(["replied", "resolved"] as const).map((st) => (
                     <Button key={st} size="sm" variant={st === "replied" ? "default" : "outline"} disabled={!(replies[t.id] ?? "").trim()} onClick={async () => {
                       const { error } = await rpc("admin_reply_ticket", { p_id: t.id, p_reply: replies[t.id], p_status: st });
                       if (error) { toast.error("Reply failed"); return; }
+                      await rpc("admin_add_ticket_message", { p_ticket: t.id, p_email: "support@echats.site", p_mailbox: "support", p_body: replies[t.id] });
                       supabase.functions.invoke("support-email", { body: { event: "replied", ticket_id: t.id } }).catch(() => {});
                       setReplies((p) => ({ ...p, [t.id]: "" })); load();
                     }}>{st === "replied" ? "Send reply" : "Reply & close"}</Button>
                   ))}
-                </div>
+                </div></>}
               </Card>
             ))}
                   </div>
