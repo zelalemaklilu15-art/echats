@@ -26,6 +26,7 @@ const BASE = `You reply by email on behalf of Echats, an international super app
 Rules:
 - Write as a human team member. Never say or imply you are an AI, bot, assistant, model or automated system.
 - Reply in the same language as the customer's latest message (Amharic or English or other).
+- LANGUAGE QUALITY: if replying in Amharic, write ONLY in correct Ge'ez (Ethiopic) script with proper spelling and grammar. Never mix Arabic, Persian, Latin or any other script into Amharic words; write product names like Echats, eTok, Live, Stars, PIN in plain English letters or proper Amharic (e.g. ቀጥታ ስርጭት). Proofread before sending.
 - Use the full conversation history for context; do not repeat earlier answers verbatim, continue the conversation.
 - SECURITY: never perform, confirm or promise any money transfer, refund, balance change, wallet action, PIN or password change, account deletion, unban or identity change by email. Politely explain these are done only inside the Echats app for security, or that the team will review.
 - Never ask for passwords, PINs, verification codes or card numbers.
@@ -120,10 +121,12 @@ Deno.serve(async (req) => {
     if (ticket && ticket.status !== 'open') await admin.from('support_tickets').update({ status: 'open' }).eq('id', ticket.id)
     if ((count ?? 0) >= 6) return json({ ok: true, skipped: 'rate' })
 
+    const replyJob = async () => {
+    await new Promise((r) => setTimeout(r, 120_000))
     const team = TEAMS[mailbox]
     hist.push({ role: 'user', content: text })
     const reply = await ai(`${BASE}\nDepartment tone: ${team.tone}\nSignature to end with: "Best regards,\n${team.name}" (translate "Best regards" and the team name naturally if replying in Amharic, e.g. "ከሰላምታ ጋር፣").`, hist)
-    if (!reply) return json({ ok: true, replied: false })
+    if (!reply) return
 
     await admin.from('support_ticket_messages').insert({ ticket_id: ticket?.id ?? null, sender_type: 'ai', sender_email: `${mailbox}@echats.site`, mailbox, body: reply })
     const refTag = ticket ? ` [#${ticket.id.slice(0, 8).toUpperCase()}]` : ''
@@ -132,7 +135,11 @@ Deno.serve(async (req) => {
       templateData: { subject: `Re: ${baseSubj}${refTag}`.slice(0, 200), message: reply, brandLabel: team.name, replyAddress: `${mailbox}@echats.site` },
       fromName: team.name, replyTo: `${mailbox}@echats.site`,
     })
-    return json({ ok: true, replied: true, mailbox })
+    }
+    const job = replyJob().catch((e) => console.error('inbound reply failed', e))
+    // @ts-ignore EdgeRuntime is provided by the edge runtime
+    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(job); else await job
+    return json({ ok: true, queued: true, mailbox })
   } catch (e) {
     console.error('inbound-email failed', e)
     return json({ error: 'failed' }, 500)

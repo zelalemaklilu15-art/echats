@@ -137,6 +137,14 @@ export default function SuperAdmin() {
     return () => { alive = false; };
   }, [user?.id]);
 
+  useEffect(() => {
+    const t = setInterval(async () => {
+      const [m, s] = await Promise.all([rpc("admin_list_ticket_messages", { p_limit: 1000 }), rpc("admin_list_tickets", { p_limit: 200 })]);
+      if (!m.error) setMsgs((m.data ?? []).slice().reverse());
+      if (!s.error) setTickets(s.data ?? []);
+    }, 15000);
+    return () => clearInterval(t);
+  }, []);
   const load = useCallback(async () => {
     setLoading(true);
     const [o, u, t, r, s, b] = await Promise.all([
