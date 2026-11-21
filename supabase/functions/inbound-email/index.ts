@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { z } from 'npm:zod@3'
 import { sendTemplateEmail } from '../_shared/transactional-email-templates/send-email.ts'
+import { kickReplyWorker, randomReplyDelaySeconds } from '../_shared/support-delay.ts'
 
 const Body = z.object({
   from: z.string().trim().email().max(255),
@@ -121,24 +122,29 @@ Deno.serve(async (req) => {
     if (ticket && ticket.status !== 'open') await admin.from('support_tickets').update({ status: 'open' }).eq('id', ticket.id)
     if ((count ?? 0) >= 6) return json({ ok: true, skipped: 'rate' })
 
-    const replyJob = async () => {
-    await new Promise((r) => setTimeout(r, 120_000))
     const team = TEAMS[mailbox]
-    hist.push({ role: 'user', content: text })
-    const reply = await ai(`${BASE}\nDepartment tone: ${team.tone}\nSignature to end with: "Best regards,\n${team.name}" (translate "Best regards" and the team name naturally if replying in Amharic, e.g. "ከሰላምታ ጋር፣").`, hist)
-    if (!reply) return
-
-    await admin.from('support_ticket_messages').insert({ ticket_id: ticket?.id ?? null, sender_type: 'ai', sender_email: `${mailbox}@echats.site`, mailbox, body: reply })
     const refTag = ticket ? ` [#${ticket.id.slice(0, 8).toUpperCase()}]` : ''
     const baseSubj = (subject || ticket?.subject || 'Your message').replace(/^(re:\s*)+/i, '').replace(/\s*\[#[0-9A-F]{8}\]/i, '')
-    await sendTemplateEmail('admin-message', from, {
-      templateData: { subject: `Re: ${baseSubj}${refTag}`.slice(0, 200), message: reply, brandLabel: team.name, replyAddress: `${mailbox}@echats.site` },
-      fromName: team.name, replyTo: `${mailbox}@echats.site`,
-    })
+    // One pending reply per ticket: a later reply covers every message in the thread
+    let pending = false
+    if (ticket) {
+      const { count: pc } = await admin.from('support_reply_jobs').select('id', { count: 'exact', head: true }).eq('ticket_id', ticket.id).eq('status', 'pending')
+      pending = (pc ?? 0) > 0
     }
-    const job = replyJob().catch((e) => console.error('inbound reply failed', e))
-    // @ts-ignore EdgeRuntime is provided by the edge runtime
-    if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(job); else await job
+    if (!pending) {
+      const am = /[\u1200-\u137F]/.test(text)
+      const ref = ticket ? ticket.id.slice(0, 8).toUpperCase() : ''
+      const ack = am
+        ? `ሰላም፣\n\nመልእክትዎ ደርሶናል።${ref ? ` የትኬት ቁጥርዎ #${ref} ነው።` : ''} ቡድናችን ጉዳይዎን ተመልክቶ በቅርቡ ምላሽ ይሰጥዎታል።\n\nከሰላምታ ጋር፣\n${team.name}`
+        : `Hello,\n\nThank you for contacting us. We have received your message${ref ? ` (ticket #${ref})` : ''} and a member of our team will get back to you shortly.\n\nBest regards,\n${team.name}`
+      await sendTemplateEmail('admin-message', from, {
+        templateData: { subject: `Re: ${baseSubj}${refTag}`.slice(0, 200), message: ack, brandLabel: team.name, replyAddress: `${mailbox}@echats.site` },
+        fromName: team.name, replyTo: `${mailbox}@echats.site`,
+      }).catch((e) => console.error('ack failed', e))
+      const due = new Date(Date.now() + randomReplyDelaySeconds() * 1000).toISOString()
+      const { data: job } = await admin.from('support_reply_jobs').insert({ kind: 'email', ticket_id: ticket?.id ?? null, due_at: due, payload: { from, mailbox, subject } }).select('id').single()
+      if (job) await kickReplyWorker(job.id)
+    }
     return json({ ok: true, queued: true, mailbox })
   } catch (e) {
     console.error('inbound-email failed', e)

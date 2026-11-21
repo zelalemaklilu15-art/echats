@@ -2344,6 +2344,36 @@ export type Database = {
           },
         ]
       }
+      support_reply_jobs: {
+        Row: {
+          created_at: string
+          due_at: string
+          id: string
+          kind: string
+          payload: Json
+          status: string
+          ticket_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          due_at: string
+          id?: string
+          kind: string
+          payload?: Json
+          status?: string
+          ticket_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          due_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          status?: string
+          ticket_id?: string | null
+        }
+        Relationships: []
+      }
       support_ticket_messages: {
         Row: {
           body: string
