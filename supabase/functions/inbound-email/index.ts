@@ -60,8 +60,12 @@ async function ai(system: string, messages: { role: string; content: string }[])
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'method' }, 405)
-  const secret = Deno.env.get('INBOUND_EMAIL_SECRET')
-  if (!secret || req.headers.get('x-inbound-secret') !== secret) return json({ error: 'unauthorized' }, 401)
+  const provided = req.headers.get('x-inbound-secret') ?? ''
+  const allowed = [Deno.env.get('INBOUND_EMAIL_SECRET'), Deno.env.get('INBOUND_EMAIL_SECRET_CF')].filter((v): v is string => !!v)
+  if (!provided || !allowed.includes(provided)) {
+    console.warn('inbound-email: rejected request with invalid secret')
+    return json({ error: 'unauthorized' }, 401)
+  }
   try {
     const parsed = Body.safeParse(await req.json())
     if (!parsed.success) return json({ error: parsed.error.flatten().fieldErrors }, 400)
