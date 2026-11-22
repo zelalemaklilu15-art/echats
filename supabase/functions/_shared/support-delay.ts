@@ -8,9 +8,11 @@ export function randomReplyDelaySeconds(rand: () => number = Math.random): numbe
 export async function kickReplyWorker(jobId: string, hops = 15) {
   const secret = Deno.env.get('INBOUND_EMAIL_SECRET') ?? ''
   try {
-    await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/support-reply-worker`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-inbound-secret': secret },
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/support-reply-worker`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-inbound-secret': secret, Authorization: `Bearer ${key}`, apikey: key },
       body: JSON.stringify({ job_id: jobId, hops }),
     })
+    if (!r.ok) console.error('kick reply worker status', r.status, await r.text())
   } catch (e) { console.error('kick reply worker failed', e) }
 }

@@ -21,3 +21,4 @@
 - Authentication emails use the scaffolded managed `auth-email-hook` SDK handler and shared email-brand styles; deploy the hook after template edits and never add queue infrastructure. Why: this project's managed email service owns delivery and has no database email queues.
 
 - Super admin access uses `public.user_roles` + `is_super_admin()`; admin data comes only from `admin_*` SECURITY DEFINER RPCs and the hidden admin route renders 404 for everyone else. Why: client-side checks can be forged and the panel must not reveal it exists.
+- Delayed support replies are queued in `support_reply_jobs` and processed by the self-re-invoking `support-reply-worker` (bounded hops, claim-once status); never sleep past ~2 minutes inside a single edge request. Why: edge functions are killed at their wall-clock limit.
