@@ -1893,6 +1893,135 @@ export type Database = {
           },
         ]
       }
+      mm_deposits: {
+        Row: {
+          amount: number
+          created_at: string
+          expires_at: string
+          id: string
+          payer_phone: string
+          provider: string
+          review_reason: string | null
+          sms_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          wallet_transaction_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          payer_phone: string
+          provider: string
+          review_reason?: string | null
+          sms_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          wallet_transaction_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          payer_phone?: string
+          provider?: string
+          review_reason?: string | null
+          sms_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wallet_transaction_id?: string
+        }
+        Relationships: []
+      }
+      mm_incoming_sms: {
+        Row: {
+          amount: number
+          created_at: string
+          device_id: string
+          id: string
+          matched_deposit_id: string | null
+          payer_phone: string | null
+          provider: string
+          raw_text: string
+          received_at: string
+          txid: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          device_id: string
+          id?: string
+          matched_deposit_id?: string | null
+          payer_phone?: string | null
+          provider: string
+          raw_text: string
+          received_at: string
+          txid: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          device_id?: string
+          id?: string
+          matched_deposit_id?: string | null
+          payer_phone?: string | null
+          provider?: string
+          raw_text?: string
+          received_at?: string
+          txid?: string
+        }
+        Relationships: []
+      }
+      mm_nonces: {
+        Row: {
+          created_at: string
+          device_id: string
+          nonce: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          nonce: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          nonce?: string
+        }
+        Relationships: []
+      }
+      mm_receiver_devices: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          last_seen_at: string | null
+          public_key_jwk: Json
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          last_seen_at?: string | null
+          public_key_jwk: Json
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          public_key_jwk?: Json
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           calls: boolean
@@ -2830,6 +2959,7 @@ export type Database = {
       }
       admin_list_communities: { Args: never; Returns: Json }
       admin_list_etok_videos: { Args: { p_limit?: number }; Returns: Json }
+      admin_list_mm_deposits: { Args: never; Returns: Json }
       admin_list_reports: {
         Args: { p_limit?: number }
         Returns: {
@@ -2909,6 +3039,10 @@ export type Database = {
       admin_reply_ticket: {
         Args: { p_id: string; p_reply: string; p_status?: string }
         Returns: undefined
+      }
+      admin_resolve_mm_deposit: {
+        Args: { p_approve: boolean; p_deposit: string }
+        Returns: Json
       }
       admin_send_broadcast: {
         Args: { p_body: string; p_title: string }
@@ -3182,6 +3316,34 @@ export type Database = {
       is_session_2fa_ok: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_username_available: { Args: { p_username: string }; Returns: boolean }
+      mm_deposit_claim_txid: {
+        Args: { p_deposit: string; p_txid: string }
+        Returns: Json
+      }
+      mm_deposit_open: {
+        Args: {
+          p_amount: number
+          p_device: string
+          p_key: string
+          p_provider: string
+        }
+        Returns: Json
+      }
+      mm_expire_deposits: { Args: never; Returns: undefined }
+      mm_ingest_sms: {
+        Args: {
+          p_amount: number
+          p_device: string
+          p_phone: string
+          p_provider: string
+          p_raw: string
+          p_received: string
+          p_txid: string
+        }
+        Returns: Json
+      }
+      mm_norm_phone: { Args: { p: string }; Returns: string }
+      mm_settle: { Args: { p_dep: string; p_sms: string }; Returns: undefined }
       mute_group_member: {
         Args: {
           p_group_id: string

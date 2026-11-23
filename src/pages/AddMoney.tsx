@@ -16,7 +16,8 @@ const P     = "hsl(var(--tertiary))";
 /* ─── Payment methods ─── */
 const METHODS = [
   { id: "crypto",    label: "Crypto",            sub: "USDT, BTC, ETH and more · USD", Icon: Bitcoin,   iconBg: "hsl(var(--cosmic-cyan) / 0.18)",  iconColor: "hsl(var(--cosmic-cyan))" },
-  { id: "telebirr",  label: "Telebirr",         sub: "Pending confirmation",              Icon: Wallet,    iconBg: "hsl(var(--tertiary) / 0.25)",  iconColor: "hsl(var(--primary))" },
+  { id: "telebirr",  label: "Telebirr",         sub: "Instant · auto-confirmed",              Icon: Wallet,    iconBg: "hsl(var(--tertiary) / 0.25)",  iconColor: "hsl(var(--primary))" },
+  { id: "ebirr",     label: "eBirr",            sub: "Instant · auto-confirmed",      Icon: Wallet,    iconBg: "hsl(var(--cosmic-mint) / 0.15)",   iconColor: "hsl(var(--cosmic-mint))" },
   { id: "cbebirr",   label: "CBEBirr",           sub: "Commercial Bank of Ethiopia",  Icon: Landmark,  iconBg: "hsl(var(--cosmic-cyan) / 0.15)",   iconColor: "hsl(var(--cosmic-cyan))" },
   { id: "awash",     label: "Awash Bank",        sub: "Secure bank transfer",         Icon: Banknote,  iconBg: "hsl(var(--cosmic-mint) / 0.15)",   iconColor: "hsl(var(--cosmic-mint))" },
   { id: "card",      label: "Credit/Debit Card", sub: "Visa, Mastercard, Amex",       Icon: CreditCard,iconBg: "hsl(var(--tertiary) / 0.15)",   iconColor: "hsl(var(--tertiary))" },
@@ -46,6 +47,10 @@ const AddMoney = () => {
       const payload = JSON.stringify([numeric, sel.label]);
       const requestKey = operations.current.get(payload) ?? newIdempotencyKey("deposit");
       operations.current.set(payload, requestKey);
+      if (sel.id === "telebirr" || sel.id === "ebirr") {
+        navigate("/add-money/mobile", { state: { amount: numeric, provider: sel.id } });
+        return;
+      }
       if (sel.id === "crypto") {
         const { data, error } = await supabase.functions.invoke("crypto-deposit", {
           body: { amount: numeric, idempotency_key: requestKey, device_id: await getDeviceId(), return_url: `${window.location.origin}/wallet` },

@@ -52,6 +52,7 @@ const Wallet = lazy(() => import("./pages/Wallet"));
 const WalletQR = lazy(() => import("./pages/WalletQR"));
 const Features = lazy(() => import("./pages/Features"));
 const AddMoney = lazy(() => import("./pages/AddMoney"));
+const MobileMoneyTopup = lazy(() => import("./pages/MobileMoneyTopup"));
 const SendMoney = lazy(() => import("./pages/SendMoney"));
 const Airtime = lazy(() => import("./pages/Airtime"));
 import WalletSecurityGate from "./components/wallet/WalletSecurityGate";
@@ -278,6 +279,7 @@ const AppRoutes = () => {
           <Route path="/features" element={guard(isAuthenticated, <Features />)} />
           <Route path="/support" element={guard(isAuthenticated, <Support />)} />
           <Route path="/add-money" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><AddMoney /></WalletLockGate></WalletSecurityGate>)} />
+          <Route path="/add-money/mobile" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><MobileMoneyTopup /></WalletLockGate></WalletSecurityGate>)} />
           <Route path="/send-money" element={guard(isAuthenticated, <WalletSecurityGate><SendMoney /></WalletSecurityGate>)} />
           <Route path="/airtime" element={guard(isAuthenticated, <WalletSecurityGate><Airtime /></WalletSecurityGate>)} />
           <Route path="/request-money" element={guard(isAuthenticated, <WalletSecurityGate><WalletLockGate><RequestMoney /></WalletLockGate></WalletSecurityGate>)} />

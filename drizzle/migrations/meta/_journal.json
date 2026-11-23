@@ -351,6 +351,13 @@
       "when": 1795242603835,
       "tag": "0049_support_reply_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1795411108107,
+      "tag": "0050_mobile_money_deposits",
+      "breakpoints": true
     }
   ]
 }
