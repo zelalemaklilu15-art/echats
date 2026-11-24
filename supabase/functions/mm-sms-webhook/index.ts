@@ -18,7 +18,10 @@ function derToRaw(sig: Uint8Array): Uint8Array {
 export function parseSms(provider: string, text: string) {
   const t = text.replace(/\s+/g, ' ')
   const amount = t.match(/(?:ETB|Birr|ብር)\s*([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:ETB|Birr|ብር)/i)
-  const txid = t.match(/(?:transaction (?:number|id)|trans(?:action)? ?(?:no|id)|txn ?id|ref(?:erence)?(?: no)?)\s*[:#]?\s*(?:is\s*)?([A-Z0-9]{8,20})/i)
+  // Telebirr: 10 letters/digits (e.g. DKN0KRZYF4); eBirr: 12 digits (e.g. 802838867703)
+  const idPat = provider === 'ebirr' ? '(\\d{12})' : '([A-Z0-9]{10})'
+  const txid = t.match(new RegExp(`(?:transaction (?:number|id)|trans(?:action)? ?(?:no|id)|txn ?id|ref(?:erence)?(?: no)?)\\s*[:#]?\\s*(?:is\\s*)?${idPat}\\b`, 'i'))
+  if (txid && provider === 'telebirr' && !/[A-Z]/i.test(txid[1])) return null
   const phone = t.match(/(?:\+?251|0)\s?([79]\d{8})/)
   if (!amount || !txid) return null
   return { amount: Number((amount[1] ?? amount[2]).replace(/,/g, '')), txid: txid[1].toUpperCase(), phone: phone ? '0' + phone[1] : null, provider }

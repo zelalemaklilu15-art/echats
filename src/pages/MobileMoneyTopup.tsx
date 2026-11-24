@@ -125,8 +125,8 @@ export default function MobileMoneyTopup() {
             <div className="rounded-2xl bg-card p-5 space-y-3">
               <p className="font-medium flex items-center gap-2"><Clock className="h-4 w-4" />Payment delayed? Enter the transaction ID</p>
               <p className="text-xs text-muted-foreground">Use this if you paid from another phone or the confirmation is slow.</p>
-              <Input value={txid} onChange={e => setTxid(e.target.value.toUpperCase())} placeholder="e.g. DB12AB34CD" maxLength={20} />
-              <Button className="w-full" disabled={busy || txid.length < 6} onClick={claim}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}</Button>
+              <Input value={txid} onChange={e => setTxid(provider === "ebirr" ? e.target.value.replace(/\D/g, "") : e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder={provider === "ebirr" ? "e.g. 802838867703" : "e.g. DKN0KRZYF4"} maxLength={provider === "ebirr" ? 12 : 10} inputMode={provider === "ebirr" ? "numeric" : "text"} />
+              <Button className="w-full" disabled={busy || !(provider === "ebirr" ? /^\d{12}$/.test(txid) : /^(?=.*[A-Z])[A-Z0-9]{10}$/.test(txid))} onClick={claim}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}</Button>
             </div>
           )}
         </div>
