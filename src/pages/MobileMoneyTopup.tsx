@@ -110,7 +110,7 @@ export default function MobileMoneyTopup() {
         <div className="space-y-5">
           <div className="rounded-2xl bg-card p-5 space-y-3">
             <p className="text-sm text-muted-foreground">1. Pay from your registered number <b className="text-foreground">{phone}</b></p>
-            <Button className="w-full" onClick={() => { window.location.href = `tel:${code.replace(/#/g, "%23")}`; }}><Phone className="h-4 w-4 mr-2" />Pay {amount} ETB with {label}</Button>
+            <Button asChild className="w-full"><a href={`tel:${code.replace(/#/g, "%23")}`}><Phone className="h-4 w-4 mr-2" />Pay {amount} ETB with {label}</a></Button>
             <div className="flex items-center justify-between text-sm rounded-xl bg-muted px-3 py-2">
               <span>Or send manually to <b>{RECEIVER}</b></span>
               <button aria-label="Copy number" onClick={() => { navigator.clipboard?.writeText(RECEIVER); toast.success("Copied"); }}><Copy className="h-4 w-4" /></button>
