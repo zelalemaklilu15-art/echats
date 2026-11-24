@@ -29,6 +29,22 @@ export default function MobileMoneyTopup() {
   const [busy, setBusy] = useState(false);
   const key = useRef(newIdempotencyKey("mm"));
 
+  const [needPhone, setNeedPhone] = useState(false);
+  const [phoneIn, setPhoneIn] = useState("");
+  const [attempt, setAttempt] = useState(0);
+
+  const savePhone = async () => {
+    const d = phoneIn.replace(/\D/g, "");
+    const local = d.startsWith("251") ? "0" + d.slice(3) : d.length === 9 ? "0" + d : d;
+    if (!/^0[79]\d{8}$/.test(local)) { toast.error("Enter a valid number, e.g. 0912345678"); return; }
+    setBusy(true);
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = u.user ? await supabase.from("profiles").update({ phone: local } as never).eq("id", u.user.id) : { error: new Error("auth") };
+    setBusy(false);
+    if (error) { toast.error("Could not save number"); return; }
+    setNeedPhone(false); setStatus("starting"); setAttempt((a) => a + 1);
+  };
+
   useEffect(() => {
     if (amount < 10) { navigate("/add-money", { replace: true }); return; }
     let live = true;
@@ -39,6 +55,7 @@ export default function MobileMoneyTopup() {
       if (!live) return;
       const r = data as { success?: boolean; error?: string; deposit_id?: string; phone?: string } | null;
       if (error || !r?.success || !r.deposit_id) {
+        if (r?.error === "PHONE_REQUIRED") setNeedPhone(true);
         setErr(r?.error === "PHONE_REQUIRED" ? "Add your phone number in your profile first. Payments are matched to that number."
           : r?.error === "STEP_UP_REQUIRED" ? "Please verify this device first." : (r?.error || "Could not start top-up."));
         setStatus("error"); return;
@@ -46,7 +63,7 @@ export default function MobileMoneyTopup() {
       setDepId(r.deposit_id); setPhone(r.phone ?? ""); setStatus("pending"); setSince(Date.now());
     })();
     return () => { live = false; };
-  }, [amount, provider, navigate]);
+  }, [amount, provider, navigate, attempt]);
 
   useEffect(() => {
     if (!depId || status !== "pending") return;
@@ -79,7 +96,15 @@ export default function MobileMoneyTopup() {
       <p className="text-muted-foreground mb-6">{amount.toLocaleString()} ETB</p>
 
       {status === "starting" && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
-      {status === "error" && <div className="rounded-2xl bg-card p-5 text-destructive">{err}</div>}
+      {status === "error" && !needPhone && <div className="rounded-2xl bg-card p-5 text-destructive">{err}</div>}
+      {status === "error" && needPhone && (
+        <div className="rounded-2xl bg-card p-5 space-y-3">
+          <p className="font-medium">Your {label} phone number</p>
+          <p className="text-sm text-muted-foreground">Pay from this number so your top-up is confirmed automatically. It is saved to your profile.</p>
+          <Input type="tel" inputMode="tel" placeholder="09xxxxxxxx" value={phoneIn} onChange={(e) => setPhoneIn(e.target.value)} maxLength={16} />
+          <Button className="w-full" onClick={savePhone} disabled={busy}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save and continue"}</Button>
+        </div>
+      )}
 
       {status === "pending" && (
         <div className="space-y-5">

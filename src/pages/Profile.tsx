@@ -64,6 +64,7 @@ const Profile = () => {
     refreshStarsBalance().then(setStarsBalance).catch(() => setStarsBalance(getStarsBalance()));
   }, []);
 
+  const [editPhone, setEditPhone] = useState("");
   const loadProfile = async () => {
     setLoading(true);
     const { user } = await getSessionUserSafe();
@@ -77,6 +78,7 @@ const Profile = () => {
         setEditBio(userProfile.bio || "");
         setEditAvatarUrl(userProfile.avatar_url || "");
         setEditBirthday((userProfile as any).birthday || "");
+        setEditPhone((userProfile as any).phone || "");
       }
     }
     setLoading(false);
@@ -89,6 +91,12 @@ const Profile = () => {
     const normalizedUsername = normalizeUsername(editUsername);
     if (normalizedUsername !== profile?.username && !isValidUsernameFormat(normalizedUsername)) { toast.error(USERNAME_RULE); return; }
 
+    let phoneVal: string | null = null;
+    if (editPhone.trim()) {
+      const d = editPhone.replace(/\D/g, "");
+      phoneVal = d.startsWith("251") ? "0" + d.slice(3) : d.length === 9 ? "0" + d : d;
+      if (!/^0[79]\d{8}$/.test(phoneVal)) { toast.error("Enter a valid phone number, e.g. 0912345678"); return; }
+    }
     setSaving(true);
     try {
       if (normalizedUsername !== profile?.username) {
@@ -100,7 +108,8 @@ const Profile = () => {
         username: normalizedUsername,
         bio: editBio.trim(),
         avatar_url: editAvatarUrl.trim(),
-      });
+        phone: phoneVal,
+      } as any);
       if (updatedProfile) setProfile(updatedProfile);
       setEditDialogOpen(false);
       toast.success("Profile updated!");
@@ -307,6 +316,11 @@ const Profile = () => {
                     </Label>
                     <Input type="date" value={editBirthday} onChange={e => setEditBirthday(e.target.value)} />
                     <p className="text-xs text-muted-foreground">Your birthday is shown to your contacts</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone number</Label>
+                    <Input type="tel" inputMode="tel" placeholder="09xxxxxxxx" value={editPhone} onChange={e => setEditPhone(e.target.value)} maxLength={16} />
+                    <p className="text-xs text-muted-foreground">Used to confirm your Telebirr/eBirr top-ups. Kept private.</p>
                   </div>
                   <Button onClick={handleSaveProfile} disabled={saving} className="w-full">
                     {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
