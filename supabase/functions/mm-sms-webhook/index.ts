@@ -71,14 +71,15 @@ Deno.serve(async (req) => {
     deviceId = deviceIdHdr
   }
 
-  const p = extractBody(body, req.headers.get('content-type') ?? '')
+  const ctypeLog = req.headers.get('content-type') ?? ''
+  const p = extractBody(body, ctypeLog)
   if (p.heartbeat) return json({ ok: true })
   if (typeof p.text !== 'string' || !p.text.trim()) return json({ ok: true, ignored: 'empty' })
 
   const provider = pickProvider(String(p.sender ?? ''), p.text)
   if (!provider) return json({ ok: true, ignored: 'sender' })
   const parsed = parseSms(provider, p.text)
-  if (!parsed || !(parsed.amount > 0)) { console.warn('mm-sms-webhook: unparsed sms'); return json({ ok: true, ignored: 'format' }) }
+  if (!parsed || !(parsed.amount > 0)) { console.warn('mm-sms-webhook: unparsed sms', provider, ctypeLog, p.text.slice(0, 80).replace(/\d{5,}/g, '#')); return json({ ok: true, ignored: 'format' }) }
 
   const received = new Date()
   const { data, error } = await db.rpc('mm_ingest_sms', { p_device: deviceId, p_provider: provider, p_txid: parsed.txid,

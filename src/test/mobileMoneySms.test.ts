@@ -64,3 +64,10 @@ describe("receiver-phone SMS parsing", () => {
     expect(b.text).toBe(TELEBIRR_SMS);
   });
 });
+
+describe("real eBirr received SMS", () => {
+  it("reads Ref, amount and a 9-digit payer phone", () => {
+    const sms = "[-EBIRR-KAAFI-]\nRef:802847031058\nConfirmed. ETB16 Received from ashenafi akiliu defabachew (978092807),Date: 25/11/26 15:12:29, your new A/C balance is ETB17.784";
+    expect(parseSms("ebirr", sms)).toEqual({ amount: 16, txid: "802847031058", phone: "0978092807", provider: "ebirr" });
+  });
+});

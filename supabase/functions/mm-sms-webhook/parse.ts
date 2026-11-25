@@ -10,7 +10,7 @@ export function parseSms(provider: string, text: string): Parsed | null {
   const idPat = provider === 'ebirr' ? '(\\d{12})' : '([A-Z0-9]{10})'
   const txid = t.match(new RegExp(`(?:transaction (?:number|id)|trans(?:action)? ?(?:no|id)|txn ?id|ref(?:erence)?(?: no)?)\\s*[:#]?\\s*(?:is\\s*)?${idPat}\\b`, 'i'))
   if (txid && provider === 'telebirr' && !/[A-Z]/i.test(txid[1])) return null
-  const phone = t.match(/(?:\+?251|0)\s?([79]\d{8})/)
+  const phone = t.match(/(?<!\d)(?:\+?251\s?|0)?([79]\d{8})(?!\d)/)
   if (!amount || !txid) return null
   return { amount: Number((amount[1] ?? amount[2]).replace(/,/g, '')), txid: txid[1].toUpperCase(), phone: phone ? '0' + phone[1] : null, provider }
 }
