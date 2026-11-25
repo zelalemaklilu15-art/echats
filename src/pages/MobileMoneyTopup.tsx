@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { newIdempotencyKey, getDeviceId } from "@/lib/walletSecurity";
 
-const RECEIVER = "0953002993";
+const RECEIVER = "0956257761";
 // USSD templates still need confirmation on a real SIM before launch.
 const ussd = (p: string, amt: number) => p === "telebirr" ? `*127*2*${RECEIVER}*${amt}#` : `*681*${RECEIVER}*${amt}#`;
 

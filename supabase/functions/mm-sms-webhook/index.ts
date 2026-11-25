@@ -1,9 +1,17 @@
 // Receives payment SMS from the private Echats receiver phone.
-// Every request must be signed (ECDSA P-256 / SHA-256) by a registered device key.
+// Two accepted auth modes:
+//   A) Shared secret header `x-webhook-secret` (used by the ready-made phone
+//      forwarder, which cannot produce a cryptographic signature).
+//   B) ECDSA P-256 / SHA-256 signature by a registered device key (custom APK).
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { extractBody, parseSms, pickProvider } from './parse.ts'
 
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { 'Content-Type': 'application/json' } })
 const b64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+
+// The receiver phone that runs the forwarder. Fixed so every forwarded SMS is
+// attributed to one known device even on the shared-secret path.
+const RECEIVER_DEVICE_ID = '26c1cda9-06b6-4a21-98bc-b16e056e34c7'
 
 // Android Keystore emits DER signatures; WebCrypto wants raw r||s
 function derToRaw(sig: Uint8Array): Uint8Array {
@@ -15,50 +23,64 @@ function derToRaw(sig: Uint8Array): Uint8Array {
   const r = read(), s = read(); const raw = new Uint8Array(64); raw.set(r); raw.set(s, 32); return raw
 }
 
-export function parseSms(provider: string, text: string) {
-  const t = text.replace(/\s+/g, ' ')
-  const amount = t.match(/(?:ETB|Birr|ብር)\s*([\d,]+(?:\.\d{1,2})?)|([\d,]+(?:\.\d{1,2})?)\s*(?:ETB|Birr|ብር)/i)
-  // Telebirr: 10 letters/digits (e.g. DKN0KRZYF4); eBirr: 12 digits (e.g. 802838867703)
-  const idPat = provider === 'ebirr' ? '(\\d{12})' : '([A-Z0-9]{10})'
-  const txid = t.match(new RegExp(`(?:transaction (?:number|id)|trans(?:action)? ?(?:no|id)|txn ?id|ref(?:erence)?(?: no)?)\\s*[:#]?\\s*(?:is\\s*)?${idPat}\\b`, 'i'))
-  if (txid && provider === 'telebirr' && !/[A-Z]/i.test(txid[1])) return null
-  const phone = t.match(/(?:\+?251|0)\s?([79]\d{8})/)
-  if (!amount || !txid) return null
-  return { amount: Number((amount[1] ?? amount[2]).replace(/,/g, '')), txid: txid[1].toUpperCase(), phone: phone ? '0' + phone[1] : null, provider }
+// Constant-time compare so a wrong secret cannot be discovered byte by byte.
+function sameSecret(a: string, b: string) {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
 }
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method' }, 405)
-  const deviceId = req.headers.get('x-device-id') ?? '', ts = req.headers.get('x-timestamp') ?? '',
-    nonce = req.headers.get('x-nonce') ?? '', sig = req.headers.get('x-signature') ?? ''
   const body = await req.text()
-  if (!/^[0-9a-f-]{36}$/.test(deviceId) || !/^\d{10,13}$/.test(ts) || !/^[A-Za-z0-9_-]{16,64}$/.test(nonce) || !sig || body.length > 4000)
-    return json({ error: 'unauthorized' }, 401)
-  const tsMs = ts.length === 10 ? Number(ts) * 1000 : Number(ts)
-  if (Math.abs(Date.now() - tsMs) > 5 * 60_000) return json({ error: 'stale' }, 401)
+  if (body.length > 4000) return json({ error: 'unauthorized' }, 401)
 
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-  const { data: dev } = await db.from('mm_receiver_devices').select('id, public_key_jwk, active').eq('id', deviceId).maybeSingle()
-  if (!dev?.active) return json({ error: 'unauthorized' }, 401)
-  try {
-    const key = await crypto.subtle.importKey('jwk', dev.public_key_jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify'])
-    const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, derToRaw(b64(sig)), new TextEncoder().encode(`${ts}.${nonce}.${body}`))
-    if (!ok) return json({ error: 'unauthorized' }, 401)
-  } catch { return json({ error: 'unauthorized' }, 401) }
 
-  const { error: nErr } = await db.from('mm_nonces').insert({ device_id: deviceId, nonce })
-  if (nErr) return json({ error: 'replay' }, 401)
-  await db.from('mm_receiver_devices').update({ last_seen_at: new Date().toISOString() }).eq('id', deviceId)
+  // ---- Mode A: shared secret from the trusted receiver phone -----------------
+  const secret = req.headers.get('x-webhook-secret') ?? ''
+  const expected = Deno.env.get('MM_SMS_WEBHOOK_SECRET') ?? ''
+  let deviceId = ''
+  if (secret && expected && sameSecret(secret, expected)) {
+    deviceId = RECEIVER_DEVICE_ID
+    await db.from('mm_receiver_devices').upsert(
+      { id: RECEIVER_DEVICE_ID, label: 'receiver-phone-forwarder', public_key_jwk: { auth: 'shared-secret' }, active: true, last_seen_at: new Date().toISOString() },
+      { onConflict: 'id' },
+    )
+  } else {
+    // ---- Mode B: signed request from a registered device --------------------
+    const deviceIdHdr = req.headers.get('x-device-id') ?? '', ts = req.headers.get('x-timestamp') ?? '',
+      nonce = req.headers.get('x-nonce') ?? '', sig = req.headers.get('x-signature') ?? ''
+    if (!/^[0-9a-f-]{36}$/.test(deviceIdHdr) || !/^\d{10,13}$/.test(ts) || !/^[A-Za-z0-9_-]{16,64}$/.test(nonce) || !sig)
+      return json({ error: 'unauthorized' }, 401)
+    const tsMs = ts.length === 10 ? Number(ts) * 1000 : Number(ts)
+    if (Math.abs(Date.now() - tsMs) > 5 * 60_000) return json({ error: 'stale' }, 401)
 
-  let p: { sender?: string; text?: string; received_at?: number; heartbeat?: boolean }
-  try { p = JSON.parse(body) } catch { return json({ error: 'bad body' }, 400) }
+    const { data: dev } = await db.from('mm_receiver_devices').select('id, public_key_jwk, active').eq('id', deviceIdHdr).maybeSingle()
+    if (!dev?.active) return json({ error: 'unauthorized' }, 401)
+    try {
+      const key = await crypto.subtle.importKey('jwk', dev.public_key_jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify'])
+      const ok = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, derToRaw(b64(sig)), new TextEncoder().encode(`${ts}.${nonce}.${body}`))
+      if (!ok) return json({ error: 'unauthorized' }, 401)
+    } catch { return json({ error: 'unauthorized' }, 401) }
+
+    const { error: nErr } = await db.from('mm_nonces').insert({ device_id: deviceIdHdr, nonce })
+    if (nErr) return json({ error: 'replay' }, 401)
+    await db.from('mm_receiver_devices').update({ last_seen_at: new Date().toISOString() }).eq('id', deviceIdHdr)
+    deviceId = deviceIdHdr
+  }
+
+  const p = extractBody(body, req.headers.get('content-type') ?? '')
   if (p.heartbeat) return json({ ok: true })
-  const sender = String(p.sender ?? '').toLowerCase()
-  const provider = sender.includes('telebirr') || sender === '127' ? 'telebirr' : sender.includes('ebirr') ? 'ebirr' : null
-  if (!provider || typeof p.text !== 'string') return json({ ok: true, ignored: 'sender' })
+  if (typeof p.text !== 'string' || !p.text.trim()) return json({ ok: true, ignored: 'empty' })
+
+  const provider = pickProvider(String(p.sender ?? ''), p.text)
+  if (!provider) return json({ ok: true, ignored: 'sender' })
   const parsed = parseSms(provider, p.text)
   if (!parsed || !(parsed.amount > 0)) { console.warn('mm-sms-webhook: unparsed sms'); return json({ ok: true, ignored: 'format' }) }
-  const received = new Date(typeof p.received_at === 'number' ? p.received_at : Date.now())
+
+  const received = new Date()
   const { data, error } = await db.rpc('mm_ingest_sms', { p_device: deviceId, p_provider: provider, p_txid: parsed.txid,
     p_amount: parsed.amount, p_phone: parsed.phone, p_raw: p.text, p_received: received.toISOString() })
   if (error) { console.error('mm-sms-webhook', error.message); return json({ error: 'failed' }, 500) }
