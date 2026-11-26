@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, RefreshCw, Shield } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import MobileMoneyAdmin from "@/components/admin/MobileMoneyAdmin";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const SENDERS = ["support", "info", "contact", "admin", "partnerships", "sales"] as const;
@@ -220,6 +221,7 @@ export default function SuperAdmin() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="wallet">Wallet</TabsTrigger>
+            <TabsTrigger value="mobilemoney">Mobile Money</TabsTrigger>
             <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="etok">eTok</TabsTrigger>
             <TabsTrigger value="communities">Channels & Groups</TabsTrigger>
@@ -388,6 +390,8 @@ export default function SuperAdmin() {
             ))}
             {!txs.length && <p className="text-muted-foreground text-sm">No transactions yet.</p>}
           </TabsContent>
+
+          <TabsContent value="mobilemoney" className="mt-4"><MobileMoneyAdmin /></TabsContent>
 
           <TabsContent value="reports" className="mt-4 space-y-2">
             {reports.map((r) => (

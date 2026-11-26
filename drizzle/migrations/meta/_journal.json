@@ -358,6 +358,13 @@
       "when": 1795411108107,
       "tag": "0050_mobile_money_deposits",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1795683083301,
+      "tag": "0051_mobile_money_withdrawals",
+      "breakpoints": true
     }
   ]
 }

@@ -2022,6 +2022,51 @@ export type Database = {
         }
         Relationships: []
       }
+      mm_withdrawals: {
+        Row: {
+          admin_note: string | null
+          amount: number
+          created_at: string
+          id: string
+          payout_ref: string | null
+          phone: string
+          provider: string
+          refund_transaction_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          wallet_transaction_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          payout_ref?: string | null
+          phone: string
+          provider: string
+          refund_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          wallet_transaction_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          payout_ref?: string | null
+          phone?: string
+          provider?: string
+          refund_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wallet_transaction_id?: string
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           calls: boolean
@@ -3021,6 +3066,7 @@ export type Database = {
           wallet_status: string
         }[]
       }
+      admin_list_withdrawals: { Args: never; Returns: Json }
       admin_overview: { Args: never; Returns: Json }
       admin_recent_transactions: {
         Args: { p_limit?: number }
@@ -3042,6 +3088,15 @@ export type Database = {
       }
       admin_resolve_mm_deposit: {
         Args: { p_approve: boolean; p_deposit: string }
+        Returns: Json
+      }
+      admin_resolve_withdrawal: {
+        Args: {
+          p_approve: boolean
+          p_id: string
+          p_note: string
+          p_ref: string
+        }
         Returns: Json
       }
       admin_send_broadcast: {
@@ -3566,6 +3621,17 @@ export type Database = {
       wallet_purchase_error: {
         Args: { p_amount: number; p_device: string; p_pin: string }
         Returns: string
+      }
+      wallet_request_withdrawal: {
+        Args: {
+          p_amount: number
+          p_device: string
+          p_key: string
+          p_phone: string
+          p_pin: string
+          p_provider: string
+        }
+        Returns: Json
       }
       wallet_transfer_atomic: {
         Args: {
