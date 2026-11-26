@@ -56,6 +56,21 @@ export default function SuperAdmin() {
   };
   const [mail, setMail] = useState({ from: "support" as (typeof SENDERS)[number], to: "", subject: "", message: "" });
 
+  const [polishing, setPolishing] = useState<string | null>(null);
+  const [tones, setTones] = useState<Record<string, "friendly" | "firm">>({});
+  const [undo, setUndo] = useState<Record<string, string>>({});
+  const polish = async (t: Row, preset: "none" | "ban" | "receipt" | "resolved" | "info") => {
+    const draft = (replies[t.id] ?? "").trim() || ({ ban: "Account suspended", receipt: "Please send receipt", info: "Please send more details", resolved: "Issue resolved" } as Record<string, string>)[preset];
+    if (!draft) return;
+    const history = [...(t.message ? [{ from: "customer", text: String(t.message) }] : []), ...msgs.filter((m) => m.ticket_id === t.id).map((m) => ({ from: m.sender_type === "user" ? "customer" : "team", text: String(m.body ?? "").slice(0, 4000) }))].slice(-20);
+    setPolishing(t.id);
+    const { data, error } = await supabase.functions.invoke("support-polish", { body: { draft, preset, tone: tones[t.id] ?? "friendly", history } });
+    setPolishing(null);
+    if (error || !data?.text) { toast.error("AI polish failed — your text is kept"); return; }
+    setUndo((p) => ({ ...p, [t.id]: replies[t.id] ?? "" }));
+    setReplies((p) => ({ ...p, [t.id]: data.text }));
+    toast.success("Review the reply, edit if needed, then send");
+  };
   const [sec, setSec] = useState<any>(null);
   const [uFilter, setUFilter] = useState<"all" | "online" | "banned" | "suspended">("all");
   const loadSec = async (id: string) => { const { data } = await rpc("admin_user_security", { p_user: id }); setSec(data ?? null); };
@@ -280,7 +295,19 @@ export default function SuperAdmin() {
                     </div>))}</div>;
                 })()}
                 {!t.orphan && <>
-                <Textarea rows={3} placeholder="Write a reply" value={replies[t.id] ?? ""} onChange={(e) => setReplies((p) => ({ ...p, [t.id]: e.target.value }))} />
+                <Textarea rows={3} placeholder="Write a short note (any language) — then tap AI polish" value={replies[t.id] ?? ""} onChange={(e) => setReplies((p) => ({ ...p, [t.id]: e.target.value }))} />
+                <div className="flex flex-wrap gap-2 items-center">
+                  {([["ban", "Ban notice"], ["receipt", "Ask receipt"], ["info", "Ask details"], ["resolved", "Resolved"]] as const).map(([k, label]) => (
+                    <Button key={k} size="sm" variant="outline" disabled={polishing === t.id} onClick={() => polish(t, k)}>{label}</Button>
+                  ))}
+                  <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={tones[t.id] ?? "friendly"} onChange={(e) => setTones((p) => ({ ...p, [t.id]: e.target.value as "friendly" | "firm" }))}>
+                    <option value="friendly">Friendly</option><option value="firm">Firm / policy</option>
+                  </select>
+                  <Button size="sm" variant="secondary" disabled={polishing === t.id || !(replies[t.id] ?? "").trim()} onClick={() => polish(t, "none")}>
+                    {polishing === t.id && <Loader2 className="h-4 w-4 animate-spin mr-1" />}✨ AI polish
+                  </Button>
+                  {undo[t.id] !== undefined && <Button size="sm" variant="ghost" onClick={() => { setReplies((p) => ({ ...p, [t.id]: undo[t.id] })); setUndo((p) => { const n = { ...p }; delete n[t.id]; return n; }); }}>Undo</Button>}
+                </div>
                 <div className="flex gap-2">
                   {(["replied", "resolved"] as const).map((st) => (
                     <Button key={st} size="sm" variant={st === "replied" ? "default" : "outline"} disabled={!(replies[t.id] ?? "").trim()} onClick={async () => {
