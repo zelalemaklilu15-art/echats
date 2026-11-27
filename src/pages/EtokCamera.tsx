@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadVideoAsync as uploadVideo, fetchAllSounds, type EtokSound } from "@/lib/etokService";
+import { chooseRecordingMimeType, hasRecordingAudio } from "@/lib/recordingMedia";
 
 type Stage = "record" | "preview" | "edit" | "post";
 type VideoPrivacy = "everyone" | "friends" | "only_me";
@@ -202,16 +203,16 @@ const EtokCamera = () => {
   const beginActualRecording = () => {
     const stream = streamRef.current;
     if (!stream) { toast.error("Camera not ready"); return; }
+    if (typeof MediaRecorder === "undefined") { toast.error("Video recording is not supported. Upload from your gallery instead."); return; }
+    if (!hasRecordingAudio(stream)) { toast.error("Microphone is unavailable. Allow microphone access and try again."); return; }
 
     chunksRef.current = [];
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : MediaRecorder.isTypeSupported("video/webm")
-        ? "video/webm"
-        : "video/mp4";
-
-    const recorder = new MediaRecorder(stream, { mimeType });
+    const mimeType = chooseRecordingMimeType(type => MediaRecorder.isTypeSupported(type));
+    let recorder: MediaRecorder;
+    try { recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined); }
+    catch { toast.error("Could not start video recording. Try again or upload from your gallery."); return; }
     mediaRecorderRef.current = recorder;
+    recorder.onerror = () => { clearInterval(timerRef.current); setRecording(false); toast.error("Recording failed. Please record again."); };
 
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -220,7 +221,8 @@ const EtokCamera = () => {
     const recordingGeneration = cameraGeneration.current;
     recorder.onstop = () => {
       if (!mounted.current || recordingGeneration !== cameraGeneration.current) return;
-      const blob = new Blob(chunksRef.current, { type: mimeType });
+      if (!chunksRef.current.some(chunk => chunk.size > 0)) { toast.error("Recording was empty. Please try again."); return; }
+      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || chunksRef.current[0]?.type || mimeType || "video/webm" });
       if (recordedUrlRef.current) URL.revokeObjectURL(recordedUrlRef.current);
       const url = URL.createObjectURL(blob);
       setRecordedBlob(blob);
@@ -232,7 +234,8 @@ const EtokCamera = () => {
       setStage("preview");
     };
 
-    recorder.start(100);
+    try { recorder.start(100); }
+    catch { mediaRecorderRef.current = null; toast.error("Could not start recording. Please try again."); return; }
     setRecording(true);
     setElapsed(0);
 

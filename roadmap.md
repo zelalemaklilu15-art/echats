@@ -1,5 +1,11 @@
 # Cosmic Obsidian redesign
 
+## Launch readiness — eTok and withdrawals
+- [ ] Separate sound and LIVE controls, add unmute action, and prevent double-tap from pausing.
+- [ ] Record with explicit audio codecs and verify a microphone track is present.
+- [ ] Add PIN-confirmed Telebirr/eBirr withdrawal form (minimum 50 ETB, zero fee) using the existing authorized RPC.
+- [ ] Run focused tests and signed-in checks; report physical-device or payment-verification blockers.
+
 ## Sender email setup
 - [x] Initialize managed email infrastructure, brand auth templates, and deploy the authentication email handler for notify.echat.online; deployment succeeded and setup now waits only on DNS. Public logo upload was blocked by workspace policy, so templates use the Echat wordmark.
 - [ ] Sender activation waits on DNS verification in More → Emails.

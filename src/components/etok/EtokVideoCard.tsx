@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { EtokComments } from "./EtokComments";
 import { EtokShareSheet } from "./EtokShareSheet";
+import { createVideoTapHandler } from "@/lib/etokPlayback";
 
 const BG_PATTERNS = [
   { gradient: "linear-gradient(135deg,#1a1a2e 0%,#16213e 40%,#0f3460 100%)", accent: "#e94560" },
@@ -65,7 +66,9 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
   const [likePending, setLikePending] = useState(false);
   const [followPending, setFollowPending] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const lastTapRef = useRef(0);
+  const tapPositionRef = useRef({ x: 0, y: 0 });
+  const unmutedTapRef = useRef(false);
+  const heartTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const pauseIconTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const pattern = BG_PATTERNS[index % BG_PATTERNS.length];
 
@@ -114,18 +117,20 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
   const handleCanPlay = () => { setVideoLoading(false); setVideoError(false); };
   const handleError = () => { setVideoLoading(false); setVideoError(true); };
 
-  const handleTap = useCallback((e: React.MouseEvent) => {
-    const now = Date.now();
+  const toggleSound = () => {
     const el = videoRef.current;
-    if (now - lastTapRef.current < 280) {
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      setHeartPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-      if (!liked) {
-        void applyLike(true);
-      }
-      setShowHeart(true);
-      setTimeout(() => setShowHeart(false), 900);
-    } else {
+    if (el) {
+      el.muted = !muted;
+      if (muted && isActive) { setPaused(false); void el.play().catch(() => {}); }
+    }
+    onMuteToggle();
+  };
+  const tapActionsRef = useRef({ single: () => {}, double: () => {} });
+  tapActionsRef.current = {
+    single: () => {
+      const el = videoRef.current;
+      if (unmutedTapRef.current) { unmutedTapRef.current = false; return; }
+      if (muted) { toggleSound(); return; }
       if (el) {
         if (el.paused) { el.play().catch(() => {}); setPaused(false); }
         else { el.pause(); setPaused(true); }
@@ -133,9 +138,32 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
         setShowPauseIcon(true);
         pauseIconTimerRef.current = setTimeout(() => setShowPauseIcon(false), 800);
       }
-    }
-    lastTapRef.current = now;
-  }, [liked, currentUserId, video.id]);
+    },
+    double: () => {
+      unmutedTapRef.current = false;
+      setHeartPos(tapPositionRef.current);
+      if (!liked) void applyLike(true);
+      setShowHeart(true);
+      clearTimeout(heartTimerRef.current);
+      heartTimerRef.current = setTimeout(() => setShowHeart(false), 900);
+    },
+  };
+  const tapHandlerRef = useRef<ReturnType<typeof createVideoTapHandler>>();
+  if (!tapHandlerRef.current) tapHandlerRef.current = createVideoTapHandler(
+    () => tapActionsRef.current.single(), () => tapActionsRef.current.double(),
+  );
+  useEffect(() => {
+    if (!isActive) { tapHandlerRef.current?.cancel(); unmutedTapRef.current = false; }
+    return () => { tapHandlerRef.current?.cancel(); unmutedTapRef.current = false; clearTimeout(pauseIconTimerRef.current); clearTimeout(heartTimerRef.current); };
+  }, [isActive, video.id, currentUserId]);
+  const handleTap = (e: React.MouseEvent) => {
+    if (!isActive) return;
+    // Unmute synchronously within the user's gesture for mobile autoplay policies.
+    if (muted) { unmutedTapRef.current = true; toggleSound(); }
+    const rect = e.currentTarget.getBoundingClientRect();
+    tapPositionRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    tapHandlerRef.current?.tap();
+  };
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -235,10 +263,17 @@ export function EtokVideoCard({ video, currentUserId, isActive, index, muted, on
       </AnimatePresence>
 
       {/* Mute */}
-      <button className="absolute top-16 right-3 z-10 p-2 rounded-full bg-black/30"
-        onClick={e => { e.stopPropagation(); onMuteToggle(); }}>
-        {muted ? <VolumeX className="h-4 w-4 text-white" /> : <Volume2 className="h-4 w-4 text-white" />}
-      </button>
+      <Button variant="secondary" size="icon" className="absolute top-28 right-3 z-20 h-11 w-11 rounded-full bg-background/80 text-foreground"
+        aria-label={muted ? "Unmute video" : "Mute video"} title={muted ? "Unmute video" : "Mute video"}
+        onClick={e => { e.stopPropagation(); tapHandlerRef.current?.cancel(); toggleSound(); }}>
+        {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+      </Button>
+      {muted && isActive && video.videoUrl && !videoError && (
+        <Button variant="secondary" className="absolute top-28 left-3 z-20 h-11 gap-2 bg-background/80 text-foreground"
+          onClick={e => { e.stopPropagation(); tapHandlerRef.current?.cancel(); toggleSound(); }}>
+          <Volume2 className="h-4 w-4" /> Tap to unmute
+        </Button>
+      )}
 
       {/* Right action column */}
       <div className="absolute right-3 bottom-24 flex flex-col items-center gap-5 z-10" onClick={e => e.stopPropagation()}>

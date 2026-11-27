@@ -175,6 +175,7 @@ const Wallet = () => {
   /* Action circles */
   const ACTIONS = [
     { icon: Plus,          label: "Add",       fn: () => needsAct ? setShowTerms(true) : navigate("/add-money")       },
+    { icon: ArrowUpRight,  label: "Withdraw",  fn: () => needsAct ? setShowTerms(true) : navigate("/withdraw-money") },
     { icon: Send,          label: "Send",      fn: () => needsAct ? setShowTerms(true) : navigate("/send-money")      },
     { icon: ArrowDownLeft, label: "Request",   fn: () => needsAct ? setShowTerms(true) : navigate("/request-money")   },
     { icon: QrCode,        label: "QR Pay",    fn: () => needsAct ? setShowTerms(true) : navigate("/wallet/qr")       },

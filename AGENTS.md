@@ -22,3 +22,5 @@
 
 - Super admin access uses `public.user_roles` + `is_super_admin()`; admin data comes only from `admin_*` SECURITY DEFINER RPCs and the hidden admin route renders 404 for everyone else. Why: client-side checks can be forged and the panel must not reveal it exists.
 - Delayed support replies are queued in `support_reply_jobs` and processed by the self-re-invoking `support-reply-worker` (bounded hops, claim-once status); never sleep past ~2 minutes inside a single edge request. Why: edge functions are killed at their wall-clock limit.
+- Withdrawal screens use the existing authorized withdrawal RPC, viewer-keyed mounting, and per-payload retry keys; no client ledger writes. Why: retrying and changing accounts must not duplicate payments or expose another viewer's requests.
+- eTok tap timing and recorder codec/audio checks live in tested media helpers. Why: double taps must not pause playback and recording must include an available microphone track.

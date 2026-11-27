@@ -46,10 +46,15 @@ beforeAll(async()=>{
  await db.exec(oldStars.slice(oldStars.indexOf('CREATE OR REPLACE FUNCTION public.purchase_stars_with_wallet')));
  await db.exec(readFileSync('drizzle/migrations/0011_wallet_purchase_security.sql','utf8'));
  await db.exec(readFileSync('drizzle/migrations/0012_stars_purchase_atomic_result.sql','utf8'));
+ await db.exec(`CREATE TABLE profiles(id uuid,username text);
+ CREATE FUNCTION is_super_admin() RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+ CREATE FUNCTION mm_norm_phone(text) RETURNS text LANGUAGE sql AS $$ SELECT CASE WHEN $1 ~ '^0[79][0-9]{8}$' THEN $1 ELSE NULL END $$;`);
+ await db.exec(readFileSync('drizzle/migrations/0051_mobile_money_withdrawals.sql','utf8'));
 },30000);
 beforeEach(async()=>{
  await db.exec(`RESET ROLE; SELECT set_config('request.jwt.claim.sub','${A}',false); SELECT set_config('test.otp','false',false);
  DROP TRIGGER IF EXISTS fail_credit ON wallet_transactions;
+ DELETE FROM mm_withdrawals;
  DELETE FROM wallet_transactions; DELETE FROM payment_requests; DELETE FROM airtime_topups; DELETE FROM wallets; DELETE FROM wallet_pin_failures; DELETE FROM wallet_trusted_devices; DELETE FROM wallet_terms_acceptance;
  DELETE FROM stars_balances; DELETE FROM stars_purchases; DELETE FROM ai_premium_subscriptions;
  INSERT INTO wallets(user_id,balance,status,pin_hash) VALUES('${A}',10000,'active','123456'),('${B}',1000,'active','1234');
@@ -57,6 +62,10 @@ beforeEach(async()=>{
 });
 afterAll(async()=>{await db?.close();});
 describe('actual wallet audit SQL',()=>{
+ it('withdrawal rejects amounts below 50 ETB',async()=>{expect((await call(`wallet_request_withdrawal(49.99,'telebirr','0911223344','123456','device-a','withdraw-key-01')`)).success).toBe(false);expect(await balances()).toEqual([10000,1000]);});
+ it('withdrawal commits at 50 ETB with exactly zero fee and a pending admin request',async()=>{const r=await call(`wallet_request_withdrawal(50,'ebirr','0911223344','123456','device-a','withdraw-key-01')`);expect(r.success).toBe(true);expect(await balances()).toEqual([9950,1000]);expect((await db.query('SELECT fee FROM wallet_transactions')).rows[0]).toEqual({fee:'0'});expect((await db.query('SELECT id,status,provider FROM mm_withdrawals')).rows[0]).toEqual({id:r.withdrawal_id,status:'pending',provider:'ebirr'});});
+ it('withdrawal requires a correct PIN before debiting',async()=>{expect((await call(`wallet_request_withdrawal(50,'telebirr','0911223344','0000','device-a','withdraw-key-01')`)).success).toBe(false);expect(await balances()).toEqual([10000,1000]);expect((await db.query('SELECT id FROM mm_withdrawals')).rows).toHaveLength(0);});
+ it('withdrawal retry does not double debit',async()=>{const sql=`wallet_request_withdrawal(50,'telebirr','0911223344','123456','device-a','withdraw-key-01')`;const r=await call(sql);expect((await call(sql))).toMatchObject({success:true,duplicate:true,withdrawal_id:r.withdrawal_id});expect(await balances()).toEqual([9950,1000]);expect((await db.query('SELECT id FROM mm_withdrawals')).rows).toHaveLength(1);});
  it('forbids fabricated client wallet creation',async()=>{await db.exec('SET ROLE authenticated'); await expect(db.exec(`INSERT INTO wallets(user_id,balance,status) VALUES('${A}',999999,'active')`)).rejects.toThrow();});
  it('commits debit and credit together',async()=>{expect((await transfer()).success).toBe(true);expect(await balances()).toEqual([9900,1100]);});
  it('rolls back debit when credit fails',async()=>{
