@@ -86,7 +86,10 @@ export function EtokShareSheet({ video, currentUserId, onClose }: EtokShareSheet
         className="relative max-h-[85dvh] overflow-y-auto bg-card rounded-t-2xl pb-8"
         onClick={e => e.stopPropagation()}
       >
-        <div className="w-10 h-1 bg-muted rounded-full mx-auto mt-3 mb-4" />
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <h2 className="font-bold">Share video</h2>
+          <Button variant="ghost" size="icon" aria-label="Close sharing" onClick={onClose}><X /></Button>
+        </div>
 
         <div className="flex items-center gap-3 px-4 mb-5">
           <div className="w-10 h-14 rounded-lg bg-gradient-to-b from-primary to-secondary flex items-center justify-center text-2xl flex-shrink-0">

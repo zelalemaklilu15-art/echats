@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Camera, Radio, RefreshCw, ArrowLeft } from "lucide-react";
+import { Search, Radio, RefreshCw, ArrowLeft, Flame, Users, TrendingUp, Bell, Film, MessageSquare, ArrowUpRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,7 @@ import { fetchFYPVideos, fetchFollowingVideos, fetchVideoById, subscribeToPublic
 import { EtokVideoCard } from "@/components/etok/EtokVideoCard";
 import { EtokBottomNav } from "@/components/etok/EtokBottomNav";
 import { Button } from "@/components/ui/button";
+import logoImage from "@/assets/echat-logo.png";
 import { isEtokOnboardedAsync } from "./EtokOnboarding";
 
 type FeedTab = "fyp" | "following";
@@ -132,79 +133,73 @@ const Etok = () => {
   const progress = Math.min(pullY / PULL_THRESHOLD, 1);
 
   return (
-    <div className="fixed inset-0 bg-black" style={{ zIndex: 100 }}>
-      {/* Pull-to-refresh */}
-      <AnimatePresence>
-        {(pullY > 0 || refreshing) && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute top-0 left-0 right-0 z-30 flex items-end justify-center pb-2 pointer-events-none"
-            style={{ height: refreshing ? 56 : pullY + 20 }}>
-            <div className={cn("w-9 h-9 rounded-full bg-black/60 border border-white/20 flex items-center justify-center transition-all", refreshing ? "animate-spin" : "")}>
-              <RefreshCw className="h-4 w-4 text-white" style={{ transform: refreshing ? undefined : `rotate(${progress * 360}deg)` }} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-12 pb-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/chats")} aria-label="Back to Echat"
-            className="h-9 w-9 -ml-1 rounded-full flex items-center justify-center bg-black/35 backdrop-blur-sm">
-            <ArrowLeft className="h-5 w-5 text-white drop-shadow" />
-          </button>
-          <button onClick={() => navigate("/etok/camera")}><Camera className="h-6 w-6 text-white drop-shadow" /></button>
+    <div className="etok-shell fixed inset-0 z-40 flex flex-col bg-background text-foreground safe-x">
+      <header className="etok-header shrink-0 border-b border-primary/10">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 pb-2 pt-3">
+          <Button variant="ghost" size="icon" aria-label="Back to Echat" title="Back to Echat" onClick={() => navigate("/chats")} className="shrink-0 rounded-full border border-border/50"><ArrowLeft /></Button>
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <img src={logoImage} alt="" className="h-9 w-9 rounded-full object-cover" />
+            <h1 className="text-xl font-bold">Echat <span className="text-primary">eTok</span></h1>
+          </div>
+          <Button variant="ghost" size="icon" aria-label="Search eTok" title="Search eTok" onClick={() => navigate("/etok/search")}><Search /></Button>
+          <Button variant="ghost" size="icon" aria-label="Notification settings" title="Notification settings" onClick={() => navigate("/notification-settings")}><Bell /></Button>
         </div>
-        <div className="flex items-center gap-1">
+        <nav aria-label="Video categories" className="scrollbar-hide mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 pb-3">
           {[
-            { id: "following" as FeedTab, label: "Following" },
-            { id: "fyp" as FeedTab, label: "For You" },
+            { id: "fyp", label: "For You", icon: Flame },
+            { id: "following", label: "Following", icon: Users },
+            { id: "trending", label: "Trending", icon: TrendingUp },
+            { id: "live", label: "Live", icon: Radio },
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="relative px-3 py-1">
-              <span className={cn("text-[17px] font-bold drop-shadow transition-colors", activeTab === tab.id ? "text-white" : "text-white/50")}>{tab.label}</span>
-              {activeTab === tab.id && (
-                <motion.div layoutId="feed-tab" className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2.5px] w-8 bg-white rounded-full" />
-              )}
-            </button>
+            <Button key={tab.id} variant={activeTab === tab.id ? "default" : "ghost"}
+              aria-pressed={activeTab === tab.id} className="shrink-0 rounded-full px-3 text-xs"
+              onClick={() => tab.id === "live" ? navigate("/etok/live") : tab.id === "trending" ? navigate("/etok/search") : setActiveTab(tab.id as FeedTab)}>
+              <tab.icon className={cn(tab.id === "live" && "text-cosmic-magenta")} />{tab.label}
+            </Button>
+          ))}
+        </nav>
+      </header>
+
+      <div className="relative mx-auto w-full max-w-3xl min-h-0 flex-1 px-3 pt-3">
+        <AnimatePresence>
+          {(pullY > 0 || refreshing) && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="absolute inset-x-0 top-2 z-30 flex justify-center pointer-events-none"
+              style={{ transform: `translateY(${pullY}px)` }}>
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/30 bg-card shadow-card">
+                <RefreshCw className={cn("h-5 w-5 text-primary", refreshing && "animate-spin")} style={{ transform: refreshing ? undefined : `rotate(${progress * 360}deg)` }} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div ref={containerRef} data-testid="etok-feed" className="etok-feed scrollbar-hide h-full overflow-y-auto rounded-lg"
+          onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+          {loading ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 bg-card">
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-border border-t-primary" />
+              <p className="text-sm text-muted-foreground">Loading videos...</p>
+            </div>
+          ) : loadError ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 bg-card"><p role="alert">Could not load videos.</p><Button onClick={() => void loadVideos()}>Retry</Button></div>
+          ) : videos.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 bg-card px-8 text-center">
+              <Film className="h-12 w-12 text-primary" />
+              <p className="text-lg font-bold">{activeTab === "following" ? "Follow creators to see their videos" : "No videos yet"}</p>
+              <Button onClick={() => activeTab === "following" ? setActiveTab("fyp") : navigate("/etok/camera")}>
+                {activeTab === "following" ? "Browse For You" : "Create a video"}
+              </Button>
+            </div>
+          ) : videos.map((video, idx) => (
+            <EtokVideoCard key={video.id} video={video} currentUserId={currentUserId} isActive={idx === activeIndex} index={idx} muted={muted} onMuteToggle={() => setMuted(m => !m)} />
           ))}
         </div>
-        <button onClick={() => navigate("/etok/search")}><Search className="h-6 w-6 text-white drop-shadow" /></button>
       </div>
-
-      {/* Live badge */}
-      <button onClick={() => navigate("/etok/live")} className="absolute top-16 right-4 z-20 flex items-center gap-1 bg-red-600 rounded px-1.5 py-0.5">
-        <Radio className="h-3 w-3 text-white" /><span className="text-white text-[10px] font-bold">LIVE</span>
-      </button>
-
-      {/* Video feed */}
-      <div ref={containerRef} className="absolute inset-0 overflow-y-scroll"
-        style={{ scrollSnapType: "y mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
-        onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        {loading ? (
-          <div className="h-full flex flex-col items-center justify-center gap-4" style={{ height: "100dvh" }}>
-            <div className="w-12 h-12 rounded-full border-4 border-white/20 border-t-white animate-spin" />
-            <p className="text-white/50 text-sm">Loading videos...</p>
-          </div>
-        ) : loadError ? (
-          <div className="h-full flex flex-col items-center justify-center gap-4 bg-background text-foreground"><p role="alert">Could not load videos.</p><Button onClick={() => void loadVideos()}>Retry</Button></div>
-        ) : videos.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-white gap-4 px-8 text-center" style={{ height: "100dvh" }}>
-            <span className="text-7xl">🎬</span>
-            <p className="text-xl font-bold">
-              {activeTab === "following" ? "Follow creators to see their videos" : "No videos yet"}
-            </p>
-            {activeTab !== "fyp" && (
-              <button onClick={() => setActiveTab("fyp")} className="mt-2 px-8 py-3 bg-[#ff0050] rounded-full font-bold text-base">Browse For You</button>
-            )}
-          </div>
-        ) : (
-          videos.map((video, idx) => (
-            <EtokVideoCard key={video.id} video={video} currentUserId={currentUserId} isActive={idx === activeIndex} index={idx} muted={muted} onMuteToggle={() => setMuted(m => !m)} />
-          ))
-        )}
+      <div className="mx-auto flex w-full max-w-3xl shrink-0 items-center gap-3 px-4 py-2">
+        <MessageSquare className="h-5 w-5 shrink-0 text-cosmic-cyan" />
+        <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">Connect people. Share moments.</p>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/chats")} className="gap-1 px-2 text-primary">Chat <ArrowUpRight /></Button>
       </div>
-
-      <EtokBottomNav />
+      <EtokBottomNav inFlow />
     </div>
   );
 };

@@ -1,79 +1,38 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, Search, User, Plus, MessageSquare } from "lucide-react";
+import { Home, Compass, User, Plus, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface EtokBottomNavProps {
   onCreateClick?: () => void;
+  inFlow?: boolean;
 }
 
-export function EtokBottomNav({ onCreateClick }: EtokBottomNavProps) {
+export function EtokBottomNav({ onCreateClick, inFlow = false }: EtokBottomNavProps) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const path = location.pathname;
-
-  const isHome = path === "/etok";
-  const isSearch = path.startsWith("/etok/search");
-  const isProfile = path.startsWith("/etok/me") || path.startsWith("/etok/profile");
-
+  const { pathname } = useLocation();
+  const items = [
+    { name: "Home", icon: Home, path: "/etok", test: "home", active: pathname === "/etok" },
+    { name: "Discover", icon: Compass, path: "/etok/search", test: "search", active: pathname.startsWith("/etok/search") },
+    { name: "Create", icon: Plus, path: "/etok/camera", test: "create", active: pathname.startsWith("/etok/camera") },
+    { name: "Chat", icon: MessageSquare, path: "/chats", test: "back-to-app", active: pathname === "/chats" },
+    { name: "Profile", icon: User, path: "/etok/me", test: "profile", active: pathname.startsWith("/etok/me") || pathname.startsWith("/etok/profile") },
+  ];
   return (
-    <div className="glass-strong fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-tertiary/15 pb-safe">
-      {/* Home */}
-      <button
-        onClick={() => navigate("/etok")}
-        className="flex flex-col items-center justify-center flex-1 h-full gap-0.5"
-        data-testid="etok-nav-home"
-      >
-        <Home className={cn("h-6 w-6", isHome ? "text-tertiary" : "text-muted-foreground")} />
-        <span className={cn("text-[10px] font-medium", isHome ? "text-tertiary" : "text-muted-foreground")}>Home</span>
-      </button>
-
-      {/* Friends */}
-      <button
-        onClick={() => navigate("/etok/search")}
-        className="flex flex-col items-center justify-center flex-1 h-full gap-0.5"
-        data-testid="etok-nav-search"
-      >
-        <Search className={cn("h-6 w-6", isSearch ? "text-primary" : "text-muted-foreground")} />
-        <span className={cn("text-[10px] font-medium", isSearch ? "text-primary" : "text-muted-foreground")}>Discover</span>
-      </button>
-
-      {/* Create — TikTok-style pink + button */}
-      <button
-        onClick={onCreateClick ?? (() => navigate("/etok/camera"))}
-        className="flex items-center justify-center flex-1 h-full"
-        data-testid="etok-nav-create"
-      >
-        <div className="relative flex items-center justify-center">
-          <div className="absolute h-8 w-[52px] translate-x-1.5 rounded-md bg-cosmic-magenta" />
-          <div className="absolute h-8 w-[52px] -translate-x-1.5 rounded-md bg-cosmic-cyan" />
-          <div className="relative flex h-8 w-[52px] items-center justify-center rounded-md bg-tertiary">
-            <Plus className="h-5 w-5 text-tertiary-foreground" strokeWidth={3} />
-          </div>
-        </div>
-      </button>
-
-      {/* Back to main app */}
-      <button
-        onClick={() => navigate("/chats")}
-        className="flex flex-col items-center justify-center flex-1 h-full gap-0.5"
-        data-testid="etok-nav-back-to-app"
-      >
-        <div className="relative">
-          <MessageSquare className="h-6 w-6 text-muted-foreground" />
-          <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cosmic-magenta" />
-        </div>
-        <span className="text-[10px] font-medium text-muted-foreground">Chat</span>
-      </button>
-
-      {/* Profile */}
-      <button
-        onClick={() => navigate("/etok/me")}
-        className="flex flex-col items-center justify-center flex-1 h-full gap-0.5"
-        data-testid="etok-nav-profile"
-      >
-        <User className={cn("h-6 w-6", isProfile ? "text-tertiary" : "text-muted-foreground")} />
-        <span className={cn("text-[10px] font-medium", isProfile ? "text-tertiary" : "text-muted-foreground")}>Profile</span>
-      </button>
-    </div>
+    <nav aria-label="eTok navigation" className={cn("etok-bottom-nav z-50 shrink-0 border-t border-primary/15 bg-surface-lowest safe-bottom", !inFlow && "fixed inset-x-0 bottom-0")}>
+      <div className="mx-auto grid h-[66px] max-w-3xl grid-cols-5 items-center px-2">
+        {items.map(item => (
+          <Button key={item.name} variant="ghost" aria-label={item.name} aria-current={item.active ? "page" : undefined}
+            data-testid={`etok-nav-${item.test}`} onClick={item.name === "Create" ? onCreateClick ?? (() => navigate(item.path)) : () => navigate(item.path)}
+            className={cn("relative h-[60px] min-w-0 flex-col gap-1 rounded-lg px-0 text-muted-foreground", item.active && "text-primary")}>
+            <span className={cn("flex h-7 w-10 items-center justify-center", item.name === "Create" && "h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-primary")}>
+              <item.icon className="!h-5 !w-5" strokeWidth={item.active ? 2.5 : 1.75} />
+            </span>
+            <span className={cn("text-[10px]", item.name === "Create" && "sr-only")}>{item.name}</span>
+            {item.active && <span className="absolute bottom-0 h-0.5 w-5 rounded-full bg-primary" />}
+          </Button>
+        ))}
+      </div>
+    </nav>
   );
 }

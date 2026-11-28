@@ -24,3 +24,4 @@
 - Delayed support replies are queued in `support_reply_jobs` and processed by the self-re-invoking `support-reply-worker` (bounded hops, claim-once status); never sleep past ~2 minutes inside a single edge request. Why: edge functions are killed at their wall-clock limit.
 - Withdrawal screens use the existing authorized withdrawal RPC, viewer-keyed mounting, and per-payload retry keys; no client ledger writes. Why: retrying and changing accounts must not duplicate payments or expose another viewer's requests.
 - eTok tap timing and recorder codec/audio checks live in tested media helpers. Why: double taps must not pause playback and recording must include an available microphone track.
+- eTok feed cards inherit the available shell height, with in-flow navigation and body-portaled sheets above the shell; short viewports use a horizontal action rail. Why: safe areas and overlays must not cover playback controls or captions.

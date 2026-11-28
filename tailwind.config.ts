@@ -23,6 +23,10 @@ export default {
 		},
 		extend: {
 			colors: {
+				media: {
+					foreground: 'hsl(var(--media-foreground))',
+					scrim: 'hsl(var(--media-scrim))'
+				},
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',

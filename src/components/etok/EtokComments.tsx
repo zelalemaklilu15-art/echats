@@ -95,9 +95,9 @@ export function EtokComments({ video, currentUserId, onClose, onCommentAdded, on
           <p className="text-foreground font-bold text-[15px]" data-testid="text-comment-count">
             {formatCount(comments.length)} {comments.length === 1 ? "comment" : "comments"}
           </p>
-          <button onClick={onClose} data-testid="button-close-comments">
+          <Button variant="ghost" size="icon" aria-label="Close comments" onClick={onClose} data-testid="button-close-comments">
             <X className="h-5 w-5 text-muted-foreground" />
-          </button>
+          </Button>
         </div>
 
         <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-5">

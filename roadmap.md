@@ -1,5 +1,11 @@
 # Cosmic Obsidian redesign
 
+## Current request — original eTok experience
+- [ ] Redesign the existing feed, creator overlays and controls using the uploaded visual reference and Cosmic tokens.
+- [ ] Refresh category navigation and shared bottom navigation, preserving existing destinations and actions.
+- [ ] Verify real signed-in playback, sound, comments, saving and mobile layouts without sharing personal data.
+- [ ] Physical Android safe-area and audio checks require a user-held device.
+
 ## Launch readiness — eTok and withdrawals
 - [ ] Separate sound and LIVE controls, add unmute action, and prevent double-tap from pausing.
 - [ ] Record with explicit audio codecs and verify a microphone track is present.
